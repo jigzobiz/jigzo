@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A Jigzo for you — solve to reveal</title>
+<!--
+  receive.html — LOCAL receiver experience (no backend/DB).
+  create.html saves the puzzle to localStorage ("jigzo:test-puzzle") and opens
+  this page. The recipient drags each piece into the portrait (9:16) frame;
+  pieces snap when close; the message reveals only when every piece is placed
+  by the user. A Download button exports the reveal card as a PNG.
+  Compiled with the classic JSX runtime (see create.html for why).
+-->
+<style>
+  @font-face { font-family:"Archia"; src:url("assets/fonts/Archia-Light.otf") format("opentype"); font-weight:300; font-display:swap; }
+  @font-face { font-family:"Archia"; src:url("assets/fonts/Archia-Regular.otf") format("opentype"); font-weight:400; font-display:swap; }
+  @font-face { font-family:"Archia"; src:url("assets/fonts/Archia-Medium.otf") format("opentype"); font-weight:500; font-display:swap; }
+  @font-face { font-family:"Archia"; src:url("assets/fonts/Archia-SemiBold.otf") format("opentype"); font-weight:600; font-display:swap; }
+  @font-face { font-family:"Archia"; src:url("assets/fonts/Archia-Bold.otf") format("opentype"); font-weight:700; font-display:swap; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; }
+  #root { min-height:50vh; }
+  .jz-boot { min-height:100vh; display:flex; align-items:center; justify-content:center;
+    font-family:Archia,-apple-system,sans-serif; color:rgba(5,5,5,0.45); font-size:14px; }
+  /* Puzzle Reveal Transition — orbiting-badge loader (brand-reconciled) */
+  .jz-orbit { display:flex; flex-direction:column; align-items:center; gap:22px; }
+  .jz-orbit__ring { position:relative; width:120px; height:120px; animation:jzOrbitSpin 2.8s linear infinite; }
+  .jz-orbit__arm  { position:absolute; left:50%; top:50%; width:0; height:0; }
+  .jz-orbit__arm:nth-child(1){ transform:rotate(0deg); }
+  .jz-orbit__arm:nth-child(2){ transform:rotate(120deg); }
+  .jz-orbit__arm:nth-child(3){ transform:rotate(240deg); }
+  .jz-orbit__badge { position:absolute; left:8px; top:-23px; width:46px; height:46px;
+    filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5)); animation:jzBadgeSpin 2.2s ease-in-out infinite; }
+  .jz-orbit__badge svg { display:block; width:100%; height:100%; overflow:visible; }
+  .jz-orbit__label { font-size:12.5px; font-weight:500; letter-spacing:0.16em; text-transform:uppercase; color:rgba(5,5,5,0.45); }
+  @keyframes jzOrbitSpin { to { transform:rotate(360deg); } }
+  @keyframes jzBadgeSpin { 0%{ transform:rotate(0deg) scale(0.9); } 50%{ transform:rotate(180deg) scale(1.1); } 100%{ transform:rotate(360deg) scale(0.9); } }
+  @media (prefers-reduced-motion: reduce){ .jz-orbit__ring,.jz-orbit__badge{ animation:none; } }
+  @keyframes jzPulse { 0%,100%{ transform:translate(-50%,-50%) scale(0.9); opacity:0.68; } 50%{ transform:translate(-50%,-50%) scale(1.08); opacity:1; } }
+  @keyframes jzFade { from{ opacity:0; transform:translateY(8px);} to{ opacity:1; transform:translateY(0);} }
+</style>
+<!-- Reveal-card faces from the JIGZO redesign: JetBrains Mono (labels) + Playfair Display italic (message) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&family=Playfair+Display:ital,wght@0,500;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="puzzle-shape.js"></script>
+</head>
+<body>
+  <!-- header — matches the homepage nav treatment (logo only) -->
+  <header class="nav">
+    <div class="nav__inner">
+      <a href="index.html" aria-label="Jigzo home"><img class="nav__logo" src="assets/JIGZO-Logo-Black.png" alt="JIGZO"></a>
+    </div>
+  </header>
+
+  <div id="root"><div class="jz-boot">
+    <div class="jz-orbit" role="status" aria-label="Loading your Jigzo">
+      <div class="jz-orbit__ring">
+        <div class="jz-orbit__arm"><div class="jz-orbit__badge"><svg viewBox="0 0 100 100"><defs><linearGradient id="jzbG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E7C485"/><stop offset=".45" stop-color="#A67C3D"/><stop offset="1" stop-color="#1C140A"/></linearGradient></defs><circle cx="50" cy="50" r="49" fill="url(#jzbG)"/><g fill="#050505"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>
+        <div class="jz-orbit__arm"><div class="jz-orbit__badge"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="49" fill="#FAF8EC"/><circle cx="50" cy="50" r="48.3" fill="none" stroke="rgba(5,5,5,0.07)" stroke-width="1"/><g fill="#050505"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>
+        <div class="jz-orbit__arm"><div class="jz-orbit__badge"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="49" fill="#111110"/><circle cx="50" cy="50" r="48.3" fill="none" stroke="rgba(166,124,61,0.42)" stroke-width="1"/><g fill="#FAF8EC"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>
+      </div>
+      <div class="jz-orbit__label">Preparing your reveal</div>
+    </div>
+  </div></div>
+
+  <!-- footer — matches the homepage disclaimer -->
+  <footer class="footer">
+    <div class="footer__inner">
+      <div class="footer__brand">
+        <img class="footer__logo" src="assets/JIGZO-Logo-Black.png" alt="JIGZO">
+        <span class="footer__by">Product by Jigpuzzle</span>
+      </div>
+      <div class="footer__tag">Some words deserve a moment before they're read.</div>
+    </div>
+  </footer>
+
+  <script type="text/plain" id="jigzo-src">
+const { useState, useRef, useEffect, useMemo, useCallback } = React;
+
+/* Piece geometry (mulberry32 / buildEdgeMap / edgeWithTab / piecePath) is
+   loaded from the shared puzzle-shape.js so this live board and the sender
+   preview render the exact same jigsaw shapes (single source of truth). */
+/* pieceCount -> non-square grid (portrait board, so cols < rows keeps pieces
+   roughly square instead of stretched). Easy 3x5, Medium 3x6, Hard 4x7. */
+const GRID_FOR = { 6: { cols: 2, rows: 3 }, 15: { cols: 3, rows: 5 }, 18: { cols: 3, rows: 6 }, 28: { cols: 4, rows: 7 } };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const REST_SHADOW = "drop-shadow(0 3px 4px rgba(5,5,5,0.35))";
+const PICKUP_SHADOW = "drop-shadow(0 12px 18px rgba(5,5,5,0.42))";
+const SETTLE = "transform 260ms cubic-bezier(.22,.61,.36,1), filter 200ms ease";
+
+function NoPuzzle() {
+  return (
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"Archia,sans-serif", padding:24 }}>
+      <div style={{ maxWidth:380, textAlign:"center" }}>
+        <div style={{ fontWeight:700, fontSize:22, marginBottom:10 }}>No puzzle to open yet</div>
+        <p style={{ fontSize:14.5, lineHeight:1.6, color:"rgba(5,5,5,0.6)", margin:"0 0 22px" }}>
+          This page shows a Jigzo you were sent. To try it, finish the sender flow
+          and tap <strong>“Send puzzle”</strong> — that opens this page with your puzzle.
+        </p>
+        <a href="create.html" style={{ display:"inline-block", background:"#050505", color:"#FAF8EC", textDecoration:"none",
+          fontWeight:600, fontSize:14, borderRadius:999, padding:"13px 26px" }}>Make a Jigzo →</a>
+      </div>
+    </div>
+  );
+}
+
+/* ---- Puzzle Reveal Transition — shared jigsaw badge (brand-reconciled) ---- */
+function Badge({ kind }) {
+  const svg = { display:"block", width:"100%", height:"100%", overflow:"visible" };
+  const glyphInk = <g fill="#050505"><rect x="33" y="33" width="34" height="34" rx="8" /><circle cx="50" cy="29" r="8.6" /><circle cx="50" cy="71" r="8.6" /><circle cx="29" cy="50" r="8.6" /><circle cx="71" cy="50" r="8.6" /></g>;
+  const glyphCream = <g fill="#FAF8EC"><rect x="33" y="33" width="34" height="34" rx="8" /><circle cx="50" cy="29" r="8.6" /><circle cx="50" cy="71" r="8.6" /><circle cx="29" cy="50" r="8.6" /><circle cx="71" cy="50" r="8.6" /></g>;
+  if (kind === "gold") return (
+    <svg viewBox="0 0 100 100" style={svg}>
+      <defs><linearGradient id="rbGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#E7C485" /><stop offset="0.45" stopColor="#A67C3D" /><stop offset="1" stopColor="#1C140A" /></linearGradient></defs>
+      <circle cx="50" cy="50" r="49" fill="url(#rbGold)" />{glyphInk}
+    </svg>
+  );
+  if (kind === "cream") return (
+    <svg viewBox="0 0 100 100" style={svg}>
+      <circle cx="50" cy="50" r="49" fill="#FAF8EC" /><circle cx="50" cy="50" r="48.3" fill="none" stroke="rgba(5,5,5,0.07)" strokeWidth="1" />{glyphInk}
+    </svg>
+  );
+  return (
+    <svg viewBox="0 0 100 100" style={svg}>
+      <circle cx="50" cy="50" r="49" fill="#111110" /><circle cx="50" cy="50" r="48.3" fill="none" stroke="rgba(166,124,61,0.42)" strokeWidth="1" />{glyphCream}
+    </svg>
+  );
+}
+
+/* Short orbit-converge + gold-burst beat that plays over the board the instant
+   it's solved, then dissolves to reveal the message card beneath it. */
+function RevealBeat({ w, h, pad, radius }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const root = ref.current;
+    if (!root || !root.animate) return;
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { root.style.opacity = 0; return; }
+    const orbit = root.querySelector("[data-b=orbit]");
+    const glow = root.querySelector("[data-b=glow]");
+    const radii = Array.from(root.querySelectorAll("[data-b=radius]"));
+    const badges = Array.from(root.querySelectorAll("[data-b=badge]"));
+    const dur = 3000, R = radius, anims = [];   // held ~3s (was 1500) so the reveal moment lands, not rushed
+    anims.push(orbit.animate([{ transform:"rotate(0deg)" }, { transform:"rotate(430deg)" }],
+      { duration:dur, easing:"cubic-bezier(.45,.05,.2,1)", fill:"both" }));
+    radii.forEach((el) => anims.push(el.animate([
+      { transform:"translateX(0px)" },
+      { transform:"translateX(" + R + "px)", offset:0.34 },
+      { transform:"translateX(" + R + "px)", offset:0.72 },
+      { transform:"translateX(0px)" }
+    ], { duration:dur, easing:"cubic-bezier(.4,0,.2,1)", fill:"both" })));
+    badges.forEach((el, i) => {
+      const s = (i === 1 ? 1 : -1) * 360;
+      anims.push(el.animate([
+        { transform:"rotate(0deg) scale(.85)" },
+        { transform:"rotate(" + (s * 0.5) + "deg) scale(1.12)", offset:0.5 },
+        { transform:"rotate(" + s + "deg) scale(1)" }
+      ], { duration:dur, easing:"ease-in-out", fill:"both" }));
+    });
+    if (glow) anims.push(glow.animate([
+      { opacity:0, transform:"translate(-50%,-50%) scale(.5)" },
+      { opacity:0, transform:"translate(-50%,-50%) scale(.5)", offset:0.55 },
+      { opacity:0.95, transform:"translate(-50%,-50%) scale(1)", offset:0.82 },
+      { opacity:0, transform:"translate(-50%,-50%) scale(1.3)" }
+    ], { duration:dur, easing:"ease-out", fill:"both" }));
+    anims.push(root.animate([{ opacity:1, offset:0.78 }, { opacity:0 }], { duration:dur, fill:"forwards" }));
+    return () => anims.forEach((a) => { try { a.cancel(); } catch (e) {} });
+  }, []);
+
+  const badge = 40;
+  return (
+    <div ref={ref} style={{ position:"absolute", left:pad, top:pad, width:w, height:h, borderRadius:14,
+      overflow:"hidden", zIndex:60, pointerEvents:"none",
+      background:"radial-gradient(70% 70% at 50% 45%, #100e0b 0%, #050505 78%)" }}>
+      <div data-b="glow" style={{ position:"absolute", left:"50%", top:"50%", width:w * 0.92, height:w * 0.92,
+        transform:"translate(-50%,-50%) scale(.5)", opacity:0, borderRadius:"50%",
+        background:"radial-gradient(circle, rgba(214,170,94,0.55) 0%, rgba(214,170,94,0.12) 42%, rgba(214,170,94,0) 70%)" }} />
+      <div data-b="orbit" style={{ position:"absolute", left:"50%", top:"50%", width:0, height:0 }}>
+        {[-90, 30, 150].map((ang, i) => (
+          <div key={i} style={{ position:"absolute", left:0, top:0, width:0, height:0, transform:`rotate(${ang}deg)` }}>
+            <div data-b="radius" style={{ position:"absolute", left:0, top:0, width:0, height:0 }}>
+              <div data-b="badge" style={{ position:"absolute", left:-badge / 2, top:-badge / 2, width:badge, height:badge,
+                filter:"drop-shadow(0 6px 14px rgba(0,0,0,0.5))" }}>
+                <Badge kind={i === 0 ? "gold" : i === 1 ? "cream" : "dark"} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Receiver({ data }) {
+  const g = GRID_FOR[data.pieceCount] || { cols: 3, rows: 6 };
+  const cols = g.cols, rows = g.rows;
+  const BW = 288, BH = 512, PAD = 46;          // 9:16 board + tray margin
+  const stageW = BW + PAD * 2, stageH = BH + PAD * 2;
+  const pieceW = BW / cols, pieceH = BH / rows;   // near-square with the non-square grid
+  const tabPad = 0.46 * Math.max(pieceW, pieceH);   // visual tab overhang (SVG viewBox margin); big enough for the chunky knob
+  // Movement boundary for a piece's core. Must never be tighter than the tray
+  // inset (PAD), or edge/corner homes (which start at PAD) fall outside the
+  // draggable region. tabPad grows with the larger piece dimension and can
+  // exceed PAD — which is exactly why corners were unreachable before.
+  // Capping at PAD keeps every home reachable at all grids.
+  const bound = Math.min(tabPad, PAD);
+  const elemW = pieceW + tabPad * 2, elemH = pieceH + tabPad * 2;
+  const SNAP = Math.max(20, Math.min(pieceW, pieceH) * 0.36);
+  const edgeMap = useMemo(() => buildEdgeMap(cols, rows, 1337), [cols, rows]);
+
+  const homes = useMemo(() => {
+    const arr = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) arr.push({ r, c, hx: PAD + c * pieceW, hy: PAD + r * pieceH });
+    return arr;
+  }, [cols, rows, pieceW, pieceH]);
+
+  const scatter = useCallback(() => {
+    const rand = mulberry32(4242 + (cols * 31 + rows) * 77);
+    const minX = bound, maxX = stageW - pieceW - bound;
+    const minY = bound, maxY = stageH - pieceH - bound;
+    return homes.map((h) => {
+      // scatter, but keep a little away from the exact home so nothing starts solved
+      let x, y, tries = 0;
+      do {
+        x = minX + rand() * (maxX - minX);
+        y = minY + rand() * (maxY - minY);
+        tries++;
+      } while (tries < 8 && Math.hypot(x - h.hx, y - h.hy) < SNAP * 2);
+      // slight random rotation on scattered pieces (straightens to 0 on pickup)
+      return { x, y, rot: (rand() - 0.5) * 2 * 9 };
+    });
+  }, [homes]);
+
+  const [positions, setPositions] = useState(scatter);
+  const [placed, setPlaced] = useState(() => homes.map(() => false));
+  const [showReveal, setShowReveal] = useState(false);
+  const [scale, setScale] = useState(1);
+  const wrapRef = useRef(null), stageRef = useRef(null), cardRef = useRef(null);
+  const pieceRefs = useRef([]);
+
+  // fit the fixed-size stage into the available width
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const fit = () => setScale(Math.min(1, wrap.clientWidth / stageW));
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, [stageW]);
+
+  // Unified Pointer Events drag. Live movement is written straight to the
+  // node's transform inside a rAF loop (no React re-render per move); React
+  // state is only committed once, on drop, so the counter stays in sync.
+  const onDown = (i, e) => {
+    if (placed[i] || showReveal) return;
+    e.preventDefault();
+    const node = pieceRefs.current[i];
+    if (!node) return;
+
+    // cache the stage rect once so each frame is a pure math step, no reflow
+    const rect0 = stageRef.current.getBoundingClientRect();
+    const sc = rect0.width / stageW || 1;
+    const toLoc = (cx, cy) => ({ x: (cx - rect0.left) / sc, y: (cy - rect0.top) / sc });
+
+    const start = toLoc(e.clientX, e.clientY);
+    const offx = start.x - positions[i].x, offy = start.y - positions[i].y;
+    let pointer = { x: e.clientX, y: e.clientY };
+    let cur = { x: positions[i].x, y: positions[i].y };
+    let raf = 0;
+
+    // tactile pickup: lift off the board with a slight scale + elevated shadow
+    node.style.transition = "none";
+    node.style.willChange = "transform";
+    node.style.zIndex = "50";
+    node.style.cursor = "grabbing";
+    node.style.filter = PICKUP_SHADOW;
+    // straighten (drop the scatter rotation) + lift immediately, so grabbing a
+    // rotated piece doesn't visibly pop on the first animation frame
+    node.style.transform = `translate3d(${cur.x - tabPad}px, ${cur.y - tabPad}px, 0) scale(1.05)`;
+
+    const frame = () => {
+      const q = toLoc(pointer.x, pointer.y);
+      cur.x = clamp(q.x - offx, bound, stageW - pieceW - bound);
+      cur.y = clamp(q.y - offy, bound, stageH - pieceH - bound);
+      node.style.transform = `translate3d(${cur.x - tabPad}px, ${cur.y - tabPad}px, 0) scale(1.05)`;
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+
+    const move = (ev) => { pointer = { x: ev.clientX, y: ev.clientY }; };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      cancelAnimationFrame(raf);
+
+      // resting point from the actual release position (not the last rAF tick)
+      const rel = toLoc(pointer.x, pointer.y);
+      cur.x = clamp(rel.x - offx, bound, stageW - pieceW - bound);
+      cur.y = clamp(rel.y - offy, bound, stageH - pieceH - bound);
+
+      const h = homes[i];
+      const snapped = Math.hypot(cur.x - h.hx, cur.y - h.hy) <= SNAP;
+      // rot:0 — a piece straightens once handled (it's already unrotated mid-drag)
+      const fin = snapped ? { x: h.hx, y: h.hy, rot: 0 } : { x: cur.x, y: cur.y, rot: 0 };
+
+      // soft, bounce-free settle; scale + shadow ease back to rest
+      node.style.cursor = "grab";
+      node.style.zIndex = snapped ? "10" : "20";   // drop the pickup lift (React won't re-apply an unchanged value)
+      node.style.transition = SETTLE;
+      void node.offsetWidth;                 // commit the drag transform as the start frame
+      node.style.transform = `translate3d(${fin.x - tabPad}px, ${fin.y - tabPad}px, 0) scale(1)`;
+      node.style.filter = REST_SHADOW;
+      window.setTimeout(() => { const n = pieceRefs.current[i]; if (n) n.style.willChange = "auto"; }, 320);
+
+      setPositions((prev) => { const n = prev.slice(); n[i] = fin; return n; });
+      if (snapped) {
+        setPlaced((pl) => {
+          if (pl[i]) return pl;
+          const np = pl.slice(); np[i] = true;
+          if (np.every(Boolean)) setTimeout(() => setShowReveal(true), 480);
+          return np;
+        });
+      }
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  const replay = () => { setShowReveal(false); setPlaced(homes.map(() => false)); setPositions(scatter()); };
+
+  // Export the reveal card as a PNG by drawing it directly on a canvas.
+  // We do NOT use html2canvas: it rasterises text with grayscale AA and
+  // drops the message's text-shadow, so exported text came out lighter/thinner
+  // than the live page. Here every value (font weight, cream colour, per-line
+  // opacity, the 0/2/20 rgba(5,5,5,.6) shadow) is set literally from the live
+  // CSS, so the download matches what's on screen.
+  const download = () => {
+    if (!cardRef.current) return;
+    const S = 2, W = BW, H = BH, CW = W * S, CH = H * S;   // 2x for crisp text
+    const CREAM = "rgb(250,248,236)";
+
+    const paint = (img) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = CW; canvas.height = CH;
+      const ctx = canvas.getContext("2d");
+
+      // clip to the card's 14px rounded corners (matches borderRadius:14)
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(0, 0, CW, CH, 14 * S);
+      else ctx.rect(0, 0, CW, CH);
+      ctx.clip();
+
+      // photo, object-fit: cover
+      if (img && img.width) {
+        const s = Math.max(CW / img.width, CH / img.height);
+        const dw = img.width * s, dh = img.height * s;
+        ctx.drawImage(img, (CW - dw) / 2, (CH - dh) / 2, dw, dh);
+      } else { ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, CW, CH); }
+
+      const cx = CW * 0.5, cy = CH * 0.42;
+      // reveal scrim (matches the on-screen card):
+      // radial-gradient(120% 100% at 50% 42%, rgba(23,19,13,.66), rgba(5,5,5,.93) 76%)
+      const R = Math.hypot(Math.max(cx, CW - cx), Math.max(cy, CH - cy)) * 1.02;
+      const vg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+      vg.addColorStop(0, "rgba(23,19,13,0.34)");
+      vg.addColorStop(0.78, "rgba(5,5,5,0.76)");
+      vg.addColorStop(1, "rgba(5,5,5,0.76)");
+      ctx.fillStyle = vg; ctx.fillRect(0, 0, CW, CH);
+
+      // ---- text: receiver name (top), message, divider, sender name (bottom) ----
+      // No badge icon, no "Unlocked"/"From" labels — just the two names, plain.
+      const contentW = (W * 0.78) * S;   // 11% padding each side
+      ctx.font = `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`;
+      const msgLines = [];
+      (data.message || "").split("\n").forEach((para) => {
+        let line = "";
+        para.split(" ").forEach((w) => {
+          const test = line ? line + " " + w : w;
+          if (ctx.measureText(test).width > contentW && line) { msgLines.push(line); line = w; }
+          else line = test;
+        });
+        msgLines.push(line);
+      });
+
+      const rows = [];
+      if (data.toName) rows.push({ type: "text", t: data.toName, f: `500 ${12.5 * S}px "JetBrains Mono", monospace`, color: "#E6C67F", ls: 0.1 * 12.5 * S, lh: 12.5 * S * 1.3, gap: 18 * S });
+      msgLines.forEach((ln, i) => rows.push({ type: "text", t: ln, f: `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`, color: "#F3ECDD", lh: 20 * S * 1.32, shadow: true, gap: i === msgLines.length - 1 ? 18 * S : 0 }));
+      rows.push({ type: "rule", h: 2 * S, w: 44 * S, gap: data.fromName ? 14 * S : 0 });
+      if (data.fromName) rows.push({ type: "text", t: data.fromName, f: `500 ${12 * S}px "JetBrains Mono", monospace`, color: "rgba(238,232,220,0.82)", ls: 0.08 * 12 * S, lh: 12 * S * 1.3, gap: 0 });
+
+      const total = rows.reduce((s, r) => s + (r.h || r.lh) + r.gap, 0);
+      let y = (CH - total) / 2;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      rows.forEach((r) => {
+        const rowH = r.h || r.lh;
+        if (r.type === "rule") {
+          const gr = ctx.createLinearGradient(CW / 2 - r.w / 2, 0, CW / 2 + r.w / 2, 0);
+          gr.addColorStop(0, "rgba(208,160,54,0)"); gr.addColorStop(0.5, "#D0A036"); gr.addColorStop(1, "rgba(208,160,54,0)");
+          ctx.fillStyle = gr; ctx.fillRect(CW / 2 - r.w / 2, y + rowH / 2 - r.h / 2, r.w, r.h);
+        } else {
+          ctx.save();
+          ctx.font = r.f; ctx.fillStyle = r.color;
+          if ("letterSpacing" in ctx) ctx.letterSpacing = (r.ls || 0) + "px";
+          // dark shadow keeps text legible over the (now brighter) photo, on light or dark shots
+          if (r.shadow) { ctx.shadowColor = "rgba(5,5,5,0.92)"; ctx.shadowBlur = 9 * S; ctx.shadowOffsetY = 2 * S; }
+          else { ctx.shadowColor = "rgba(5,5,5,0.8)"; ctx.shadowBlur = 5 * S; ctx.shadowOffsetY = 1 * S; }
+          ctx.fillText(r.t, CW / 2, y + rowH / 2);
+          ctx.restore();
+        }
+        y += rowH + r.gap;
+      });
+
+      canvas.toBlob((blob) => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "jigzo-reveal.png";
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+      }, "image/png");
+    };
+
+    const run = () => {
+      if (data.cropData) {
+        const img = new Image();
+        img.onload = () => paint(img);
+        img.onerror = () => paint(null);
+        img.src = data.cropData;
+      } else paint(null);
+    };
+    // The exact faces the export draws must be loaded before fillText, or the
+    // glyphs fall back to a lighter system font (the washed-out-download bug).
+    if (document.fonts && document.fonts.ready) {
+      Promise.all([
+        'italic 400 20px "Playfair Display"',
+        '500 11px "JetBrains Mono"',
+        '500 10px "JetBrains Mono"',
+      ].map((w) => document.fonts.load(w).catch(() => {})))
+        .then(() => document.fonts.ready).then(run, run);
+    } else run();
+  };
+
+  const placedCount = placed.filter(Boolean).length;
+  const teaserFrom = data.revealIdentity ? (data.fromName || "someone") : "a secret admirer";
+
+  // expose a few constants for automated testing
+  useEffect(() => { window.__JZ = { stageW, stageH, PAD, pieceW, pieceH, cols, rows, total: homes.length }; });
+
+  return (
+    <div style={{ fontFamily:"Archia,sans-serif", color:"#1C1913",
+      display:"flex", flexDirection:"column", alignItems:"center", padding:"30px 14px 52px" }}>
+      <div style={{ width:"100%", maxWidth:440 }}>
+
+        {/* above the puzzle */}
+        {!showReveal && (
+          <div style={{ textAlign:"center", fontSize:21, fontWeight:500, letterSpacing:"-0.015em", marginBottom:18 }}>
+            Something special is waiting...
+          </div>
+        )}
+
+        {/* interactive stage (scaled to fit width) */}
+        <div ref={wrapRef} style={{ width:"100%", maxWidth:stageW, margin:"0 auto", height:stageH * scale, position:"relative" }}>
+          <div ref={stageRef} style={{ width:stageW, height:stageH, transform:`scale(${scale})`, transformOrigin:"0 0",
+            position:"absolute", top:0, left:0, background:"#FAF8EC", borderRadius:16, touchAction:"none" }}>
+
+            {/* board frame — plain cream only; the photo stays fully hidden until solved */}
+            <div style={{ position:"absolute", left:PAD, top:PAD, width:BW, height:BH, borderRadius:14,
+              zIndex:0, boxShadow:"inset 0 0 0 1.5px rgba(5,5,5,0.16)", background:"rgba(5,5,5,0.02)" }} />
+
+            {/* pieces — positioned with GPU-friendly translate3d */}
+            {!showReveal && homes.map((h, i) => {
+              const pos = positions[i];
+              const d = piecePath(h.r, h.c, cols, rows, pieceW, pieceH, edgeMap);
+              return (
+                <div key={i} data-piece={i}
+                  ref={(el) => { pieceRefs.current[i] = el; }}
+                  onPointerDown={(e) => onDown(i, e)}
+                  style={{ position:"absolute", left:0, top:0, width:elemW, height:elemH,
+                    transform:`translate3d(${pos.x - tabPad}px, ${pos.y - tabPad}px, 0) rotate(${pos.rot || 0}deg)`,
+                    transition: SETTLE, cursor: placed[i] ? "default" : "grab", touchAction:"none",
+                    zIndex: placed[i] ? 10 : 20, filter: REST_SHADOW }}>
+                  <svg viewBox={`${-tabPad} ${-tabPad} ${elemW} ${elemH}`} width={elemW} height={elemH} style={{ display:"block", pointerEvents:"none", overflow:"visible" }}>
+                    <defs><clipPath id={`rp-${i}`}><path d={d} /></clipPath></defs>
+                    <g clipPath={`url(#rp-${i})`}>
+                      <image href={data.cropData} x={-h.c * pieceW} y={-h.r * pieceH} width={BW} height={BH} preserveAspectRatio="xMidYMid slice" />
+                    </g>
+                    <path d={d} fill="none" stroke="rgba(5,5,5,0.32)" strokeWidth="1.1" />
+                  </svg>
+                </div>
+              );
+            })}
+
+            {/* reveal card (also the download target) */}
+            {showReveal && (
+              <div ref={cardRef} id="revealCard"
+                style={{ position:"absolute", left:PAD, top:PAD, width:BW, height:BH, borderRadius:14, overflow:"hidden",
+                  zIndex:40, animation:"jzFade 0.6s ease" }}>
+                <img src={data.cropData} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                {/* lighter scrim so the photo stays visible; legibility comes from the text shadows */}
+                <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 100% at 50% 42%, rgba(23,19,13,0.34), rgba(5,5,5,0.76) 78%)" }} />
+                <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center",
+                  justifyContent:"center", textAlign:"center", padding:"9% 11%" }}>
+                  {data.toName ? (
+                    <div style={{ fontFamily:"'JetBrains Mono', ui-monospace, monospace", fontWeight:500, fontSize:12.5,
+                      letterSpacing:"0.1em", color:"#E6C67F", marginBottom:18, textShadow:"0 1px 4px rgba(5,5,5,0.8)" }}>{data.toName}</div>
+                  ) : null}
+                  <div style={{ fontFamily:"'Playfair Display', Georgia, serif", fontStyle:"italic", fontWeight:400, fontSize:20,
+                    lineHeight:1.32, color:"#F3ECDD", whiteSpace:"pre-line", maxWidth:"22ch",
+                    textShadow:"0 1px 3px rgba(5,5,5,0.92), 0 2px 22px rgba(5,5,5,0.6)" }}>
+                    {data.message || ""}
+                  </div>
+                  <div style={{ width:44, height:2, marginTop:18, background:"linear-gradient(90deg, rgba(208,160,54,0), #D0A036, rgba(208,160,54,0))" }} />
+                  {data.fromName ? (
+                    <div style={{ fontFamily:"'JetBrains Mono', ui-monospace, monospace", fontWeight:500, fontSize:12,
+                      letterSpacing:"0.08em", color:"rgba(238,232,220,0.82)", marginTop:14, textShadow:"0 1px 4px rgba(5,5,5,0.8)" }}>{data.fromName}</div>
+                  ) : null}
+                </div>
+              </div>
+            )}
+
+            {/* Puzzle Reveal Transition beat — plays over the board on solve, then dissolves */}
+            {showReveal && <RevealBeat w={BW} h={BH} pad={PAD} radius={Math.min(BW, BH) * 0.26} />}
+          </div>
+        </div>
+
+        {/* controls */}
+        {!showReveal ? (
+          <div style={{ textAlign:"center", marginTop:20 }}>
+            <p style={{ fontSize:14.5, color:"rgba(28,25,19,0.7)", margin:"0 auto", lineHeight:1.55, maxWidth:350 }}>
+              {data.toName ? `${data.toName}, your surprise is almost here..` : "Your surprise is almost here.."} Drag each piece into place. The final piece unlocks something made just for you.
+            </p>
+            <div style={{ marginTop:14, fontSize:12.5, fontWeight:600, color:"#B8935A", letterSpacing:"0.04em" }}>
+              {placedCount} / {homes.length} pieces placed
+            </div>
+          </div>
+        ) : (
+          <div style={{ textAlign:"center", marginTop:20, animation:"jzFade 0.5s ease" }}>
+            <div style={{ fontSize:18, fontWeight:500, letterSpacing:"-0.01em", margin:"0 0 4px" }}>Created with care.</div>
+            <div style={{ fontSize:11.5, fontWeight:500, letterSpacing:"0.04em", color:"rgba(28,25,19,0.45)", margin:"0 0 14px" }}>Made with JIGZO</div>
+            <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
+              <button onClick={download} style={{ background:"#050505", color:"#FAF8EC", border:"none", borderRadius:999,
+                padding:"12px 24px", fontSize:14, fontWeight:600, fontFamily:"Archia,sans-serif", cursor:"pointer" }}>
+                Download
+              </button>
+              <button onClick={replay} style={{ background:"transparent", color:"#050505", border:"1px solid rgba(5,5,5,0.2)",
+                borderRadius:999, padding:"12px 22px", fontSize:14, fontWeight:500, fontFamily:"Archia,sans-serif", cursor:"pointer" }}>
+                Replay
+              </button>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  let data = null;
+  try { data = JSON.parse(localStorage.getItem("jigzo:test-puzzle") || "null"); } catch (e) {}
+  return data && data.cropData ? <Receiver data={data} /> : <NoPuzzle />;
+}
+
+const _root = ReactDOM.createRoot(document.getElementById("root"));
+_root.render(<App />);
+  </script>
+
+  <script>
+    (function () {
+      var root = document.getElementById("root");
+      function fail(msg) {
+        root.innerHTML = '<div style="font-family:Archia,sans-serif;color:#7a1c1c;max-width:520px;margin:80px auto;padding:0 24px;text-align:center;line-height:1.5"><strong>Couldn’t load the receiver.</strong><br>' + msg + '</div>';
+      }
+      if (typeof Babel === "undefined" || typeof React === "undefined" || typeof ReactDOM === "undefined") {
+        fail("A required library failed to load (React/Babel come from a CDN — check your connection).");
+        return;
+      }
+      try {
+        var src = document.getElementById("jigzo-src").textContent;
+        var out = Babel.transform(src, { presets: [["react", { runtime: "classic" }]] }).code;
+        var s = document.createElement("script"); s.textContent = out; document.body.appendChild(s);
+      } catch (err) { console.error(err); fail((err && err.message) ? err.message : String(err)); }
+    })();
+  </script>
+</body>
+</html>

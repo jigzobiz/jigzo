@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jigzo — Visual Identity Application</title>
+<!--
+  Jigzo Identity Application
+  Standalone implementation of "Jigzo Identity Application.dc.html"
+  (Claude Design canvas). The design-tool runtime (support.js / <x-dc> /
+  <sc-if> / editable props) has been stripped; props are baked to their
+  defaults and the brand font (Archia) + JIGZO assets are self-hosted.
+
+  Brand tokens: cream #FAF8EC · ink #050505 · gold #A67C3D
+  Gold gradient (reveal moments only): #D6AA5E -> #A67C3D -> #1C140A
+-->
+<style>
+  @font-face { font-family:"Archia"; src:url("assets/fonts/Archia-Thin.otf") format("opentype"); font-weight:100; font-style:normal; font-display:swap; }
+  @font-face { font-family:"Archia"; src:url("assets/fonts/Archia-Light.otf") format("opentype"); font-weight:300; font-style:normal; font-display:swap; }
+  @font-face { font-family:"Archia"; src:url("assets/fonts/Archia-Regular.otf") format("opentype"); font-weight:400; font-style:normal; font-display:swap; }
+  @font-face { font-family:"Archia"; src:url("assets/fonts/Archia-Medium.otf") format("opentype"); font-weight:500; font-style:normal; font-display:swap; }
+  @font-face { font-family:"Archia"; src:url("assets/fonts/Archia-SemiBold.otf") format("opentype"); font-weight:600; font-style:normal; font-display:swap; }
+  @font-face { font-family:"Archia"; src:url("assets/fonts/Archia-Bold.otf") format("opentype"); font-weight:700; font-style:normal; font-display:swap; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; }
+  .jzPhoto { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+  @keyframes jzPulse { 0%,100%{ transform:translate(-50%,-50%) scale(0.9); opacity:0.68; } 50%{ transform:translate(-50%,-50%) scale(1.1); opacity:1; } }
+  @keyframes jzPulseSoft { 0%,100%{ opacity:0.5; } 50%{ opacity:0.9; } }
+</style>
+</head>
+<body>
+
+<div style="background:#E9E4D4; background-image:radial-gradient(circle at 20% 0%, #EFEADB 0%, #E5DFCD 55%, #DCD4BF 100%); color:#050505; font-family:'Archia',sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh; padding:0 0 110px;">
+
+  <!-- BOARD HEADER -->
+  <div style="padding:70px 80px 8px;">
+    <span style="font-weight:600; font-size:12px; letter-spacing:0.26em; text-transform:uppercase; color:#A67C3D;">Visual Identity Application</span>
+    <h1 style="font-weight:700; font-size:62px; line-height:1; letter-spacing:-0.03em; margin:18px 0 0;">Three moments</h1>
+    <p style="font-weight:300; font-size:21px; line-height:1.45; color:rgba(5,5,5,0.6); max-width:760px; margin:18px 0 0; text-wrap:pretty;">From the message that lands on a lock screen, to the gold-lit instant the last piece falls, to the page that explains it all. One product, told as a feeling.</p>
+    <p style="font-weight:400; font-size:13px; letter-spacing:0.02em; color:rgba(5,5,5,0.4); margin:20px 0 0;">Type set in <span style="font-weight:600; color:rgba(5,5,5,0.6);">Archia</span>, the brand face. Photo areas are placeholders — drop in real imagery.</p>
+  </div>
+
+  <!-- ROW OF FRAMES -->
+  <div style="display:flex; gap:80px; padding:40px 80px 0; align-items:flex-start; flex-wrap:nowrap; overflow-x:auto;">
+
+    <!-- ============ SCREEN 1 — WHATSAPP NOTIFICATION ============ -->
+    <figure style="margin:0; display:flex; flex-direction:column; gap:22px; flex:none;">
+      <div style="display:flex; align-items:baseline; gap:14px;">
+        <span style="font-weight:600; font-size:13px; color:#A67C3D; letter-spacing:0.04em;">01</span>
+        <div>
+          <div style="font-weight:600; font-size:17px; letter-spacing:-0.01em;">The arrival</div>
+          <div style="font-weight:300; font-size:14px; color:rgba(5,5,5,0.5);">WhatsApp notification, before the link is opened</div>
+        </div>
+      </div>
+
+      <div style="width:392px; height:812px; background:#0A0A0A; border-radius:56px; padding:13px; box-shadow:0 50px 100px -40px rgba(5,5,5,0.55), inset 0 0 0 2px rgba(255,255,255,0.06); flex:none;">
+        <div style="position:relative; width:100%; height:100%; border-radius:44px; overflow:hidden; background:radial-gradient(135% 95% at 50% -8%, #F4F0E2 0%, #E4DCC8 46%, #C7BAA0 100%);">
+          <!-- dynamic island -->
+          <div style="position:absolute; top:14px; left:50%; transform:translateX(-50%); width:120px; height:34px; background:#050505; border-radius:20px; z-index:5;"></div>
+          <!-- status icons -->
+          <div style="position:absolute; top:20px; left:30px; font-size:15px; font-weight:600; color:#1d1a14;">Tue</div>
+          <div style="position:absolute; top:20px; right:28px; display:flex; gap:7px; align-items:center; color:#1d1a14;">
+            <span style="font-size:13px; font-weight:600;">5G</span>
+            <div style="width:24px; height:12px; border:1.5px solid #1d1a14; border-radius:3px; position:relative;"><div style="position:absolute; inset:1.5px; right:6px; background:#1d1a14; border-radius:1px;"></div></div>
+          </div>
+
+          <!-- time -->
+          <div style="position:absolute; top:104px; width:100%; text-align:center; color:#211d16;">
+            <div style="font-size:18px; font-weight:500; letter-spacing:0.01em;">Tuesday, March 12</div>
+            <div style="font-size:92px; font-weight:300; letter-spacing:-0.03em; line-height:1; margin-top:4px;">9:41</div>
+          </div>
+
+          <!-- notification -->
+          <div style="position:absolute; left:14px; right:14px; top:312px;">
+            <div style="font-size:12px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:rgba(33,29,22,0.5); padding-left:8px; margin-bottom:10px;">Notification Centre</div>
+            <div style="background:rgba(255,255,255,0.66); backdrop-filter:blur(22px); -webkit-backdrop-filter:blur(22px); border-radius:26px; padding:16px; box-shadow:0 10px 30px -12px rgba(5,5,5,0.25);">
+              <div style="display:flex; gap:13px; align-items:flex-start;">
+                <div style="width:44px; height:44px; border-radius:12px; background:#25D366; display:flex; align-items:center; justify-content:center; flex:none; box-shadow:0 4px 10px -4px rgba(37,211,102,0.6);">
+                  <svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M16 5C9.9 5 5 9.9 5 16c0 2 .5 3.8 1.5 5.5L5 27l5.7-1.5c1.6.9 3.4 1.4 5.3 1.4 6.1 0 11-4.9 11-11S22.1 5 16 5z" fill="#fff"></path><path d="M21.3 18.6c-.3-.15-1.7-.84-2-.94-.27-.1-.46-.15-.65.15-.2.3-.74.94-.9 1.13-.17.2-.34.22-.63.07a8 8 0 01-2.4-1.48 9 9 0 01-1.65-2.06c-.17-.3 0-.45.13-.6.13-.13.3-.34.44-.5.15-.18.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.65-1.57-.9-2.15-.23-.56-.47-.48-.65-.49h-.55c-.2 0-.5.07-.77.37-.26.3-1 .98-1 2.4 0 1.4 1.03 2.76 1.17 2.96.15.2 2.03 3.1 4.92 4.35.69.3 1.22.47 1.64.6.69.22 1.32.19 1.81.12.55-.08 1.7-.7 1.94-1.36.24-.67.24-1.24.17-1.36-.07-.12-.26-.2-.55-.34z" fill="#25D366"></path></svg>
+                </div>
+                <div style="flex:1; min-width:0;">
+                  <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px;">
+                    <span style="font-weight:600; font-size:15.5px; color:#050505;">Zahra</span>
+                    <span style="font-size:13px; color:rgba(5,5,5,0.42); flex:none;">now</span>
+                  </div>
+                  <p style="margin:3px 0 0; font-size:14.5px; line-height:1.36; color:rgba(5,5,5,0.82);">I made something for you 💛 Open it when you have a quiet minute.</p>
+                </div>
+              </div>
+              <!-- link preview -->
+              <div style="margin-top:13px; display:flex; gap:11px; align-items:center; background:rgba(5,5,5,0.045); border-radius:16px; padding:11px;">
+                <div style="width:46px; height:46px; border-radius:12px; background:#050505; display:flex; align-items:center; justify-content:center; flex:none;">
+                  <img src="assets/JIGZO-Icon-Beige.png" alt="Jigzo" style="width:30px; height:auto; display:block;">
+                </div>
+                <div style="flex:1; min-width:0;">
+                  <div style="font-size:13.5px; font-weight:600; color:#050505; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">A Jigzo for you, solve to reveal!</div>
+                  <div style="font-size:12.5px; color:#A67C3D; margin-top:2px; letter-spacing:0.02em;">jigzo.biz</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- home indicator -->
+          <div style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); width:138px; height:5px; background:rgba(5,5,5,0.32); border-radius:3px;"></div>
+        </div>
+      </div>
+    </figure>
+
+    <!-- ============ SCREEN 2 — REVEAL ============ -->
+    <figure style="margin:0; display:flex; flex-direction:column; gap:22px; flex:none;">
+      <div style="display:flex; align-items:baseline; gap:14px;">
+        <span style="font-weight:600; font-size:13px; color:#A67C3D; letter-spacing:0.04em;">02</span>
+        <div>
+          <div style="font-weight:600; font-size:17px; letter-spacing:-0.01em;">The reveal</div>
+          <div style="font-weight:300; font-size:14px; color:rgba(5,5,5,0.5);">Solved — the gold moment, message in hand</div>
+        </div>
+      </div>
+
+      <div style="width:392px; height:812px; background:#0A0A0A; border-radius:56px; padding:13px; box-shadow:0 50px 100px -40px rgba(5,5,5,0.6), inset 0 0 0 2px rgba(255,255,255,0.06); flex:none;">
+        <div style="position:relative; width:100%; height:100%; border-radius:44px; overflow:hidden; background:#050505;">
+          <!-- reserved reveal gradient backdrop -->
+          <div style="position:absolute; inset:0; background:radial-gradient(circle at 50% 40%, #A67C3D 0%, #5E461F 34%, #1C140A 64%, #050505 88%);"></div>
+          <!-- the photo, faded -->
+          <div style="position:absolute; inset:0; opacity:0.6; mix-blend-mode:luminosity;">
+            <div class="jzPhoto" style="background:radial-gradient(120% 90% at 50% 28%, #C9BCA1 0%, #8F8369 45%, #4A4234 100%);"></div>
+          </div>
+          <!-- warm vignette -->
+          <div style="position:absolute; inset:0; background:radial-gradient(circle at 50% 40%, rgba(5,5,5,0) 30%, rgba(5,5,5,0.5) 100%);"></div>
+
+          <!-- jigsaw seams (showSeams: true) -->
+          <svg style="position:absolute; inset:0; width:100%; height:100%; opacity:0.9;" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <pattern id="seamReveal" width="74" height="74" patternUnits="userSpaceOnUse">
+                <path transform="scale(0.74)" d="M0,0 L38,0 C38,-12 26,-18 50,-18 C74,-18 62,-12 62,0 L100,0 L100,38 C88,38 82,26 82,50 C82,74 88,62 100,62 L100,100 L62,100 C62,88 74,82 50,82 C26,82 38,88 38,100 L0,100 L0,62 C-12,62 -18,74 -18,50 C-18,26 -12,38 0,38 Z" fill="none" stroke="rgba(250,248,236,0.16)" stroke-width="2.4"></path>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#seamReveal)"></rect>
+          </svg>
+
+          <!-- gold pulse glow -->
+          <div style="position:absolute; left:50%; top:39%; width:440px; height:440px; border-radius:50%; background:radial-gradient(circle, rgba(214,170,94,0.9) 0%, rgba(166,124,61,0.45) 36%, rgba(5,5,5,0) 70%); mix-blend-mode:screen; animation:jzPulse 4.2s ease-in-out infinite; pointer-events:none;"></div>
+
+          <!-- dynamic island -->
+          <div style="position:absolute; top:14px; left:50%; transform:translateX(-50%); width:120px; height:34px; background:#050505; border-radius:20px; z-index:6;"></div>
+
+          <!-- top mark + solved label -->
+          <div style="position:absolute; top:70px; width:100%; text-align:center;">
+            <img src="assets/JIGZO-Icon-Beige.png" alt="Jigzo" style="width:38px; height:auto; display:inline-block; opacity:0.92;">
+            <div style="margin-top:14px; font-size:11px; font-weight:600; letter-spacing:0.34em; text-transform:uppercase; color:#E7C485;">Puzzle solved</div>
+          </div>
+
+          <!-- message -->
+          <div style="position:absolute; left:30px; right:30px; bottom:96px; text-align:center;">
+            <div style="display:flex; gap:16px; justify-content:center; align-items:center; font-size:11px; letter-spacing:0.24em; text-transform:uppercase; color:rgba(250,248,236,0.62); margin-bottom:22px;">
+              <span>TO YOLLA</span>
+              <span style="width:4px; height:4px; border-radius:50%; background:rgba(250,248,236,0.4);"></span>
+              <span>FROM ZAHRA</span>
+            </div>
+            <p style="font-weight:300; font-size:25px; line-height:1.5; color:#FAF8EC; white-space:pre-line; margin:0; text-wrap:pretty; text-shadow:0 2px 24px rgba(5,5,5,0.5);">Twelve years since this photo.
+I'd choose you all over again.
+Happy Birthday. Z</p>
+          </div>
+
+          <!-- home indicator -->
+          <div style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); width:138px; height:5px; background:rgba(250,248,236,0.5); border-radius:3px;"></div>
+        </div>
+      </div>
+    </figure>
+
+    <!-- ============ SCREEN 3 — LANDING ============ -->
+    <figure style="margin:0; display:flex; flex-direction:column; gap:22px; flex:none;">
+      <div style="display:flex; align-items:baseline; gap:14px;">
+        <span style="font-weight:600; font-size:13px; color:#A67C3D; letter-spacing:0.04em;">03</span>
+        <div>
+          <div style="font-weight:600; font-size:17px; letter-spacing:-0.01em;">The page</div>
+          <div style="font-weight:300; font-size:14px; color:rgba(5,5,5,0.5);">jigzo.biz — the product in one scroll</div>
+        </div>
+      </div>
+
+      <div style="width:960px; border-radius:18px; overflow:hidden; box-shadow:0 50px 110px -45px rgba(5,5,5,0.55); background:#fff; flex:none;">
+        <!-- browser chrome -->
+        <div style="height:50px; background:#EAE5D6; display:flex; align-items:center; gap:8px; padding:0 18px; border-bottom:1px solid rgba(5,5,5,0.07);">
+          <div style="display:flex; gap:8px;">
+            <div style="width:12px; height:12px; border-radius:50%; background:#E0796B;"></div>
+            <div style="width:12px; height:12px; border-radius:50%; background:#E6C173;"></div>
+            <div style="width:12px; height:12px; border-radius:50%; background:#8FBE82;"></div>
+          </div>
+          <div style="flex:1; max-width:380px; margin:0 auto; background:#fff; border-radius:9px; height:30px; display:flex; align-items:center; justify-content:center; gap:7px; font-size:13px; color:rgba(5,5,5,0.7); box-shadow:inset 0 0 0 1px rgba(5,5,5,0.06);">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M6 10V8a6 6 0 0112 0v2" stroke="rgba(5,5,5,0.45)" stroke-width="2"></path><rect x="4" y="10" width="16" height="10" rx="2.5" fill="rgba(5,5,5,0.45)"></rect></svg>
+            jigzo.biz
+          </div>
+        </div>
+
+        <!-- page -->
+        <div style="background:#FAF8EC;">
+          <!-- nav -->
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:24px 48px;">
+            <img src="assets/JIGZO-Logo-Black.png" alt="JIGZO" style="height:30px; width:auto; display:block;">
+            <div style="display:flex; align-items:center; gap:30px;">
+              <span style="font-size:15px; font-weight:400; color:rgba(5,5,5,0.6);">How it works</span>
+              <span style="font-size:15px; font-weight:400; color:rgba(5,5,5,0.6);">Examples</span>
+              <span style="font-size:14px; font-weight:500; color:#FAF8EC; background:#050505; border-radius:100px; padding:11px 22px;">Make a Jigzo</span>
+            </div>
+          </div>
+
+          <!-- hero -->
+          <div style="display:grid; grid-template-columns:1fr 0.82fr; gap:48px; align-items:center; padding:56px 48px 72px;">
+            <div>
+              <span style="font-weight:600; font-size:12px; letter-spacing:0.2em; text-transform:uppercase; color:#A67C3D;">A gift, not a gadget</span>
+              <h2 style="font-weight:700; font-size:60px; line-height:1.02; letter-spacing:-0.03em; margin:22px 0 0; text-wrap:balance;">The gift they piece together.</h2>
+              <p style="font-weight:300; font-size:21px; line-height:1.5; color:rgba(5,5,5,0.7); margin:26px 0 0; max-width:440px; text-wrap:pretty;">Upload a photo and a few words. They solve the jigsaw — and your message is revealed only when the final piece falls into place.</p>
+              <div style="display:flex; gap:16px; margin-top:38px; align-items:center;">
+                <span style="font-size:16px; font-weight:500; color:#FAF8EC; background:#050505; border-radius:100px; padding:16px 30px;">Make a Jigzo</span>
+                <span style="font-size:16px; font-weight:500; color:#050505; border:1.5px solid rgba(5,5,5,0.18); border-radius:100px; padding:15px 28px;">See an example</span>
+              </div>
+            </div>
+            <!-- hero visual: framed photo, being pieced together -->
+            <div style="position:relative; aspect-ratio:4/5; border-radius:22px; overflow:hidden; background:#050505; box-shadow:0 34px 70px -34px rgba(5,5,5,0.5);">
+              <div class="jzPhoto" style="background:linear-gradient(150deg,#EAE2D0 0%, #CDC1A6 55%, #B3A687 100%);">
+                <svg width="46" height="46" viewBox="0 0 24 24" fill="none" style="opacity:0.42;"><rect x="3" y="5" width="18" height="14" rx="2.5" stroke="#050505" stroke-width="1.4"></rect><circle cx="8.5" cy="10" r="1.6" fill="#050505"></circle><path d="M5 17l4.5-4 3 2.5L16 12l3 3.2" stroke="#050505" stroke-width="1.4" fill="none"></path></svg>
+              </div>
+              <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                  <pattern id="seamHero" width="86" height="86" patternUnits="userSpaceOnUse">
+                    <path transform="scale(0.86)" d="M0,0 L38,0 C38,-12 26,-18 50,-18 C74,-18 62,-12 62,0 L100,0 L100,38 C88,38 82,26 82,50 C82,74 88,62 100,62 L100,100 L62,100 C62,88 74,82 50,82 C26,82 38,88 38,100 L0,100 L0,62 C-12,62 -18,74 -18,50 C-18,26 -12,38 0,38 Z" fill="none" stroke="rgba(250,248,236,0.5)" stroke-width="1.6"></path>
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#seamHero)"></rect>
+              </svg>
+              <!-- one missing piece glowing gold, bottom-right -->
+              <div style="position:absolute; right:0; bottom:0; width:25.6%; aspect-ratio:1; background:radial-gradient(circle at 60% 40%, #D6AA5E 0%, #A67C3D 40%, #1C140A 100%);"></div>
+            </div>
+          </div>
+
+          <!-- how it works -->
+          <div style="padding:64px 48px; background:#fff; border-top:1px solid rgba(5,5,5,0.07);">
+            <div style="text-align:center; margin-bottom:52px;">
+              <span style="font-weight:600; font-size:12px; letter-spacing:0.2em; text-transform:uppercase; color:#A67C3D;">How it works</span>
+              <h3 style="font-weight:600; font-size:34px; letter-spacing:-0.02em; margin:14px 0 0;">Three pieces, one moment.</h3>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:40px;">
+              <div style="text-align:center;">
+                <div style="position:relative; width:72px; height:72px; margin:0 auto;">
+                  <svg viewBox="-20 -20 140 140" style="width:100%; height:100%; display:block;"><path d="M0,0 L38,0 C38,-12 26,-18 50,-18 C74,-18 62,-12 62,0 L100,0 L100,38 C88,38 82,26 82,50 C82,74 88,62 100,62 L100,100 L62,100 C62,88 74,82 50,82 C26,82 38,88 38,100 L0,100 L0,62 C-12,62 -18,74 -18,50 C-18,26 -12,38 0,38 Z" fill="#050505"></path></svg>
+                  <span style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#FAF8EC; font-weight:600; font-size:24px;">1</span>
+                </div>
+                <h4 style="font-weight:600; font-size:19px; margin:22px 0 0; letter-spacing:-0.01em;">Add your photo &amp; note</h4>
+                <p style="font-weight:300; font-size:15.5px; line-height:1.55; color:rgba(5,5,5,0.62); margin:10px 0 0;">Pick an image and write something only they should read.</p>
+              </div>
+              <div style="text-align:center;">
+                <div style="position:relative; width:72px; height:72px; margin:0 auto;">
+                  <svg viewBox="-20 -20 140 140" style="width:100%; height:100%; display:block;"><path d="M0,0 L38,0 C38,-12 26,-18 50,-18 C74,-18 62,-12 62,0 L100,0 L100,38 C88,38 82,26 82,50 C82,74 88,62 100,62 L100,100 L62,100 C62,88 74,82 50,82 C26,82 38,88 38,100 L0,100 L0,62 C-12,62 -18,74 -18,50 C-18,26 -12,38 0,38 Z" fill="#050505"></path></svg>
+                  <span style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#FAF8EC; font-weight:600; font-size:24px;">2</span>
+                </div>
+                <h4 style="font-weight:600; font-size:19px; margin:22px 0 0; letter-spacing:-0.01em;">They solve the jigsaw</h4>
+                <p style="font-weight:300; font-size:15.5px; line-height:1.55; color:rgba(5,5,5,0.62); margin:10px 0 0;">A link arrives. Piece by piece, the picture comes together.</p>
+              </div>
+              <div style="text-align:center;">
+                <div style="position:relative; width:72px; height:72px; margin:0 auto;">
+                  <svg viewBox="-20 -20 140 140" style="width:100%; height:100%; display:block;"><path d="M0,0 L38,0 C38,-12 26,-18 50,-18 C74,-18 62,-12 62,0 L100,0 L100,38 C88,38 82,26 82,50 C82,74 88,62 100,62 L100,100 L62,100 C62,88 74,82 50,82 C26,82 38,88 38,100 L0,100 L0,62 C-12,62 -18,74 -18,50 C-18,26 -12,38 0,38 Z" fill="url(#stepGrad)"></path><defs><radialGradient id="stepGrad" cx="50%" cy="42%" r="62%"><stop offset="0%" stop-color="#D6AA5E"></stop><stop offset="45%" stop-color="#A67C3D"></stop><stop offset="100%" stop-color="#1C140A"></stop></radialGradient></defs></svg>
+                  <span style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#FAF8EC; font-weight:600; font-size:24px;">3</span>
+                </div>
+                <h4 style="font-weight:600; font-size:19px; margin:22px 0 0; letter-spacing:-0.01em;">The message is revealed</h4>
+                <p style="font-weight:300; font-size:15.5px; line-height:1.55; color:rgba(5,5,5,0.62); margin:10px 0 0;">The last piece lands and your words appear. That's the moment.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- reveal band -->
+          <div style="position:relative; padding:78px 48px; background:#050505; overflow:hidden;">
+            <div style="position:absolute; right:-80px; top:50%; transform:translateY(-50%); width:520px; height:520px; border-radius:50%; background:radial-gradient(circle, rgba(214,170,94,0.7) 0%, rgba(166,124,61,0.32) 38%, rgba(5,5,5,0) 70%); animation:jzPulseSoft 5s ease-in-out infinite;"></div>
+            <div style="position:relative; max-width:560px;">
+              <span style="font-weight:600; font-size:12px; letter-spacing:0.2em; text-transform:uppercase; color:#E7C485;">The reveal</span>
+              <h3 style="font-weight:700; font-size:42px; line-height:1.04; letter-spacing:-0.02em; color:#FAF8EC; margin:18px 0 0;">Every Jigzo ends in a moment.</h3>
+              <p style="font-weight:300; font-size:18px; line-height:1.5; color:rgba(250,248,236,0.72); margin:20px 0 0; max-width:440px;">The gold only ever appears here — the instant the picture is whole and your words are finally read.</p>
+            </div>
+          </div>
+
+          <!-- footer -->
+          <div style="padding:48px; display:flex; align-items:center; justify-content:space-between; background:#FAF8EC;">
+            <div>
+              <img src="assets/JIGZO-Logo-Black.png" alt="JIGZO" style="height:26px; width:auto; display:block;">
+              <p style="font-weight:300; font-size:15px; color:rgba(5,5,5,0.55); margin:16px 0 0; max-width:320px;">Made for the people you'd choose all over again.</p>
+            </div>
+            <span style="font-weight:400; font-size:15px; color:#A67C3D;">jigzo.biz</span>
+          </div>
+        </div>
+      </div>
+    </figure>
+
+  </div>
+</div>
+</body>
+</html>

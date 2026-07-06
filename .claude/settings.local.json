@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"C:/Users/zahra/OneDrive/Desktop/JIGZO/Project\" 2>/dev/null; echo \"---DOWNLOADS---\"; ls \"C:/Users/zahra/Downloads\" | grep -i -E \"jigzo|\\\\.dc\\\\.html|identity\" )",
+      "Bash(unzip -l \"Jigzo Emotional Gifting Brand System \\(2\\).zip\")",
+      "Bash(unzip -l \"Jigzo Emotional Gifting Brand System-handoff.zip\")",
+      "Bash(unzip -o \"C:/Users/zahra/Downloads/Jigzo Emotional Gifting Brand System-handoff.zip\" -d ./_design_import)",
+      "PowerShell(Start-Process \"C:\\\\Users\\\\zahra\\\\OneDrive\\\\Desktop\\\\JIGZO\\\\Project\\\\index.html\")",
+      "PowerShell(\"Opened index.html in your default browser.\")",
+      "Bash(awk '{print $5, $9}')",
+      "PowerShell(Start-Process \"C:\\\\Users\\\\zahra\\\\OneDrive\\\\Desktop\\\\JIGZO\\\\Project\\\\create.html\")",
+      "PowerShell(\"Opened index.html and create.html\")",
+      "PowerShell(Start-Process powershell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','C:\\\\Users\\\\zahra\\\\OneDrive\\\\Desktop\\\\JIGZO\\\\Project\\\\serve.ps1' -WindowStyle Minimized; Start-Sleep -Seconds 2; \"started\")",
+      "PowerShell(Start-Process 'http://localhost:8123/index.html')",
+      "PowerShell(Start-Process 'http://localhost:8123/create.html')",
+      "PowerShell(\"opened both over http://localhost:8123\")",
+      "mcp__Claude_in_Chrome__list_connected_browsers",
+      "Bash(find . -maxdepth 1 -type f \\\\\\( -iname \"*.dc.html\" -o -iname \"*JIGZO*.html\" -o -iname \"*jigzo*.html\" \\\\\\) -not -path './.git/*')",
+      "Bash(ls -la *.html)",
+      "Bash(awk '{ print length \"\\\\t\" NR }' \"JIGZO Website.html\")",
+      "Bash(awk 'NR>=174 && NR<=178 { print NR\": \"substr\\($0,1,300\\) }' \"JIGZO Website.html\")",
+      "Bash(grep -rn '\\\\$5\\\\|priceLabel\\\\|price\\\\b\\\\|from \\\\$' index.html create.html receive.html)"
+    ]
+  }
+}
