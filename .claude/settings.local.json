@@ -19,7 +19,12 @@
       "Bash(ls -la *.html)",
       "Bash(awk '{ print length \"\\\\t\" NR }' \"JIGZO Website.html\")",
       "Bash(awk 'NR>=174 && NR<=178 { print NR\": \"substr\\($0,1,300\\) }' \"JIGZO Website.html\")",
-      "Bash(grep -rn '\\\\$5\\\\|priceLabel\\\\|price\\\\b\\\\|from \\\\$' index.html create.html receive.html)"
+      "Bash(grep -rn '\\\\$5\\\\|priceLabel\\\\|price\\\\b\\\\|from \\\\$' index.html create.html receive.html)",
+      "Bash(git ls-tree *)",
+      "Bash(git checkout *)",
+      "Bash(git mv *)",
+      "Bash(mkdir -p css js)",
+      "Bash(git status *)"
     ]
   }
 }
