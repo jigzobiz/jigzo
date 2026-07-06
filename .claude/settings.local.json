@@ -24,7 +24,9 @@
       "Bash(git checkout *)",
       "Bash(git mv *)",
       "Bash(mkdir -p css js)",
-      "Bash(git status *)"
+      "Bash(git status *)",
+      "Bash(awk 'NR==177||NR==185{print \"=== LINE \"NR\" \\(len \"length\" \\)===\"; print substr\\($0,1,400\\)}' \"design-exports/The Receivers Journey.html\")",
+      "Bash(awk 'NR==185{print substr\\($0,length-120,120\\)}' \"design-exports/The Receivers Journey.html\")"
     ]
   }
 }
