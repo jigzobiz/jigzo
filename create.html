@@ -431,6 +431,8 @@ function JigzoSenderFlow() {
   const [revealStage, setRevealStage] = useState(false);
 
   const dragRef = useRef(null);
+  const pointersRef = useRef(new Map()); // active pointers on the crop frame: id -> {x,y} client coords
+  const pinchRef = useRef(null);         // two-finger gesture anchor (start dist/zoom/pan/midpoint/center)
   const fileInputRef = useRef(null);
   const cropFrameRef = useRef(null);
   const imgElRef = useRef(null);
@@ -482,14 +484,71 @@ function JigzoSenderFlow() {
     const ox = Math.max(0, (dW - Wf) / 2), oy = Math.max(0, (dH - Hf) / 2);
     return { x: Math.max(-ox, Math.min(ox, px)), y: Math.max(-oy, Math.min(oy, py)) };
   };
-  const onPointerDown = (e) => { dragRef.current = { startX: e.clientX, startY: e.clientY, origPan: { ...pan } }; };
+  const onPointerDown = (e) => {
+    const f = cropFrameRef.current;
+    // capture touch pointers so a pinch keeps tracking even off the frame edge;
+    // leave mouse uncaptured so desktop drag/leave behaves exactly as before
+    if (f && e.pointerType === "touch" && f.setPointerCapture) { try { f.setPointerCapture(e.pointerId); } catch (_) {} }
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const size = pointersRef.current.size;
+    if (size === 2) {
+      // begin pinch: anchor distance / zoom / pan / midpoint at gesture start
+      const pts = [...pointersRef.current.values()];
+      const a = pts[0], b = pts[1];
+      const r = f.getBoundingClientRect();
+      pinchRef.current = {
+        startDist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+        startZoom: zoom,
+        startPan: { ...pan },
+        startMid: { x: (a.x + b.x) / 2 - r.left, y: (a.y + b.y) / 2 - r.top },
+        C: { x: r.width / 2, y: r.height / 2 },
+      };
+      dragRef.current = null; // a pinch supersedes any in-progress one-finger drag
+    } else if (size === 1) {
+      dragRef.current = { startX: e.clientX, startY: e.clientY, origPan: { ...pan } };
+    }
+  };
   const onPointerMove = (e) => {
+    if (!pointersRef.current.has(e.pointerId)) return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointersRef.current.size >= 2 && pinchRef.current) {
+      const pts = [...pointersRef.current.values()];
+      const a = pts[0], b = pts[1];
+      const f = cropFrameRef.current, r = f.getBoundingClientRect();
+      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      const curMid = { x: (a.x + b.x) / 2 - r.left, y: (a.y + b.y) / 2 - r.top };
+      const g = pinchRef.current;
+      // uniform scale from the distance ratio, clamped to the slider's range
+      const z1 = Math.max(1, Math.min(3, g.startZoom * (dist / g.startDist)));
+      const ratio = z1 / g.startZoom;
+      // keep the content under the finger-midpoint fixed (zoom centered between fingers),
+      // and let the midpoint moving also pan; transformOrigin is the frame centre C
+      const px = (curMid.x - g.C.x) - ratio * (g.startMid.x - g.C.x - g.startPan.x);
+      const py = (curMid.y - g.C.y) - ratio * (g.startMid.y - g.C.y - g.startPan.y);
+      setZoom(z1);
+      setPan(clampPan(px, py, z1));
+      return;
+    }
     if (!dragRef.current) return;
     const dx = e.clientX - dragRef.current.startX;
     const dy = e.clientY - dragRef.current.startY;
     setPan(clampPan(dragRef.current.origPan.x + dx, dragRef.current.origPan.y + dy, zoom));
   };
-  const onPointerUp = () => { dragRef.current = null; };
+  const onPointerUp = (e) => {
+    const f = cropFrameRef.current;
+    if (e && e.pointerId != null) {
+      if (f && f.releasePointerCapture) { try { f.releasePointerCapture(e.pointerId); } catch (_) {} }
+      pointersRef.current.delete(e.pointerId);
+    } else { pointersRef.current.clear(); }
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+    if (pointersRef.current.size === 1) {
+      // one finger left after a pinch: resume panning from where it now is
+      const only = [...pointersRef.current.values()][0];
+      dragRef.current = { startX: only.x, startY: only.y, origPan: { ...pan } };
+    } else if (pointersRef.current.size === 0) {
+      dragRef.current = null;
+    }
+  };
   const captureCrop = useCallback(() => {
     const imgEl = imgElRef.current;
     const frame = cropFrameRef.current;
@@ -619,7 +678,7 @@ function JigzoSenderFlow() {
                 style={{ position: "relative", width: "100%", maxWidth: 300, aspectRatio: "9 / 16", borderRadius: 20,
                   overflow: "hidden", background: T.ink, cursor: "grab", touchAction: "none",
                   boxShadow: "0 0 0 2px " + T.bg + ", 0 0 0 3px " + T.ink08 }}
-                onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}>
+                onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onPointerLeave={onPointerUp}>
                 {/* blurred fill so empty space never requires stretching the photo */}
                 <img src={imgSrc} alt="" aria-hidden="true" draggable={false}
                   style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",

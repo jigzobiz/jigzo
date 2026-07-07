@@ -341,9 +341,27 @@ function Receiver({ data }) {
   // than the live page. Here every value (font weight, cream colour, per-line
   // opacity, the 0/2/20 rgba(5,5,5,.6) shadow) is set literally from the live
   // CSS, so the download matches what's on screen.
+  // Mobile browsers that support sharing files get the native share sheet
+  // (save to photos / share directly); everyone else keeps the download.
+  const canShareFiles = useMemo(() => {
+    try {
+      const f = new File([new Uint8Array([137, 80, 78, 71])], "jigzo-reveal.png", { type: "image/png" });
+      return !!(navigator.canShare && navigator.canShare({ files: [f] }));
+    } catch (e) { return false; }
+  }, []);
+
   const download = () => {
     if (!cardRef.current) return;
-    const S = 2, W = BW, H = BH, CW = W * S, CH = H * S;   // 2x for crisp text
+    // Export at the viewer's device resolution (never below 1080x1920) instead
+    // of a fixed 576x1024, so the saved PNG is crisp on any phone. The whole
+    // card is rebuilt at this size: S scales the text/divider/geometry up and
+    // every glyph is drawn at full size (not upscaled from a small canvas).
+    const W = BW, H = BH;
+    const dpr = window.devicePixelRatio || 1;
+    const scr = window.screen || {};
+    const CW = Math.max(1080, Math.round((scr.width || W) * dpr));
+    const CH = Math.max(1920, Math.round((scr.height || H) * dpr));
+    const S = Math.min(CW / W, CH / H);   // proportional scale (uniform, no stretch)
     const CREAM = "rgb(250,248,236)";
 
     const paint = (img) => {
@@ -418,6 +436,14 @@ function Receiver({ data }) {
       });
 
       canvas.toBlob((blob) => {
+        if (!blob) return;
+        const file = new File([blob], "jigzo-reveal.png", { type: "image/png" });
+        // mobile: hand the same PNG to the native share sheet
+        if (canShareFiles && navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: "Your JIGZO reveal" }).catch(() => {});
+          return;
+        }
+        // desktop: download exactly as before
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
         a.download = "jigzo-reveal.png";
@@ -546,7 +572,7 @@ function Receiver({ data }) {
             <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
               <button onClick={download} style={{ background:"#050505", color:"#FAF8EC", border:"none", borderRadius:999,
                 padding:"12px 24px", fontSize:14, fontWeight:600, fontFamily:"Archia,sans-serif", cursor:"pointer" }}>
-                Download
+                {canShareFiles ? "Save or share" : "Download"}
               </button>
               <button onClick={replay} style={{ background:"transparent", color:"#050505", border:"1px solid rgba(5,5,5,0.2)",
                 borderRadius:999, padding:"12px 22px", fontSize:14, fontWeight:500, fontFamily:"Archia,sans-serif", cursor:"pointer" }}>

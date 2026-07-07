@@ -204,74 +204,62 @@ a { color:inherit; text-decoration:none; }
    namespace: .hero-mock-*  ·  keyframes: hmk-*
    Shares no selectors, keyframes, or JS with the reveal card.
    ========================================================= */
-.hero-mock-card {
-  width:100%; padding:18px; border-radius:22px;
-  background:var(--card); border:1px solid var(--ink-08); cursor:pointer;
+/* Interactive hero demo: a phone frame (from The Receivers Journey) whose
+   screen toggles between State A (a nearly-solved jigsaw of demo-photo, one
+   piece floating) and State B (the demo-reveal.png card, shown as-is). */
+.hero-mock-card { width:100%; max-width:300px; margin:0 auto; }
+.hero-mock-frame {
+  position:relative; width:100%; border-radius:54px; background:#050505; padding:11px;
+  box-shadow:0 44px 90px -26px rgba(28,25,19,0.5), 0 10px 26px rgba(28,25,19,0.14);
 }
-.hero-mock-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-.hero-mock-label { font-weight:600; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-50); }
-.hero-mock-status { font-weight:600; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-50); }
-.hero-mock-board {
-  position:relative; width:100%; aspect-ratio:4/3; border-radius:14px; overflow:hidden;
-  background:#2a2320 center/cover no-repeat;
+.hero-mock-screen {
+  position:relative; width:100%; aspect-ratio:9/16; border-radius:44px; overflow:hidden;
+  background:var(--card); cursor:pointer; touch-action:manipulation;
+  -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent;
 }
-.hero-mock-tone { position:absolute; inset:0; background:radial-gradient(120% 120% at 30% 20%, rgba(255,247,228,0.12), rgba(60,45,25,0.22)); }
-.hero-mock-cuts { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
-.hero-mock-slot { position:absolute; right:0; bottom:0; width:25%; height:33.333%; transition:opacity .5s ease; }
-.hero-mock-float {
-  position:absolute; right:14px; bottom:16px; width:25%; height:33.333%;
-  filter:drop-shadow(0 10px 20px rgba(5,5,5,0.5)); transition:opacity .4s ease;
-  animation:hmk-float 3s ease-in-out infinite;
+.hero-mock-pill {
+  position:absolute; top:13px; left:50%; transform:translateX(-50%);
+  width:92px; height:27px; background:#050505; border-radius:100px; z-index:40; pointer-events:none;
 }
-.hero-mock-loader {
-  position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:24px; background:radial-gradient(120% 95% at 50% 42%, #14110B, #050505 80%);
-  transition:opacity .6s ease; opacity:0; pointer-events:none;
+/* the two states are stacked layers — cross-faded, never re-laid-out */
+.hero-mock-a, .hero-mock-b { position:absolute; inset:0; }
+.hero-mock-a { z-index:1; opacity:1; transition:opacity .5s ease; }
+.hero-mock-b { z-index:20; opacity:0; pointer-events:none; transition:opacity .5s ease; }
+.hero-mock-screen.is-b .hero-mock-a { opacity:0; pointer-events:none; }
+.hero-mock-screen.is-b .hero-mock-b { opacity:1; pointer-events:auto; }
+/* State A: assembled photo + jigsaw seams + one empty slot + floating piece */
+.hero-mock-photo { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+.hero-mock-seams { position:absolute; inset:0; width:100%; height:100%; z-index:2; pointer-events:none;
+  transition:opacity .4s ease .5s; }
+.hero-mock-screen.is-solving .hero-mock-seams, .hero-mock-screen.is-b .hero-mock-seams { opacity:0; }
+.hero-mock-piece {
+  position:absolute; z-index:3; will-change:transform;
+  transform:translate3d(-28%,-125%,0);
+  transition:transform .6s cubic-bezier(.34,1.26,.42,1);
+  filter:drop-shadow(0 8px 14px rgba(5,5,5,0.45));
 }
-.hero-mock-ring { position:relative; width:132px; height:132px; }
-.hero-mock-glow { position:absolute; left:50%; top:50%; width:132px; height:132px; margin:-66px 0 0 -66px; border-radius:50%;
-  background:radial-gradient(circle, rgba(208,160,54,0.4), rgba(208,160,54,0) 60%); animation:hmk-glow 3s ease-in-out infinite; }
-.hero-mock-breath { position:absolute; inset:0; animation:hmk-breath 3.4s ease-in-out infinite; }
-.hero-mock-orbit { position:absolute; inset:0; animation:hmk-orbit 6.5s linear infinite; transform-origin:center; }
-.hero-mock-arm { position:absolute; left:50%; top:50%; }
-.hero-mock-arm-0 { width:52px; height:52px; margin:-26px 0 0 -26px; transform:rotate(0deg) translateY(-24px); }
-.hero-mock-arm-1, .hero-mock-arm-2 { width:48px; height:48px; margin:-24px 0 0 -24px; }
-.hero-mock-arm-1 { transform:rotate(120deg) translateY(-24px); }
-.hero-mock-arm-2 { transform:rotate(240deg) translateY(-24px); }
-.hero-mock-badge { width:100%; height:100%; animation:hmk-counter 6.5s linear infinite; transform-origin:center; }
-.hero-mock-arm-0 .hero-mock-badge { filter:drop-shadow(0 6px 13px rgba(124,76,34,0.5)); }
-.hero-mock-arm-1 .hero-mock-badge { filter:drop-shadow(0 6px 12px rgba(0,0,0,0.5)); }
-.hero-mock-arm-2 .hero-mock-badge { filter:drop-shadow(0 6px 12px rgba(0,0,0,0.6)); }
-.hero-mock-badge svg { display:block; width:100%; height:100%; }
-.hero-mock-loaderlabel {
-  font-family:var(--mono); font-weight:500; font-size:10.5px; letter-spacing:0.34em;
-  text-transform:uppercase; color:rgba(214,206,190,0.55); animation:hmk-label 3s ease-in-out infinite; padding-left:0.34em;
-}
-.hero-mock-reveal {
-  position:absolute; inset:0; background:#050505 center/cover no-repeat;
-  transition:opacity .7s ease .35s; opacity:0; pointer-events:none;
-}
-.hero-mock-scrim { position:absolute; inset:0; background:radial-gradient(120% 100% at 50% 42%, rgba(23,19,13,0.66), rgba(5,5,5,0.93) 76%); }
-.hero-mock-reveal-in {
-  position:relative; width:100%; height:100%; display:flex; flex-direction:column;
-  align-items:center; justify-content:center; text-align:center; padding:7% 11%;
-}
-.hero-mock-revealbadge { width:62px; height:62px; margin-bottom:20px; filter:drop-shadow(0 8px 18px rgba(124,76,34,0.5));
-  transition:transform .85s cubic-bezier(.2,.8,.2,1) .4s; transform:scale(.82); }
-.hero-mock-reveal.is-on .hero-mock-revealbadge { transform:scale(1); }
-.hero-mock-revealbadge svg { display:block; width:100%; height:100%; }
-.hero-mock-kicker { font-family:var(--mono); font-weight:500; font-size:11px; letter-spacing:0.32em; text-transform:uppercase; color:var(--gold-bright); margin-bottom:16px; padding-left:0.32em; }
-.hero-mock-msg { font-family:var(--serif); font-style:italic; font-weight:400; font-size:clamp(19px,2.7vw,27px); line-height:1.32; color:#F3ECDD; max-width:22ch; }
-.hero-mock-rule { width:46px; height:2px; margin-top:20px; background:linear-gradient(90deg, rgba(208,160,54,0), var(--gold-bright), rgba(208,160,54,0)); }
-.hero-mock-from { font-family:var(--mono); font-weight:500; font-size:10.5px; letter-spacing:0.28em; text-transform:uppercase; color:rgba(214,206,190,0.55); margin-top:16px; padding-left:0.28em; }
-@keyframes hmk-float { 0%,100% { transform:translateY(0) rotate(-3deg); } 50% { transform:translateY(-8px) rotate(-3deg); } }
-@keyframes hmk-orbit { to { transform:rotate(360deg); } }
-@keyframes hmk-counter { to { transform:rotate(-360deg); } }
-@keyframes hmk-breath { 0%,100% { transform:scale(.97); } 50% { transform:scale(1.03); } }
-@keyframes hmk-glow { 0%,100% { opacity:0.22; } 50% { opacity:0.4; } }
-@keyframes hmk-label { 0%,100% { opacity:0.45; } 50% { opacity:0.92; } }
+.hero-mock-screen.is-solving .hero-mock-piece, .hero-mock-screen.is-b .hero-mock-piece { transform:translate3d(0,0,0); }
+.hero-mock-piece-bob { width:100%; height:100%; animation:hmk-bob 3.2s ease-in-out infinite; }
+.hero-mock-screen.is-solving .hero-mock-piece-bob, .hero-mock-screen.is-b .hero-mock-piece-bob { animation:none; }
+.hero-mock-piece-svg { display:block; width:100%; height:100%; overflow:visible; }
+/* "Tap Me" label + hand-drawn curved arrow pointing to the floating piece */
+.hero-mock-tap { position:absolute; left:15%; top:11%; width:44%; height:30%; z-index:4; pointer-events:none;
+  transition:opacity .35s ease; }
+.hero-mock-screen.is-solving .hero-mock-tap, .hero-mock-screen.is-b .hero-mock-tap { opacity:0; }
+.hero-mock-tap-label { position:absolute; left:2%; top:0; font-family:var(--serif); font-style:italic;
+  font-weight:500; font-size:clamp(16px,5vw,21px); color:var(--gold-warm); letter-spacing:.01em;
+  text-shadow:0 1px 5px rgba(5,5,5,0.55); }
+.hero-mock-arrow { position:absolute; left:6%; top:28%; width:86%; height:auto;
+  filter:drop-shadow(0 1px 3px rgba(5,5,5,0.4)); }
+/* State B: the reveal card image, as-is, plus a quiet replay hint */
+.hero-mock-reveal-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+.hero-mock-replay { position:absolute; left:0; right:0; bottom:5.5%; text-align:center;
+  font-family:var(--mono); font-weight:500; font-size:10px; letter-spacing:0.16em; text-transform:uppercase;
+  color:rgba(250,248,236,0.82); text-shadow:0 1px 4px rgba(5,5,5,0.7); }
+@keyframes hmk-bob { 0%,100% { transform:translate3d(0,0,0); } 50% { transform:translate3d(0,-8%,0); } }
 @media (prefers-reduced-motion: reduce) {
-  .hero-mock-float, .hero-mock-glow, .hero-mock-breath, .hero-mock-orbit, .hero-mock-badge, .hero-mock-loaderlabel { animation:none; }
+  .hero-mock-a, .hero-mock-b, .hero-mock-seams, .hero-mock-piece, .hero-mock-tap { transition:none !important; }
+  .hero-mock-piece-bob { animation:none !important; }
 }
 
 /* =========================================================
