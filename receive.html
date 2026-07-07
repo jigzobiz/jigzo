@@ -239,6 +239,10 @@ function Receiver({ data }) {
 
   const [positions, setPositions] = useState(scatter);
   const [placed, setPlaced] = useState(() => homes.map(() => false));
+  // Group id per piece. Pieces in the same group share ONE translation offset
+  // from the solution (position - home is identical across the group), so a
+  // group is a rigid, solution-consistent block. Everyone starts in their own.
+  const [gid, setGid] = useState(() => homes.map((_, i) => i));
   const [showReveal, setShowReveal] = useState(false);
   const [scale, setScale] = useState(1);
   const wrapRef = useRef(null), stageRef = useRef(null), cardRef = useRef(null);
@@ -255,41 +259,72 @@ function Receiver({ data }) {
     return () => ro.disconnect();
   }, [stageW]);
 
-  // Unified Pointer Events drag. Live movement is written straight to the
-  // node's transform inside a rAF loop (no React re-render per move); React
-  // state is only committed once, on drop, so the counter stays in sync.
+  // true solution neighbours of piece i (the pieces sharing an edge with it)
+  const gridNeighbors = (i) => {
+    const h = homes[i], res = [];
+    if (h.c > 0) res.push(i - 1);
+    if (h.c < cols - 1) res.push(i + 1);
+    if (h.r > 0) res.push(i - cols);
+    if (h.r < rows - 1) res.push(i + cols);
+    return res;
+  };
+
+  // Unified Pointer Events drag with real-jigsaw clustering. Grabbing any piece
+  // drags its whole group as one unit. Live movement is written straight to the
+  // members' transforms in a rAF loop (no re-render per move); state is committed
+  // once, on drop. On drop we resolve, in order: (1) board snap — if the group's
+  // offset is within SNAP of the solution, snap the whole group home and every
+  // member counts as placed; (2) cluster — merge with any neighbour group whose
+  // offset matches within SNAP (anywhere on the board); (3) float — leave it put.
+  // A single piece is a group of one, so its float/snap behaviour is unchanged.
   const onDown = (i, e) => {
     if (placed[i] || showReveal) return;
     e.preventDefault();
-    const node = pieceRefs.current[i];
-    if (!node) return;
+    const myGid = gid[i];
+    const members = [];
+    for (let k = 0; k < gid.length; k++) if (gid[k] === myGid) members.push(k);
+    if (!pieceRefs.current[i]) return;
 
     // cache the stage rect once so each frame is a pure math step, no reflow
     const rect0 = stageRef.current.getBoundingClientRect();
     const sc = rect0.width / stageW || 1;
     const toLoc = (cx, cy) => ({ x: (cx - rect0.left) / sc, y: (cy - rect0.top) / sc });
 
+    // snapshot member origins + the group's bounding box (to clamp as one unit)
+    const orig = {};
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    members.forEach((m) => {
+      orig[m] = { x: positions[m].x, y: positions[m].y };
+      minX = Math.min(minX, orig[m].x); maxX = Math.max(maxX, orig[m].x);
+      minY = Math.min(minY, orig[m].y); maxY = Math.max(maxY, orig[m].y);
+    });
+    const dxMin = bound - minX, dxMax = (stageW - pieceW - bound) - maxX;
+    const dyMin = bound - minY, dyMax = (stageH - pieceH - bound) - maxY;
+    const clampDelta = (dx, dy) => ({ x: clamp(dx, dxMin, dxMax), y: clamp(dy, dyMin, dyMax) });
+
     const start = toLoc(e.clientX, e.clientY);
-    const offx = start.x - positions[i].x, offy = start.y - positions[i].y;
+    const grabx = start.x - orig[i].x, graby = start.y - orig[i].y;
     let pointer = { x: e.clientX, y: e.clientY };
-    let cur = { x: positions[i].x, y: positions[i].y };
     let raf = 0;
 
-    // tactile pickup: lift off the board with a slight scale + elevated shadow
-    node.style.transition = "none";
-    node.style.willChange = "transform";
-    node.style.zIndex = "50";
-    node.style.cursor = "grabbing";
-    node.style.filter = PICKUP_SHADOW;
-    // straighten (drop the scatter rotation) + lift immediately, so grabbing a
-    // rotated piece doesn't visibly pop on the first animation frame
-    node.style.transform = `translate3d(${cur.x - tabPad}px, ${cur.y - tabPad}px, 0) scale(1.05)`;
+    const drawAt = (dx, dy) => {
+      members.forEach((m) => {
+        const n = pieceRefs.current[m]; if (!n) return;
+        n.style.transform = `translate3d(${orig[m].x + dx - tabPad}px, ${orig[m].y + dy - tabPad}px, 0) scale(1.05)`;
+      });
+    };
+    // tactile pickup: lift the whole group off the board (also straightens rot)
+    members.forEach((m) => {
+      const n = pieceRefs.current[m]; if (!n) return;
+      n.style.transition = "none"; n.style.willChange = "transform"; n.style.zIndex = "50";
+      n.style.cursor = "grabbing"; n.style.filter = PICKUP_SHADOW;
+    });
+    drawAt(0, 0);
 
     const frame = () => {
       const q = toLoc(pointer.x, pointer.y);
-      cur.x = clamp(q.x - offx, bound, stageW - pieceW - bound);
-      cur.y = clamp(q.y - offy, bound, stageH - pieceH - bound);
-      node.style.transform = `translate3d(${cur.x - tabPad}px, ${cur.y - tabPad}px, 0) scale(1.05)`;
+      const d = clampDelta((q.x - grabx) - orig[i].x, (q.y - graby) - orig[i].y);
+      drawAt(d.x, d.y);
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -300,40 +335,86 @@ function Receiver({ data }) {
       window.removeEventListener("pointerup", up);
       cancelAnimationFrame(raf);
 
-      // resting point from the actual release position (not the last rAF tick)
-      const rel = toLoc(pointer.x, pointer.y);
-      cur.x = clamp(rel.x - offx, bound, stageW - pieceW - bound);
-      cur.y = clamp(rel.y - offy, bound, stageH - pieceH - bound);
+      const q = toLoc(pointer.x, pointer.y);
+      const d = clampDelta((q.x - grabx) - orig[i].x, (q.y - graby) - orig[i].y);
+      // the group's offset from the solution after this drop (same for all members)
+      const G = { x: (orig[i].x + d.x) - homes[i].hx, y: (orig[i].y + d.y) - homes[i].hy };
 
-      const h = homes[i];
-      const snapped = Math.hypot(cur.x - h.hx, cur.y - h.hy) <= SNAP;
-      // rot:0 — a piece straightens once handled (it's already unrotated mid-drag)
-      const fin = snapped ? { x: h.hx, y: h.hy, rot: 0 } : { x: cur.x, y: cur.y, rot: 0 };
-
-      // soft, bounce-free settle; scale + shadow ease back to rest
-      node.style.cursor = "grab";
-      node.style.zIndex = snapped ? "10" : "20";   // drop the pickup lift (React won't re-apply an unchanged value)
-      node.style.transition = SETTLE;
-      void node.offsetWidth;                 // commit the drag transform as the start frame
-      node.style.transform = `translate3d(${fin.x - tabPad}px, ${fin.y - tabPad}px, 0) scale(1)`;
-      node.style.filter = REST_SHADOW;
-      window.setTimeout(() => { const n = pieceRefs.current[i]; if (n) n.style.willChange = "auto"; }, 320);
-
-      setPositions((prev) => { const n = prev.slice(); n[i] = fin; return n; });
-      if (snapped) {
-        setPlaced((pl) => {
-          if (pl[i]) return pl;
-          const np = pl.slice(); np[i] = true;
-          if (np.every(Boolean)) setTimeout(() => setShowReveal(true), 480);
-          return np;
+      // soft, bounce-free settle of a set of pieces to per-piece targets
+      const settle = (list, target, asPlaced) => {
+        list.forEach((m) => {
+          const n = pieceRefs.current[m]; if (!n) return;
+          const t = target(m);
+          n.style.cursor = asPlaced ? "default" : "grab";
+          n.style.zIndex = asPlaced ? "10" : "20";
+          n.style.transition = SETTLE;
+          void n.offsetWidth;
+          n.style.transform = `translate3d(${t.x - tabPad}px, ${t.y - tabPad}px, 0) scale(1)`;
+          n.style.filter = REST_SHADOW;
+          window.setTimeout(() => { const nn = pieceRefs.current[m]; if (nn) nn.style.willChange = "auto"; }, 320);
         });
+      };
+      const placeGroup = (list) => {
+        const np = positions.slice();
+        list.forEach((m) => { np[m] = { x: homes[m].hx, y: homes[m].hy, rot: 0 }; });
+        settle(list, (m) => ({ x: homes[m].hx, y: homes[m].hy }), true);
+        setPositions(np);
+        setPlaced((pl) => {
+          const q2 = pl.slice(); list.forEach((m) => { q2[m] = true; });
+          if (q2.every(Boolean)) setTimeout(() => setShowReveal(true), 480);
+          return q2;
+        });
+      };
+
+      // (1) board snap — the whole group is within tolerance of its home
+      if (Math.hypot(G.x, G.y) <= SNAP) { placeGroup(members); return; }
+
+      // (2) clustering — a neighbour group whose offset matches within SNAP
+      const draggedSet = new Set(members);
+      const offsetOf = (label) => {
+        for (let k = 0; k < gid.length; k++) if (gid[k] === label) return { x: positions[k].x - homes[k].hx, y: positions[k].y - homes[k].hy };
+        return null;
+      };
+      const cand = new Map();   // label -> that group's offset
+      members.forEach((m) => {
+        gridNeighbors(m).forEach((n) => {
+          if (draggedSet.has(n) || placed[n]) return;
+          const off = offsetOf(gid[n]);
+          if (off && Math.hypot(off.x - G.x, off.y - G.y) <= SNAP) cand.set(gid[n], off);
+        });
+      });
+
+      if (cand.size) {
+        // align the dragged group onto the closest matching neighbour group
+        let Ht = null, bestD = Infinity;
+        cand.forEach((off) => { const dd = Math.hypot(off.x - G.x, off.y - G.y); if (dd < bestD) { bestD = dd; Ht = off; } });
+        const mergeLabels = new Set([myGid]);
+        cand.forEach((off, lab) => { if (Math.hypot(off.x - Ht.x, off.y - Ht.y) <= SNAP) mergeLabels.add(lab); });
+        const newGid = gid.slice();
+        const merged = [];
+        for (let k = 0; k < newGid.length; k++) if (mergeLabels.has(gid[k])) { newGid[k] = myGid; merged.push(k); }
+
+        // if the merged block now sits within board tolerance, place it all
+        if (Math.hypot(Ht.x, Ht.y) <= SNAP) { setGid(newGid); placeGroup(merged); return; }
+        const np = positions.slice();
+        merged.forEach((m) => { np[m] = { x: homes[m].hx + Ht.x, y: homes[m].hy + Ht.y, rot: 0 }; });
+        settle(merged, (m) => ({ x: homes[m].hx + Ht.x, y: homes[m].hy + Ht.y }), false);
+        setPositions(np);
+        setGid(newGid);
+        return;
       }
+
+      // (3) float — no snap, no cluster; the group stays where it was left
+      const np = positions.slice();
+      members.forEach((m) => { np[m] = { x: orig[m].x + d.x, y: orig[m].y + d.y, rot: 0 }; });
+      settle(members, (m) => ({ x: orig[m].x + d.x, y: orig[m].y + d.y }), false);
+      setPositions(np);
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
   };
 
-  const replay = () => { setShowReveal(false); setPlaced(homes.map(() => false)); setPositions(scatter()); };
+  const replay = () => { setShowReveal(false); setPlaced(homes.map(() => false)); setGid(homes.map((_, i) => i)); setPositions(scatter()); };
 
   // Export the reveal card as a PNG by drawing it directly on a canvas.
   // We do NOT use html2canvas: it rasterises text with grayscale AA and
@@ -475,8 +556,16 @@ function Receiver({ data }) {
   const placedCount = placed.filter(Boolean).length;
   const teaserFrom = data.revealIdentity ? (data.fromName || "someone") : "a secret admirer";
 
-  // expose a few constants for automated testing
-  useEffect(() => { window.__JZ = { stageW, stageH, PAD, pieceW, pieceH, cols, rows, total: homes.length }; });
+  // expose state + geometry for automated testing
+  useEffect(() => {
+    window.__JZ = {
+      stageW, stageH, PAD, pieceW, pieceH, cols, rows, total: homes.length, SNAP, scale,
+      homes: homes.map((h) => ({ r: h.r, c: h.c, hx: h.hx, hy: h.hy })),
+      positions: positions.map((p) => ({ x: p.x, y: p.y })),
+      gid: gid.slice(), placed: placed.slice(),
+      stageRect: () => stageRef.current && stageRef.current.getBoundingClientRect(),
+    };
+  });
 
   return (
     <div style={{ fontFamily:"Archia,sans-serif", color:"#1C1913",
@@ -493,7 +582,7 @@ function Receiver({ data }) {
         {/* interactive stage (scaled to fit width) */}
         <div ref={wrapRef} style={{ width:"100%", maxWidth:stageW, margin:"0 auto", height:stageH * scale, position:"relative" }}>
           <div ref={stageRef} style={{ width:stageW, height:stageH, transform:`scale(${scale})`, transformOrigin:"0 0",
-            position:"absolute", top:0, left:0, background:"#FAF8EC", borderRadius:16, touchAction:"none" }}>
+            position:"absolute", top:0, left:0, background:"#FAF8EC", borderRadius:16 }}>
 
             {/* board frame — plain cream only; the photo stays fully hidden until solved */}
             <div style={{ position:"absolute", left:PAD, top:PAD, width:BW, height:BH, borderRadius:14,

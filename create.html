@@ -437,6 +437,9 @@ function JigzoSenderFlow() {
   const cropFrameRef = useRef(null);
   const imgElRef = useRef(null);
 
+  // Moving to any step starts the new step at the top of the page.
+  useEffect(() => { window.scrollTo(0, 0); }, [step]);
+
   const dims = useMemo(() => PIECE_OPTIONS.find((p) => p.count === pieceCount) || { cols: 3, rows: 6 }, [pieceCount]);
   const cols = dims.cols, rows = dims.rows;
   const edgeMap = useMemo(() => buildEdgeMap(cols, rows, 1337), [cols, rows]);

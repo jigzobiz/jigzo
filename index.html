@@ -56,11 +56,10 @@
     <section class="reveal-band" id="demo">
       <div class="wrap reveal-band__grid">
         <div class="min0">
-          <div class="eyebrow">The reveal</div>
-          <h2>The message stays hidden until the <span class="accent">last piece</span> falls.</h2>
-          <p>No spoilers. No preview. They earn every word by finishing the picture you chose, and only then does it turn to gold.</p>
-          <button class="btn btn-gold" data-solvebtn>Place the final piece</button>
-          <div class="reveal-band__hint">Try it. Place the final piece.</div>
+          <div class="eyebrow">See it in action</div>
+          <h2>How it works</h2>
+          <p>Upload a photo, write your words, and send. They solve the puzzle, and your message appears.</p>
+          <a class="btn reveal-band__cta" href="create.html">Create their reveal</a>
         </div>
         <div class="min0"><div data-reveal-mock></div></div>
       </div>
@@ -268,79 +267,134 @@
          ============================================================ */
       function initRevealMock() {
         var mount = document.querySelector('[data-reveal-mock]');
-        if (!mount) return;
+        if (!mount || typeof piecePath !== 'function') return;
         var PHOTO = 'assets/demo-photo.png';
-        var PIECE = 'M0 0 L36 0 A14 14 0 0 1 64 0 L100 0 L100 100 L0 100 L0 64 A14 14 0 0 1 0 36 Z';
-        var MESSAGE = 'You were worth solving 63 pieces for. ❤️';
-        function edgePath(x0, y0, x1, y1, s) {
-          var L = Math.hypot(x1 - x0, y1 - y0), ux = (x1 - x0) / L, uy = (y1 - y0) / L, r = L * 0.14;
-          var a0 = L / 2 - r, a1 = L / 2 + r, sweep = s > 0 ? 1 : 0;
-          return 'M ' + x0 + ' ' + y0 + ' L ' + (x0 + ux * a0) + ' ' + (y0 + uy * a0) +
-                 ' A ' + r + ' ' + r + ' 0 0 ' + sweep + ' ' + (x0 + ux * a1) + ' ' + (y0 + uy * a1) + ' L ' + x1 + ' ' + y1;
-        }
-        function cutLines() {
-          var e = [];
-          for (var c = 1; c < 4; c++) for (var r = 0; r < 3; r++) { var s = ((c + r) % 2) ? 1 : -1; e.push(edgePath(c * 100, r * 100, c * 100, (r + 1) * 100, s)); }
-          for (var r2 = 1; r2 < 3; r2++) for (var c2 = 0; c2 < 4; c2++) { var s2 = ((c2 + r2) % 2) ? 1 : -1; e.push(edgePath(c2 * 100, r2 * 100, (c2 + 1) * 100, r2 * 100, s2)); }
-          return e;
-        }
-        function glyph(fill) { return '<g fill="' + fill + '"><rect x="-24" y="-24" width="48" height="48" rx="11"></rect><circle cy="-30" r="12"></circle><circle cy="30" r="12"></circle><circle cx="-30" r="12"></circle><circle cx="30" r="12"></circle></g>'; }
+        var REVEAL = 'assets/demo-reveal.png';
+        // canonical copy, matching demo-reveal.png
+        var MESSAGE = "Twelve years since this picture, and you're still one of the best parts of my life. Happy Birthday, my forever friend";
+        var WA = "Hi Sofia, Zara left something special for you. There's a message waiting behind a little challenge. Solve the puzzle to uncover it. 🧩 Open your JIGZO";
+
+        // three-badge loader (scene 5), reused from the original reveal card
+        function glyph(f) { return '<g fill="' + f + '"><rect x="-24" y="-24" width="48" height="48" rx="11"></rect><circle cy="-30" r="12"></circle><circle cy="30" r="12"></circle><circle cx="-30" r="12"></circle><circle cx="30" r="12"></circle></g>'; }
         function goldBadge(u) { return '<svg viewBox="-70 -70 140 140"><defs><linearGradient id="tg' + u + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F6DC93"></stop><stop offset="0.42" stop-color="#D0A036"></stop><stop offset="1" stop-color="#7C4C22"></stop></linearGradient><radialGradient id="sh' + u + '" cx="0.34" cy="0.28" r="0.75"><stop offset="0" stop-color="rgba(255,255,255,0.42)"></stop><stop offset="0.6" stop-color="rgba(255,255,255,0)"></stop></radialGradient></defs><circle r="70" fill="url(#tg' + u + ')"></circle><circle r="70" fill="url(#sh' + u + ')"></circle>' + glyph('#050505') + '</svg>'; }
         function creamBadge(u) { return '<svg viewBox="-70 -70 140 140"><defs><radialGradient id="shc' + u + '" cx="0.5" cy="0.42" r="0.62"><stop offset="0.5" stop-color="rgba(0,0,0,0)"></stop><stop offset="1" stop-color="rgba(60,45,20,0.18)"></stop></radialGradient></defs><circle r="70" fill="#FAF8EC"></circle><circle r="70" fill="url(#shc' + u + ')"></circle>' + glyph('#050505') + '</svg>'; }
         function darkBadge(u) { return '<svg viewBox="-70 -70 140 140"><defs><radialGradient id="shd' + u + '" cx="0.38" cy="0.3" r="0.8"><stop offset="0" stop-color="rgba(255,255,255,0.09)"></stop><stop offset="0.7" stop-color="rgba(255,255,255,0)"></stop></radialGradient></defs><circle r="70" fill="#111110" stroke="rgba(208,160,54,0.5)" stroke-width="1.4"></circle><circle r="70" fill="url(#shd' + u + ')"></circle>' + glyph('#FAF8EC') + '</svg>'; }
-        function html() {
-          var u = 'r';
-          var cuts = cutLines().map(function (d) { return '<path d="' + d + '" fill="none" stroke="rgba(250,248,236,.55)" stroke-width="1.2" stroke-linecap="round"></path>'; }).join('');
-          return '' +
-            '<div class="reveal-mock-top"><div class="reveal-mock-label">For Maria</div><div class="reveal-mock-status" data-status>locked ○</div></div>' +
-            '<div class="reveal-mock-board" style="background-image:url(' + PHOTO + ');">' +
-              '<div class="reveal-mock-tone"></div>' +
-              '<svg class="reveal-mock-cuts" viewBox="0 0 400 300" preserveAspectRatio="none"><rect x="0.5" y="0.5" width="399" height="299" fill="none" stroke="rgba(250,248,236,.5)" stroke-width="1.2"></rect>' + cuts + '</svg>' +
-              '<div class="reveal-mock-slot" data-slot><svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%;height:100%;"><path d="' + PIECE + '" fill="rgba(5,5,5,.6)" stroke="rgba(250,248,236,.4)" stroke-width="1.4"></path></svg></div>' +
-              '<div class="reveal-mock-float" data-float><svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%;height:100%;overflow:visible;"><defs><clipPath id="fp' + u + '"><path d="' + PIECE + '"></path></clipPath></defs><image href="' + PHOTO + '" x="-300" y="-200" width="400" height="300" preserveAspectRatio="none" clip-path="url(#fp' + u + ')"></image><path d="' + PIECE + '" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="1.6"></path></svg></div>' +
-              '<div class="reveal-mock-loader" data-loader><div class="reveal-mock-ring"><div class="reveal-mock-glow"></div><div class="reveal-mock-breath"><div class="reveal-mock-orbit">' +
-                '<div class="reveal-mock-arm reveal-mock-arm-0"><div class="reveal-mock-badge">' + goldBadge(u + 'a') + '</div></div>' +
-                '<div class="reveal-mock-arm reveal-mock-arm-1"><div class="reveal-mock-badge">' + creamBadge(u + 'b') + '</div></div>' +
-                '<div class="reveal-mock-arm reveal-mock-arm-2"><div class="reveal-mock-badge">' + darkBadge(u + 'c') + '</div></div>' +
-              '</div></div></div><div class="reveal-mock-loaderlabel">Preparing your reveal</div></div>' +
-              '<div class="reveal-mock-reveal" data-reveal style="background-image:url(' + PHOTO + ');"><div class="reveal-mock-scrim"></div><div class="reveal-mock-reveal-in">' +
-                '<div class="reveal-mock-revealbadge">' + goldBadge(u + 'r') + '</div>' +
-                '<div class="reveal-mock-kicker">Unlocked</div>' +
-                '<div class="reveal-mock-msg">' + MESSAGE + '</div>' +
-                '<div class="reveal-mock-rule"></div>' +
-                '<div class="reveal-mock-from">From Sofia</div>' +
-              '</div></div>' +
-            '</div>';
+
+        // scene 4 — real piecePath geometry (matches receive.html)
+        var COLS = 4, ROWS = 6, VW = 360, VH = 640, pw = VW / COLS, ph = VH / ROWS;
+        var edgeMap = buildEdgeMap(COLS, ROWS, 1337);
+        var A = { r: 1, c: 2 }, B = { r: 3, c: 1 };   // the last two pieces
+        var seamDark = '', seamLight = '';
+        for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) {
+          var tr = 'translate(' + (c * pw) + ' ' + (r * ph) + ')';
+          var d = piecePath(r, c, COLS, ROWS, pw, ph, edgeMap);
+          seamDark  += '<path transform="' + tr + '" d="' + d + '" fill="none" stroke="rgba(5,5,5,0.28)" stroke-width="2" stroke-linejoin="round"></path>';
+          seamLight += '<path transform="' + tr + '" d="' + d + '" fill="none" stroke="rgba(250,248,236,0.5)" stroke-width="1" stroke-linejoin="round"></path>';
         }
+        function slotFill(p) { return '<path transform="translate(' + (p.c * pw) + ' ' + (p.r * ph) + ')" d="' + piecePath(p.r, p.c, COLS, ROWS, pw, ph, edgeMap) + '" fill="#100e0b" stroke="rgba(250,248,236,0.22)" stroke-width="1.2"></path>'; }
+        function pieceSvg(p, id) {
+          var d = piecePath(p.r, p.c, COLS, ROWS, pw, ph, edgeMap);
+          return '<svg viewBox="0 0 ' + pw + ' ' + ph + '" preserveAspectRatio="none" style="width:100%;height:100%;overflow:visible;display:block;">' +
+            '<defs><clipPath id="' + id + '"><path d="' + d + '"></path></clipPath></defs>' +
+            '<g clip-path="url(#' + id + ')"><image href="' + PHOTO + '" x="' + (-p.c * pw) + '" y="' + (-p.r * ph) + '" width="' + VW + '" height="' + VH + '" preserveAspectRatio="xMidYMid slice"></image></g>' +
+            '<path d="' + d + '" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="1.4"></path></svg>';
+        }
+        function box(p) { return 'left:' + (p.c / COLS * 100) + '%;top:' + (p.r / ROWS * 100) + '%;width:' + (100 / COLS) + '%;height:' + (100 / ROWS) + '%;'; }
+
+        // scene 3 — WhatsApp doodle wallpaper + live timestamp (as in create.html)
+        var doodle = "url(\"data:image/svg+xml," + encodeURIComponent(
+          "<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'>" +
+          "<g fill='none' stroke='#CBBBA4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' opacity='0.5'>" +
+          "<path d='M22 34c-5-7-16-4-16 4 0 8 16 15 16 15s16-7 16-15c0-8-11-11-16-4z'/>" +
+          "<circle cx='112' cy='26' r='12'/><path d='M107 29q5 5 10 0'/>" +
+          "<rect x='16' y='96' width='26' height='16' rx='7'/><path d='M42 100h5a3 3 0 0 1 0 8h-5'/><path d='M22 92q2-4 0-7M30 92q2-4 0-7'/>" +
+          "<path d='M120 112v-20l12-3v20'/><circle cx='118' cy='114' r='4'/><circle cx='129' cy='111' r='4'/>" +
+          "<rect x='60' y='60' width='30' height='20' rx='3'/><circle cx='75' cy='70' r='6'/><path d='M66 60l3-4h12l3 4'/>" +
+          "</g></svg>") + "\")";
+        var now = new Date(); var hh = now.getHours(); var ap = hh >= 12 ? 'PM' : 'AM'; hh = hh % 12 || 12;
+        var stamp = hh + ':' + String(now.getMinutes()).padStart(2, '0') + ' ' + ap;
+
+        var scene1 =
+          '<div class="reveal-mock-scene reveal-mock-s1"><div class="reveal-mock-crop">' +
+            '<img src="' + PHOTO + '" alt="" draggable="false">' +
+            '<div class="reveal-mock-corner" style="top:10px;left:10px;border-bottom:none;border-right:none;"></div>' +
+            '<div class="reveal-mock-corner" style="top:10px;right:10px;border-bottom:none;border-left:none;"></div>' +
+            '<div class="reveal-mock-corner" style="bottom:10px;left:10px;border-top:none;border-right:none;"></div>' +
+            '<div class="reveal-mock-corner" style="bottom:10px;right:10px;border-top:none;border-left:none;"></div>' +
+          '</div></div>';
+        var scene2 =
+          '<div class="reveal-mock-scene reveal-mock-s2"><div class="reveal-mock-msgcard">' +
+            '<div class="reveal-mock-msglabel">Message</div>' +
+            '<div class="reveal-mock-msgtext">' + MESSAGE + '</div>' +
+          '</div></div>';
+        var scene3 =
+          '<div class="reveal-mock-scene reveal-mock-s3"><div class="reveal-mock-wa">' +
+            '<div class="reveal-mock-wa-head">' +
+              '<div class="reveal-mock-wa-back"><span class="chev">‹</span><span class="n">1</span></div>' +
+              '<img class="reveal-mock-wa-av" src="assets/JIGZO-Icon-Cream.svg" alt="JIGZO">' +
+              '<div class="reveal-mock-wa-name"><span class="nm">JIGZO</span><span class="reveal-mock-wa-badge">✓</span></div>' +
+            '</div>' +
+            '<div class="reveal-mock-wa-body" data-wabody>' +
+              '<div class="reveal-mock-wa-bubble"><span class="reveal-mock-wa-tail"></span>' + WA +
+                '<span class="reveal-mock-wa-time">' + stamp + '</span></div>' +
+            '</div>' +
+          '</div></div>';
+        var scene4 =
+          '<div class="reveal-mock-scene reveal-mock-s4">' +
+            '<img class="bg" src="' + PHOTO + '" alt="" draggable="false">' +
+            '<svg class="seams" viewBox="0 0 ' + VW + ' ' + VH + '" preserveAspectRatio="none">' + seamDark + seamLight + slotFill(A) + slotFill(B) + '</svg>' +
+            '<div class="reveal-mock-solvepiece reveal-mock-solve1" style="' + box(A) + '">' + pieceSvg(A, 'rmkSolveA') + '</div>' +
+            '<div class="reveal-mock-solvepiece reveal-mock-solve2" style="' + box(B) + '">' + pieceSvg(B, 'rmkSolveB') + '</div>' +
+          '</div>';
+        var scene5 =
+          '<div class="reveal-mock-scene reveal-mock-s5">' +
+            '<div class="reveal-mock-ring"><div class="reveal-mock-glow"></div><div class="reveal-mock-breath"><div class="reveal-mock-orbit">' +
+              '<div class="reveal-mock-arm reveal-mock-arm-0"><div class="reveal-mock-badge">' + goldBadge('la') + '</div></div>' +
+              '<div class="reveal-mock-arm reveal-mock-arm-1"><div class="reveal-mock-badge">' + creamBadge('lb') + '</div></div>' +
+              '<div class="reveal-mock-arm reveal-mock-arm-2"><div class="reveal-mock-badge">' + darkBadge('lc') + '</div></div>' +
+            '</div></div></div><div class="reveal-mock-loaderlabel">Preparing your reveal</div>' +
+          '</div>';
+        var scene6 =
+          '<div class="reveal-mock-scene reveal-mock-s6"><img src="' + REVEAL + '" alt="" draggable="false"></div>';
+
+        var capText = ['Upload a photo', 'Write your message', 'They get a WhatsApp from JIGZO', 'They solve the puzzle', '', 'Your words, revealed'];
+        var caps = capText.map(function (t) { return '<div class="reveal-mock-caption">' + t + '</div>'; }).join('');
+
         mount.className = 'reveal-mock-card';
-        mount.innerHTML = html();
-        var slot = mount.querySelector('[data-slot]'), floatPiece = mount.querySelector('[data-float]'),
-            loader = mount.querySelector('[data-loader]'), reveal = mount.querySelector('[data-reveal]'),
-            status = mount.querySelector('[data-status]');
-        var solved = false, t = null;
-        function setLayers(phase) {
-          var idle = phase === 'idle', loading = phase === 'loading', revealed = phase === 'revealed';
-          slot.style.opacity = idle ? 1 : 0;
-          floatPiece.style.opacity = idle ? 1 : 0;
-          loader.style.opacity = loading ? 1 : 0;
-          reveal.style.opacity = revealed ? 1 : 0;
-          reveal.classList.toggle('is-on', revealed);
+        mount.innerHTML =
+          '<div class="reveal-mock-frame"><div class="reveal-mock-screen">' +
+            scene1 + scene2 + scene3 + scene4 + scene5 + scene6 +
+            '<div class="reveal-mock-pill"></div>' +
+          '</div></div>' +
+          '<div class="reveal-mock-captions">' + caps + '</div>';
+
+        // apply the doodle wallpaper via JS (its url("...") quotes can't live in an inline style attribute)
+        var waBody = mount.querySelector('[data-wabody]');
+        if (waBody) waBody.style.backgroundImage = doodle;
+
+        var scenes = Array.prototype.slice.call(mount.querySelectorAll('.reveal-mock-scene'));
+        var capEls = Array.prototype.slice.call(mount.querySelectorAll('.reveal-mock-caption'));
+        var durations = [2000, 2000, 2500, 2500, 1000, 4000];
+        var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        function show(n) {
+          for (var i = 0; i < scenes.length; i++) scenes[i].classList.toggle('is-active', i === n);
+          for (var j = 0; j < capEls.length; j++) capEls[j].classList.toggle('is-active', j === n);
         }
-        function refreshLabels() {
-          var lab = solved ? 'Replay the reveal' : 'Place the final piece';
-          Array.prototype.forEach.call(document.querySelectorAll('[data-solvebtn]'), function (b) { b.textContent = lab; });
-          status.textContent = solved ? 'unlocked ●' : 'locked ○';
+        if (reduced) {
+          // hold Scene 6, render the captions as a plain text step list
+          mount.classList.add('is-reduced');
+          scenes[5].classList.add('is-active');
+          capEls.forEach(function (c) { c.classList.add('is-active'); });
+          return;
         }
-        function toggle() {
-          solved = !solved;
-          refreshLabels();
-          clearTimeout(t);
-          if (solved) { setLayers('loading'); t = setTimeout(function () { setLayers('revealed'); }, 3400); }
-          else setLayers('idle');
-        }
-        setLayers('idle');
-        Array.prototype.forEach.call(document.querySelectorAll('[data-solvebtn]'), function (b) { b.addEventListener('click', toggle); });
-        refreshLabels();
+        var idx = 0, timer = null;
+        (function tick() {
+          show(idx);
+          var d = durations[idx];
+          idx = (idx + 1) % scenes.length;
+          timer = window.setTimeout(tick, d);
+        })();
       }
 
       function init() { applyPricing(); initHeroMock(); initRevealMock(); }
