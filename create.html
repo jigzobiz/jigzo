@@ -838,7 +838,7 @@ function JigzoSenderFlow() {
         {step === "preview" && cropData && (
           <div style={{ animation: "fadeUp 0.4s ease" }}>
             <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Exactly what they'll see.</h1>
-            <p style={{ fontSize: 13.5, color: T.ink60, margin: "0 0 20px" }}>Tap the puzzle to watch it solve and reveal.</p>
+            <p style={{ fontSize: 16, fontWeight: 600, color: T.ink, margin: "0 0 20px" }}>Tap the puzzle to watch it solve and reveal.</p>
 
             {/* phone frame — from design-exports/The Receivers Journey: thin dark
                 bezel, rounded corners, pill cutout (screen content unchanged) */}
@@ -876,9 +876,6 @@ function JigzoSenderFlow() {
                   background: "#050505", borderRadius: 100, zIndex: 40, pointerEvents: "none" }} />
               </div>
             </div>
-            <p style={{ fontSize: 11.5, color: T.ink50, textAlign: "center", marginTop: 10 }}>
-              {revealStage ? "Tap to see the scrambled puzzle again" : "Tap to see how it solves and reveals"}
-            </p>
 
             <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
               <GhostButton onClick={() => setStep("message")}>Back</GhostButton>

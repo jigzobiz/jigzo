@@ -23,20 +23,7 @@
   #root { min-height:50vh; }
   .jz-boot { min-height:100vh; display:flex; align-items:center; justify-content:center;
     font-family:Archia,-apple-system,sans-serif; color:rgba(5,5,5,0.45); font-size:14px; }
-  /* Puzzle Reveal Transition — orbiting-badge loader (brand-reconciled) */
-  .jz-orbit { display:flex; flex-direction:column; align-items:center; gap:22px; }
-  .jz-orbit__ring { position:relative; width:120px; height:120px; animation:jzOrbitSpin 2.8s linear infinite; }
-  .jz-orbit__arm  { position:absolute; left:50%; top:50%; width:0; height:0; }
-  .jz-orbit__arm:nth-child(1){ transform:rotate(0deg); }
-  .jz-orbit__arm:nth-child(2){ transform:rotate(120deg); }
-  .jz-orbit__arm:nth-child(3){ transform:rotate(240deg); }
-  .jz-orbit__badge { position:absolute; left:8px; top:-23px; width:46px; height:46px;
-    filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5)); animation:jzBadgeSpin 2.2s ease-in-out infinite; }
-  .jz-orbit__badge svg { display:block; width:100%; height:100%; overflow:visible; }
-  .jz-orbit__label { font-size:12.5px; font-weight:500; letter-spacing:0.16em; text-transform:uppercase; color:rgba(5,5,5,0.45); }
-  @keyframes jzOrbitSpin { to { transform:rotate(360deg); } }
-  @keyframes jzBadgeSpin { 0%{ transform:rotate(0deg) scale(0.9); } 50%{ transform:rotate(180deg) scale(1.1); } 100%{ transform:rotate(360deg) scale(0.9); } }
-  @media (prefers-reduced-motion: reduce){ .jz-orbit__ring,.jz-orbit__badge{ animation:none; } }
+  /* The orbiting-badge loader (.jz-orbit) now lives in the shared css/loader.css. */
   @keyframes jzPulse { 0%,100%{ transform:translate(-50%,-50%) scale(0.9); opacity:0.68; } 50%{ transform:translate(-50%,-50%) scale(1.08); opacity:1; } }
   @keyframes jzFade { from{ opacity:0; transform:translateY(8px);} to{ opacity:1; transform:translateY(0);} }
 </style>
@@ -45,6 +32,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&family=Playfair+Display:ital,wght@0,500;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/loader.css">
+<script src="js/loader.js"></script>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -58,16 +47,8 @@
     </div>
   </header>
 
-  <div id="root"><div class="jz-boot">
-    <div class="jz-orbit" role="status" aria-label="Loading your Jigzo">
-      <div class="jz-orbit__ring">
-        <div class="jz-orbit__arm"><div class="jz-orbit__badge"><svg viewBox="0 0 100 100"><defs><linearGradient id="jzbG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E7C485"/><stop offset=".45" stop-color="#A67C3D"/><stop offset="1" stop-color="#1C140A"/></linearGradient></defs><circle cx="50" cy="50" r="49" fill="url(#jzbG)"/><g fill="#050505"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>
-        <div class="jz-orbit__arm"><div class="jz-orbit__badge"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="49" fill="#FAF8EC"/><circle cx="50" cy="50" r="48.3" fill="none" stroke="rgba(5,5,5,0.07)" stroke-width="1"/><g fill="#050505"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>
-        <div class="jz-orbit__arm"><div class="jz-orbit__badge"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="49" fill="#111110"/><circle cx="50" cy="50" r="48.3" fill="none" stroke="rgba(166,124,61,0.42)" stroke-width="1"/><g fill="#FAF8EC"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>
-      </div>
-      <div class="jz-orbit__label">Preparing your reveal</div>
-    </div>
-  </div></div>
+  <div id="root"><div class="jz-boot" id="jz-boot"></div></div>
+  <script>if (window.JZLoader) document.getElementById('jz-boot').appendChild(JZLoader.build());</script>
 
   <!-- footer — matches the homepage disclaimer -->
   <footer class="footer">
@@ -431,8 +412,7 @@ function Receiver({ data }) {
     } catch (e) { return false; }
   }, []);
 
-  const download = () => {
-    if (!cardRef.current) return;
+  const buildRevealPng = (onBlob) => {
     // Export at the viewer's device resolution (never below 1080x1920) instead
     // of a fixed 576x1024, so the saved PNG is crisp on any phone. The whole
     // card is rebuilt at this size: S scales the text/divider/geometry up and
@@ -516,21 +496,7 @@ function Receiver({ data }) {
         y += rowH + r.gap;
       });
 
-      canvas.toBlob((blob) => {
-        if (!blob) return;
-        const file = new File([blob], "jigzo-reveal.png", { type: "image/png" });
-        // mobile: hand the same PNG to the native share sheet
-        if (canShareFiles && navigator.canShare && navigator.canShare({ files: [file] })) {
-          navigator.share({ files: [file], title: "Your JIGZO reveal" }).catch(() => {});
-          return;
-        }
-        // desktop: download exactly as before
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "jigzo-reveal.png";
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 1500);
-      }, "image/png");
+      canvas.toBlob((blob) => { onBlob(blob || null); }, "image/png");
     };
 
     const run = () => {
@@ -551,6 +517,43 @@ function Receiver({ data }) {
       ].map((w) => document.fonts.load(w).catch(() => {})))
         .then(() => document.fonts.ready).then(run, run);
     } else run();
+  };
+
+  // Pre-generate the PNG the moment the reveal appears, so the Save/Share tap is
+  // instant and stays inside the user gesture (mobile Web Share needs it).
+  const sharedFileRef = useRef(null);
+  useEffect(() => {
+    if (!showReveal) { sharedFileRef.current = null; return; }
+    buildRevealPng((blob) => { if (blob) sharedFileRef.current = new File([blob], "jigzo-reveal.png", { type: "image/png" }); });
+  }, [showReveal]);
+
+  const saveAsFile = (file) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(file);
+    a.download = "jigzo-reveal.png";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+  };
+
+  // Save/Share tap handler. The PNG is already built, so we verify canShare with
+  // the ACTUAL file and call navigator.share directly from the gesture (no awaits
+  // in between). Fall back to download only when Web Share with files is genuinely
+  // unavailable, logging the reason. Desktop (canShare false) keeps the download.
+  const onSaveOrShare = () => {
+    const file = sharedFileRef.current;
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: "Your JIGZO reveal" }).catch((err) => {
+        if (err && err.name === "AbortError") return;   // user dismissed the share sheet
+        console.log("[jigzo] Web Share failed, downloading instead:", (err && err.message) || err);
+        saveAsFile(file);
+      });
+      return;
+    }
+    if (!navigator.canShare) console.log("[jigzo] navigator.canShare unavailable — downloading.");
+    else if (!file) console.log("[jigzo] reveal PNG not ready yet — downloading.");
+    else console.log("[jigzo] navigator.canShare({ files }) returned false — downloading.");
+    if (file) saveAsFile(file);
+    else buildRevealPng((blob) => { if (blob) saveAsFile(new File([blob], "jigzo-reveal.png", { type: "image/png" })); });
   };
 
   const placedCount = placed.filter(Boolean).length;
@@ -581,6 +584,27 @@ function Receiver({ data }) {
             <div style={{ marginTop:10, fontSize:12.5, fontWeight:600, color:"#B8935A", letterSpacing:"0.04em" }}>
               {placedCount} / {homes.length} pieces placed
             </div>
+          </div>
+        )}
+
+        {/* solved — Save / Replay above the reveal card, with a quiet save hint */}
+        {showReveal && (
+          <div style={{ textAlign:"center", marginBottom:16, animation:"jzFade 0.5s ease" }}>
+            <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
+              <button onClick={onSaveOrShare} style={{ background:"#050505", color:"#FAF8EC", border:"none", borderRadius:999,
+                padding:"12px 24px", fontSize:14, fontWeight:600, fontFamily:"Archia,sans-serif", cursor:"pointer" }}>
+                {canShareFiles ? "Save to your photos" : "Download"}
+              </button>
+              <button onClick={replay} style={{ background:"transparent", color:"#050505", border:"1px solid rgba(5,5,5,0.2)",
+                borderRadius:999, padding:"12px 22px", fontSize:14, fontWeight:500, fontFamily:"Archia,sans-serif", cursor:"pointer" }}>
+                Replay
+              </button>
+            </div>
+            {canShareFiles && (
+              <div style={{ marginTop:9, fontSize:12, color:"rgba(28,25,19,0.5)", letterSpacing:"0.01em" }}>
+                Choose Save Image to keep it in your gallery
+              </div>
+            )}
           </div>
         )}
 
@@ -659,17 +683,7 @@ function Receiver({ data }) {
         ) : (
           <div style={{ textAlign:"center", marginTop:20, animation:"jzFade 0.5s ease" }}>
             <div style={{ fontSize:18, fontWeight:500, letterSpacing:"-0.01em", margin:"0 0 4px" }}>Created with care.</div>
-            <div style={{ fontSize:11.5, fontWeight:500, letterSpacing:"0.04em", color:"rgba(28,25,19,0.45)", margin:"0 0 14px" }}>Made with JIGZO</div>
-            <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
-              <button onClick={download} style={{ background:"#050505", color:"#FAF8EC", border:"none", borderRadius:999,
-                padding:"12px 24px", fontSize:14, fontWeight:600, fontFamily:"Archia,sans-serif", cursor:"pointer" }}>
-                {canShareFiles ? "Save or share" : "Download"}
-              </button>
-              <button onClick={replay} style={{ background:"transparent", color:"#050505", border:"1px solid rgba(5,5,5,0.2)",
-                borderRadius:999, padding:"12px 22px", fontSize:14, fontWeight:500, fontFamily:"Archia,sans-serif", cursor:"pointer" }}>
-                Replay
-              </button>
-            </div>
+            <div style={{ fontSize:11.5, fontWeight:500, letterSpacing:"0.04em", color:"rgba(28,25,19,0.45)" }}>Made with JIGZO</div>
           </div>
         )}
 

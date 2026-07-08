@@ -10,8 +10,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=JetBrains+Mono:wght@500&family=Playfair+Display:ital,wght@0,500;1,400;1,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
-<!-- shared jigsaw geometry (real piece boundaries) for the hero demo -->
+<link rel="stylesheet" href="css/loader.css">
+<!-- shared jigsaw geometry + shared pre-reveal loader -->
 <script src="js/puzzle-shape.js"></script>
+<script src="js/loader.js"></script>
 </head>
 <body>
 
@@ -351,17 +353,10 @@
             '<div class="reveal-mock-solvepiece reveal-mock-solve1" style="' + box(A) + '">' + pieceSvg(A, 'rmkSolveA') + '</div>' +
             '<div class="reveal-mock-solvepiece reveal-mock-solve2" style="' + box(B) + '">' + pieceSvg(B, 'rmkSolveB') + '</div>' +
           '</div>';
-        // scene 5 — the actual receive.html loader, markup copied verbatim
+        // scene 5 — the shared pre-reveal loader (same source as receive.html)
         var scene5 =
           '<div class="reveal-mock-scene reveal-mock-s5"><div class="reveal-mock-loaderfit">' +
-            '<div class="jz-orbit" role="status" aria-label="Loading your Jigzo">' +
-              '<div class="jz-orbit__ring">' +
-                '<div class="jz-orbit__arm"><div class="jz-orbit__badge"><svg viewBox="0 0 100 100"><defs><linearGradient id="jzbG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E7C485"/><stop offset=".45" stop-color="#A67C3D"/><stop offset="1" stop-color="#1C140A"/></linearGradient></defs><circle cx="50" cy="50" r="49" fill="url(#jzbG)"/><g fill="#050505"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>' +
-                '<div class="jz-orbit__arm"><div class="jz-orbit__badge"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="49" fill="#FAF8EC"/><circle cx="50" cy="50" r="48.3" fill="none" stroke="rgba(5,5,5,0.07)" stroke-width="1"/><g fill="#050505"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>' +
-                '<div class="jz-orbit__arm"><div class="jz-orbit__badge"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="49" fill="#111110"/><circle cx="50" cy="50" r="48.3" fill="none" stroke="rgba(166,124,61,0.42)" stroke-width="1"/><g fill="#FAF8EC"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>' +
-              '</div>' +
-              '<div class="jz-orbit__label">Preparing your reveal</div>' +
-            '</div>' +
+            (window.JZLoader ? JZLoader.markup() : '') +
           '</div></div>';
         var scene6 =
           '<div class="reveal-mock-scene reveal-mock-s6"><img src="' + REVEAL + '" alt="" draggable="false"></div>';

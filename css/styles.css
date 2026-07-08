@@ -251,20 +251,20 @@ a { color:inherit; text-decoration:none; }
    right, overlapping and extending off the right edge (not inside the screen) */
 .hero-mock-tap { position:absolute; inset:0; z-index:30; pointer-events:none; transition:opacity .35s ease; }
 .hero-mock-card.is-solving .hero-mock-tap, .hero-mock-card.is-b .hero-mock-tap { opacity:0; }
-.hero-mock-tap-label { position:absolute; top:-5%; right:-12%; font-family:'Caveat', cursive; font-weight:600;
-  font-size:clamp(30px,9vw,42px); line-height:1; color:var(--gold-deep); letter-spacing:.5px;
+.hero-mock-tap-label { position:absolute; top:-6%; right:-12%; font-family:'Caveat', cursive; font-weight:600;
+  font-size:clamp(38px,11.25vw,52px); line-height:1; color:var(--gold-deep); letter-spacing:.5px;
   transform:rotate(-7deg); white-space:nowrap;
   /* thin white outline around the letterforms (no blur, no glow) */
   text-shadow:-1px -1px 0 #FFFFFF, 1px -1px 0 #FFFFFF, -1px 1px 0 #FFFFFF, 1px 1px 0 #FFFFFF,
     -1px 0 0 #FFFFFF, 1px 0 0 #FFFFFF, 0 -1px 0 #FFFFFF, 0 1px 0 #FFFFFF; }
-.hero-mock-arrow { position:absolute; top:3%; right:5%; width:38%; height:auto; }
+.hero-mock-arrow { position:absolute; top:2%; right:3%; width:48%; height:auto; }
 /* State B: the reveal card image, as-is */
 .hero-mock-reveal-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
 @keyframes hmk-bob { 0%,100% { transform:translate3d(0,0,0); } 50% { transform:translate3d(0,-8%,0); } }
 @media (max-width:760px) {
   /* sit closer to the frame on narrow screens so the label never clips the viewport */
-  .hero-mock-tap-label { top:0; right:-4%; font-size:clamp(26px,8vw,34px); }
-  .hero-mock-arrow { top:6%; right:6%; width:34%; }
+  .hero-mock-tap-label { top:-1%; right:-4%; font-size:clamp(32px,10vw,42px); }
+  .hero-mock-arrow { top:5%; right:5%; width:42%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .hero-mock-a, .hero-mock-b, .hero-mock-seams, .hero-mock-piece, .hero-mock-tap, .hero-mock-hint { transition:none !important; }
@@ -358,23 +358,11 @@ a { color:inherit; text-decoration:none; }
 .reveal-mock-scene.is-active .reveal-mock-solve1 { animation:rmk-snap1 1.4s cubic-bezier(.5,1.3,.4,1) both; }
 .reveal-mock-scene.is-active .reveal-mock-solve2 { animation:rmk-snap2 1.9s cubic-bezier(.5,1.3,.4,1) both; }
 
-/* Scene 5 — the actual receive.html loader: markup, CSS, and keyframes copied
-   verbatim, on its product background (cream), scaled to fit the phone frame. */
+/* Scene 5 — the shared pre-reveal loader (css/loader.css + js/loader.js) on its
+   product background (cream), scaled to fit the phone frame. The loader's own
+   markup/CSS/keyframes are the shared source, so this can never drift again. */
 .reveal-mock-s5 { background:#F4EDDF; display:flex; align-items:center; justify-content:center; }
 .reveal-mock-loaderfit { transform:scale(0.8); transform-origin:center; }
-.jz-orbit { display:flex; flex-direction:column; align-items:center; gap:22px; }
-.jz-orbit__ring { position:relative; width:120px; height:120px; animation:jzOrbitSpin 2.8s linear infinite; }
-.jz-orbit__arm  { position:absolute; left:50%; top:50%; width:0; height:0; }
-.jz-orbit__arm:nth-child(1){ transform:rotate(0deg); }
-.jz-orbit__arm:nth-child(2){ transform:rotate(120deg); }
-.jz-orbit__arm:nth-child(3){ transform:rotate(240deg); }
-.jz-orbit__badge { position:absolute; left:8px; top:-23px; width:46px; height:46px;
-  filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5)); animation:jzBadgeSpin 2.2s ease-in-out infinite; }
-.jz-orbit__badge svg { display:block; width:100%; height:100%; overflow:visible; }
-.jz-orbit__label { font-size:12.5px; font-weight:500; letter-spacing:0.16em; text-transform:uppercase; color:rgba(5,5,5,0.45); }
-@keyframes jzOrbitSpin { to { transform:rotate(360deg); } }
-@keyframes jzBadgeSpin { 0%{ transform:rotate(0deg) scale(0.9); } 50%{ transform:rotate(180deg) scale(1.1); } 100%{ transform:rotate(360deg) scale(0.9); } }
-@media (prefers-reduced-motion: reduce){ .jz-orbit__ring,.jz-orbit__badge{ animation:none; } }
 
 /* Scene 6 — the reveal card image, as-is (held) */
 .reveal-mock-s6 img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
