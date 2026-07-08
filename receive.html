@@ -413,15 +413,23 @@ function Receiver({ data }) {
   }, []);
 
   const buildRevealPng = (onBlob) => {
-    // Export at the viewer's device resolution (never below 1080x1920) instead
-    // of a fixed 576x1024, so the saved PNG is crisp on any phone. The whole
-    // card is rebuilt at this size: S scales the text/divider/geometry up and
-    // every glyph is drawn at full size (not upscaled from a small canvas).
+    // Export at the viewer's device resolution so the saved PNG is crisp on any
+    // phone. The whole card is rebuilt at this size: S scales the text/divider/
+    // geometry up and every glyph is drawn at full size (not upscaled).
+    // Only match the screen when it is PORTRAIT (height > width). On a landscape
+    // screen (desktop) matching the screen makes a wide canvas that crops the
+    // portrait card, so use a fixed portrait 9:16 1080x1920 instead.
     const W = BW, H = BH;
     const dpr = window.devicePixelRatio || 1;
     const scr = window.screen || {};
-    const CW = Math.max(1080, Math.round((scr.width || W) * dpr));
-    const CH = Math.max(1920, Math.round((scr.height || H) * dpr));
+    const sw = scr.width || 0, sh = scr.height || 0;
+    let CW, CH;
+    if (sh > sw && sw && sh) {
+      CW = Math.max(1080, Math.round(sw * dpr));
+      CH = Math.max(1920, Math.round(sh * dpr));
+    } else {
+      CW = 1080; CH = 1920;
+    }
     const S = Math.min(CW / W, CH / H);   // proportional scale (uniform, no stretch)
     const CREAM = "rgb(250,248,236)";
 
