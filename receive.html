@@ -572,10 +572,15 @@ function Receiver({ data }) {
       display:"flex", flexDirection:"column", alignItems:"center", padding:"30px 14px 52px" }}>
       <div style={{ width:"100%", maxWidth:440 }}>
 
-        {/* above the puzzle */}
+        {/* above the puzzle — heading + live piece counter */}
         {!showReveal && (
-          <div style={{ textAlign:"center", fontSize:21, fontWeight:500, letterSpacing:"-0.015em", marginBottom:18 }}>
-            Something special is waiting...
+          <div style={{ textAlign:"center", marginBottom:18 }}>
+            <div style={{ fontSize:21, fontWeight:500, letterSpacing:"-0.015em" }}>
+              Something special is waiting...
+            </div>
+            <div style={{ marginTop:10, fontSize:12.5, fontWeight:600, color:"#B8935A", letterSpacing:"0.04em" }}>
+              {placedCount} / {homes.length} pieces placed
+            </div>
           </div>
         )}
 
@@ -650,9 +655,6 @@ function Receiver({ data }) {
             <p style={{ fontSize:14.5, color:"rgba(28,25,19,0.7)", margin:"0 auto", lineHeight:1.55, maxWidth:350 }}>
               {data.toName ? `${data.toName}, your surprise is almost here..` : "Your surprise is almost here.."} Drag each piece into place. The final piece unlocks something made just for you.
             </p>
-            <div style={{ marginTop:14, fontSize:12.5, fontWeight:600, color:"#B8935A", letterSpacing:"0.04em" }}>
-              {placedCount} / {homes.length} pieces placed
-            </div>
           </div>
         ) : (
           <div style={{ textAlign:"center", marginTop:20, animation:"jzFade 0.5s ease" }}>

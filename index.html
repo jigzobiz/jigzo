@@ -8,7 +8,7 @@
 <!-- Design faces: JetBrains Mono (labels) + Playfair Display italic (reveal message). Archia is self-hosted via styles.css -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&family=Playfair+Display:ital,wght@0,500;1,400;1,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=JetBrains+Mono:wght@500&family=Playfair+Display:ital,wght@0,500;1,400;1,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <!-- shared jigsaw geometry (real piece boundaries) for the hero demo -->
 <script src="js/puzzle-shape.js"></script>
@@ -189,7 +189,7 @@
         var REVEAL = 'assets/demo-reveal.png';     // finished reveal card, shown as-is
         var COLS = 4, ROWS = 6, VW = 360, VH = 640;    // 9:16 board
         var pw = VW / COLS, ph = VH / ROWS;
-        var MR = 3, MC = 2;                            // the one missing piece
+        var MR = 1, MC = 2;                            // the one missing piece (upper-right area)
         var edgeMap = buildEdgeMap(COLS, ROWS, 1337);  // real interlocking geometry
 
         // seams: every piece's true outline, drawn twice (a faint dark groove
@@ -213,14 +213,24 @@
             '<path d="' + slotD + '" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.4"></path>' +
           '</svg>';
 
+        // hand-drawn curved arrow: gold with a thin white outline stroke underneath;
+        // sweeps from the label (upper-right) down and inward to the floating piece
+        var arrowCurve = 'M80 8 C 96 42 78 92 36 108';
+        var arrowHead = 'M36 108 L 51 105 M36 108 L 41 92';
         var arrow =
-          '<svg class="hero-mock-arrow" viewBox="0 0 120 108" fill="none" aria-hidden="true">' +
-            '<path d="M12 20 C 44 4 104 12 104 74" stroke="#E6C67F" stroke-width="3" stroke-linecap="round"></path>' +
-            '<path d="M104 74 L 92 66 M104 74 L 109 60" stroke="#E6C67F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>' +
+          '<svg class="hero-mock-arrow" viewBox="0 0 100 120" fill="none" aria-hidden="true">' +
+            '<path d="' + arrowCurve + '" stroke="#FFFFFF" stroke-width="5.4" stroke-linecap="round"></path>' +
+            '<path d="' + arrowHead + '" stroke="#FFFFFF" stroke-width="5.4" stroke-linecap="round" stroke-linejoin="round"></path>' +
+            '<path d="' + arrowCurve + '" stroke="#8a6d3a" stroke-width="3" stroke-linecap="round"></path>' +
+            '<path d="' + arrowHead + '" stroke="#8a6d3a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>' +
           '</svg>';
 
         mount.className = 'hero-mock-card';
+        // All labels/hints sit above (or off the top of) the frame — nothing below it.
+        // "Tap to replay" hint above the frame (State B); "Tap Me" floats at the
+        // frame's upper-right, overlapping and extending off the right edge (State A).
         mount.innerHTML = '' +
+          '<div class="hero-mock-hint">Tap to replay</div>' +
           '<div class="hero-mock-frame">' +
             '<div class="hero-mock-screen" data-screen>' +
               '<div class="hero-mock-a">' +
@@ -229,28 +239,29 @@
                 '<div class="hero-mock-piece" style="left:' + (MC / COLS * 100) + '%;top:' + (MR / ROWS * 100) + '%;width:' + (100 / COLS) + '%;height:' + (100 / ROWS) + '%;">' +
                   '<div class="hero-mock-piece-bob">' + floatSvg + '</div>' +
                 '</div>' +
-                '<div class="hero-mock-tap">' + arrow + '<span class="hero-mock-tap-label">Tap Me</span></div>' +
               '</div>' +
               '<div class="hero-mock-b">' +
                 '<img class="hero-mock-reveal-img" src="' + REVEAL + '" alt="" draggable="false">' +
-                '<div class="hero-mock-replay">Tap to replay</div>' +
               '</div>' +
               '<div class="hero-mock-pill"></div>' +
             '</div>' +
+            '<div class="hero-mock-tap">' + arrow + '<span class="hero-mock-tap-label">Tap Me</span></div>' +
           '</div>';
 
         var screen = mount.querySelector('[data-screen]');
         var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         var state = 'a', t = null;
+        // State classes live on the card so the tap label (in the frame) and the
+        // hint (above the frame) — both outside the screen — can react to them.
         function toB() {
-          screen.classList.add('is-solving');           // piece glides+snaps, seams/label fade
+          mount.classList.add('is-solving');            // piece glides+snaps, seams/label fade
           clearTimeout(t);
-          t = setTimeout(function () { screen.classList.add('is-b'); }, reduced ? 0 : 1000);
+          t = setTimeout(function () { mount.classList.add('is-b'); }, reduced ? 0 : 1000);
         }
         function toA() {
           clearTimeout(t);
-          screen.classList.remove('is-b');              // reveal fades back to the board
-          t = setTimeout(function () { screen.classList.remove('is-solving'); }, reduced ? 0 : 500);
+          mount.classList.remove('is-b');               // reveal fades back to the board
+          t = setTimeout(function () { mount.classList.remove('is-solving'); }, reduced ? 0 : 500);
         }
         // Pointer Events, touch + mouse; a scroll gesture fires pointercancel
         // (no toggle), a genuine tap fires pointerup (toggles). Never scrolls/zooms.
@@ -273,12 +284,6 @@
         // canonical copy, matching demo-reveal.png
         var MESSAGE = "Twelve years since this picture, and you're still one of the best parts of my life. Happy Birthday, my forever friend";
         var WA = "Hi Sofia, Zara left something special for you. There's a message waiting behind a little challenge. Solve the puzzle to uncover it. 🧩 Open your JIGZO";
-
-        // three-badge loader (scene 5), reused from the original reveal card
-        function glyph(f) { return '<g fill="' + f + '"><rect x="-24" y="-24" width="48" height="48" rx="11"></rect><circle cy="-30" r="12"></circle><circle cy="30" r="12"></circle><circle cx="-30" r="12"></circle><circle cx="30" r="12"></circle></g>'; }
-        function goldBadge(u) { return '<svg viewBox="-70 -70 140 140"><defs><linearGradient id="tg' + u + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F6DC93"></stop><stop offset="0.42" stop-color="#D0A036"></stop><stop offset="1" stop-color="#7C4C22"></stop></linearGradient><radialGradient id="sh' + u + '" cx="0.34" cy="0.28" r="0.75"><stop offset="0" stop-color="rgba(255,255,255,0.42)"></stop><stop offset="0.6" stop-color="rgba(255,255,255,0)"></stop></radialGradient></defs><circle r="70" fill="url(#tg' + u + ')"></circle><circle r="70" fill="url(#sh' + u + ')"></circle>' + glyph('#050505') + '</svg>'; }
-        function creamBadge(u) { return '<svg viewBox="-70 -70 140 140"><defs><radialGradient id="shc' + u + '" cx="0.5" cy="0.42" r="0.62"><stop offset="0.5" stop-color="rgba(0,0,0,0)"></stop><stop offset="1" stop-color="rgba(60,45,20,0.18)"></stop></radialGradient></defs><circle r="70" fill="#FAF8EC"></circle><circle r="70" fill="url(#shc' + u + ')"></circle>' + glyph('#050505') + '</svg>'; }
-        function darkBadge(u) { return '<svg viewBox="-70 -70 140 140"><defs><radialGradient id="shd' + u + '" cx="0.38" cy="0.3" r="0.8"><stop offset="0" stop-color="rgba(255,255,255,0.09)"></stop><stop offset="0.7" stop-color="rgba(255,255,255,0)"></stop></radialGradient></defs><circle r="70" fill="#111110" stroke="rgba(208,160,54,0.5)" stroke-width="1.4"></circle><circle r="70" fill="url(#shd' + u + ')"></circle>' + glyph('#FAF8EC') + '</svg>'; }
 
         // scene 4 — real piecePath geometry (matches receive.html)
         var COLS = 4, ROWS = 6, VW = 360, VH = 640, pw = VW / COLS, ph = VH / ROWS;
@@ -346,27 +351,44 @@
             '<div class="reveal-mock-solvepiece reveal-mock-solve1" style="' + box(A) + '">' + pieceSvg(A, 'rmkSolveA') + '</div>' +
             '<div class="reveal-mock-solvepiece reveal-mock-solve2" style="' + box(B) + '">' + pieceSvg(B, 'rmkSolveB') + '</div>' +
           '</div>';
+        // scene 5 — the actual receive.html loader, markup copied verbatim
         var scene5 =
-          '<div class="reveal-mock-scene reveal-mock-s5">' +
-            '<div class="reveal-mock-ring"><div class="reveal-mock-glow"></div><div class="reveal-mock-breath"><div class="reveal-mock-orbit">' +
-              '<div class="reveal-mock-arm reveal-mock-arm-0"><div class="reveal-mock-badge">' + goldBadge('la') + '</div></div>' +
-              '<div class="reveal-mock-arm reveal-mock-arm-1"><div class="reveal-mock-badge">' + creamBadge('lb') + '</div></div>' +
-              '<div class="reveal-mock-arm reveal-mock-arm-2"><div class="reveal-mock-badge">' + darkBadge('lc') + '</div></div>' +
-            '</div></div></div><div class="reveal-mock-loaderlabel">Preparing your reveal</div>' +
-          '</div>';
+          '<div class="reveal-mock-scene reveal-mock-s5"><div class="reveal-mock-loaderfit">' +
+            '<div class="jz-orbit" role="status" aria-label="Loading your Jigzo">' +
+              '<div class="jz-orbit__ring">' +
+                '<div class="jz-orbit__arm"><div class="jz-orbit__badge"><svg viewBox="0 0 100 100"><defs><linearGradient id="jzbG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E7C485"/><stop offset=".45" stop-color="#A67C3D"/><stop offset="1" stop-color="#1C140A"/></linearGradient></defs><circle cx="50" cy="50" r="49" fill="url(#jzbG)"/><g fill="#050505"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>' +
+                '<div class="jz-orbit__arm"><div class="jz-orbit__badge"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="49" fill="#FAF8EC"/><circle cx="50" cy="50" r="48.3" fill="none" stroke="rgba(5,5,5,0.07)" stroke-width="1"/><g fill="#050505"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>' +
+                '<div class="jz-orbit__arm"><div class="jz-orbit__badge"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="49" fill="#111110"/><circle cx="50" cy="50" r="48.3" fill="none" stroke="rgba(166,124,61,0.42)" stroke-width="1"/><g fill="#FAF8EC"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>' +
+              '</div>' +
+              '<div class="jz-orbit__label">Preparing your reveal</div>' +
+            '</div>' +
+          '</div></div>';
         var scene6 =
           '<div class="reveal-mock-scene reveal-mock-s6"><img src="' + REVEAL + '" alt="" draggable="false"></div>';
+        // scene 7 — reveal card on the product screen + the Save button, a tap, then "Saved"
+        var scene7 =
+          '<div class="reveal-mock-scene reveal-mock-s7">' +
+            '<div class="reveal-mock-s7-card"><img src="' + REVEAL + '" alt="" draggable="false"></div>' +
+            '<div class="reveal-mock-s7-madeA">Created with care.</div>' +
+            '<div class="reveal-mock-s7-madeB">Made with JIGZO</div>' +
+            '<button type="button" tabindex="-1" aria-hidden="true" class="reveal-mock-s7-btn">Save or share</button>' +
+            '<div class="reveal-mock-s7-saved"><span class="reveal-mock-s7-check">✓</span>Saved</div>' +
+          '</div>';
 
-        var capText = ['Upload a photo', 'Write your message', 'They get a WhatsApp from JIGZO', 'They solve the puzzle', '', 'Your words, revealed'];
+        var capText = ['Upload a photo', 'Write your message', 'They get a WhatsApp from JIGZO', 'They solve the puzzle', '', 'Your words, revealed', 'Yours to keep'];
         var caps = capText.map(function (t) { return '<div class="reveal-mock-caption">' + t + '</div>'; }).join('');
+        // numbered step indicators, one per scene, highlighted in sync with the loop
+        var steps = capText.map(function (_, i) { return '<span class="reveal-mock-step">' + (i + 1) + '</span>'; }).join('');
 
         mount.className = 'reveal-mock-card';
+        // step numbers + captions sit ABOVE the frame; nothing below it
         mount.innerHTML =
+          '<div class="reveal-mock-steps">' + steps + '</div>' +
+          '<div class="reveal-mock-captions">' + caps + '</div>' +
           '<div class="reveal-mock-frame"><div class="reveal-mock-screen">' +
-            scene1 + scene2 + scene3 + scene4 + scene5 + scene6 +
+            scene1 + scene2 + scene3 + scene4 + scene5 + scene6 + scene7 +
             '<div class="reveal-mock-pill"></div>' +
-          '</div></div>' +
-          '<div class="reveal-mock-captions">' + caps + '</div>';
+          '</div></div>';
 
         // apply the doodle wallpaper via JS (its url("...") quotes can't live in an inline style attribute)
         var waBody = mount.querySelector('[data-wabody]');
@@ -374,12 +396,14 @@
 
         var scenes = Array.prototype.slice.call(mount.querySelectorAll('.reveal-mock-scene'));
         var capEls = Array.prototype.slice.call(mount.querySelectorAll('.reveal-mock-caption'));
-        var durations = [2000, 2000, 2500, 2500, 1000, 4000];
+        var stepEls = Array.prototype.slice.call(mount.querySelectorAll('.reveal-mock-step'));
+        var durations = [2000, 2000, 2500, 2500, 1000, 4000, 2500];
         var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
         function show(n) {
           for (var i = 0; i < scenes.length; i++) scenes[i].classList.toggle('is-active', i === n);
           for (var j = 0; j < capEls.length; j++) capEls[j].classList.toggle('is-active', j === n);
+          for (var k = 0; k < stepEls.length; k++) stepEls[k].classList.toggle('is-active', k === n);
         }
         if (reduced) {
           // hold Scene 6, render the captions as a plain text step list

@@ -207,7 +207,7 @@ a { color:inherit; text-decoration:none; }
 /* Interactive hero demo: a phone frame (from The Receivers Journey) whose
    screen toggles between State A (a nearly-solved jigsaw of demo-photo, one
    piece floating) and State B (the demo-reveal.png card, shown as-is). */
-.hero-mock-card { width:100%; max-width:300px; margin:0 auto; }
+.hero-mock-card { width:100%; max-width:300px; margin:0 auto; position:relative; }
 .hero-mock-frame {
   position:relative; width:100%; border-radius:54px; background:#050505; padding:11px;
   box-shadow:0 44px 90px -26px rgba(28,25,19,0.5), 0 10px 26px rgba(28,25,19,0.14);
@@ -221,44 +221,53 @@ a { color:inherit; text-decoration:none; }
   position:absolute; top:13px; left:50%; transform:translateX(-50%);
   width:92px; height:27px; background:#050505; border-radius:100px; z-index:40; pointer-events:none;
 }
+/* "Tap to replay" hint — above the frame, State B only (reserves its space) */
+.hero-mock-hint { height:14px; margin-bottom:11px; text-align:center; opacity:0; transition:opacity .4s ease;
+  font-family:var(--mono); font-weight:500; font-size:10px; letter-spacing:0.16em; text-transform:uppercase;
+  color:var(--ink-50); }
+.hero-mock-card.is-b .hero-mock-hint { opacity:1; }
 /* the two states are stacked layers — cross-faded, never re-laid-out */
 .hero-mock-a, .hero-mock-b { position:absolute; inset:0; }
 .hero-mock-a { z-index:1; opacity:1; transition:opacity .5s ease; }
 .hero-mock-b { z-index:20; opacity:0; pointer-events:none; transition:opacity .5s ease; }
-.hero-mock-screen.is-b .hero-mock-a { opacity:0; pointer-events:none; }
-.hero-mock-screen.is-b .hero-mock-b { opacity:1; pointer-events:auto; }
+.hero-mock-card.is-b .hero-mock-a { opacity:0; pointer-events:none; }
+.hero-mock-card.is-b .hero-mock-b { opacity:1; pointer-events:auto; }
 /* State A: assembled photo + jigsaw seams + one empty slot + floating piece */
 .hero-mock-photo { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
 .hero-mock-seams { position:absolute; inset:0; width:100%; height:100%; z-index:2; pointer-events:none;
   transition:opacity .4s ease .5s; }
-.hero-mock-screen.is-solving .hero-mock-seams, .hero-mock-screen.is-b .hero-mock-seams { opacity:0; }
+.hero-mock-card.is-solving .hero-mock-seams, .hero-mock-card.is-b .hero-mock-seams { opacity:0; }
 .hero-mock-piece {
   position:absolute; z-index:3; will-change:transform;
-  transform:translate3d(-28%,-125%,0);
+  transform:translate3d(35%,55%,0);
   transition:transform .6s cubic-bezier(.34,1.26,.42,1);
   filter:drop-shadow(0 8px 14px rgba(5,5,5,0.45));
 }
-.hero-mock-screen.is-solving .hero-mock-piece, .hero-mock-screen.is-b .hero-mock-piece { transform:translate3d(0,0,0); }
+.hero-mock-card.is-solving .hero-mock-piece, .hero-mock-card.is-b .hero-mock-piece { transform:translate3d(0,0,0); }
 .hero-mock-piece-bob { width:100%; height:100%; animation:hmk-bob 3.2s ease-in-out infinite; }
-.hero-mock-screen.is-solving .hero-mock-piece-bob, .hero-mock-screen.is-b .hero-mock-piece-bob { animation:none; }
+.hero-mock-card.is-solving .hero-mock-piece-bob, .hero-mock-card.is-b .hero-mock-piece-bob { animation:none; }
 .hero-mock-piece-svg { display:block; width:100%; height:100%; overflow:visible; }
-/* "Tap Me" label + hand-drawn curved arrow pointing to the floating piece */
-.hero-mock-tap { position:absolute; left:15%; top:11%; width:44%; height:30%; z-index:4; pointer-events:none;
-  transition:opacity .35s ease; }
-.hero-mock-screen.is-solving .hero-mock-tap, .hero-mock-screen.is-b .hero-mock-tap { opacity:0; }
-.hero-mock-tap-label { position:absolute; left:2%; top:0; font-family:var(--serif); font-style:italic;
-  font-weight:500; font-size:clamp(16px,5vw,21px); color:var(--gold-warm); letter-spacing:.01em;
-  text-shadow:0 1px 5px rgba(5,5,5,0.55); }
-.hero-mock-arrow { position:absolute; left:6%; top:28%; width:86%; height:auto;
-  filter:drop-shadow(0 1px 3px rgba(5,5,5,0.4)); }
-/* State B: the reveal card image, as-is, plus a quiet replay hint */
+/* "Tap Me" — handwritten label + hand-drawn arrow, floating at the frame's upper
+   right, overlapping and extending off the right edge (not inside the screen) */
+.hero-mock-tap { position:absolute; inset:0; z-index:30; pointer-events:none; transition:opacity .35s ease; }
+.hero-mock-card.is-solving .hero-mock-tap, .hero-mock-card.is-b .hero-mock-tap { opacity:0; }
+.hero-mock-tap-label { position:absolute; top:-5%; right:-12%; font-family:'Caveat', cursive; font-weight:600;
+  font-size:clamp(30px,9vw,42px); line-height:1; color:var(--gold-deep); letter-spacing:.5px;
+  transform:rotate(-7deg); white-space:nowrap;
+  /* thin white outline around the letterforms (no blur, no glow) */
+  text-shadow:-1px -1px 0 #FFFFFF, 1px -1px 0 #FFFFFF, -1px 1px 0 #FFFFFF, 1px 1px 0 #FFFFFF,
+    -1px 0 0 #FFFFFF, 1px 0 0 #FFFFFF, 0 -1px 0 #FFFFFF, 0 1px 0 #FFFFFF; }
+.hero-mock-arrow { position:absolute; top:3%; right:5%; width:38%; height:auto; }
+/* State B: the reveal card image, as-is */
 .hero-mock-reveal-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
-.hero-mock-replay { position:absolute; left:0; right:0; bottom:5.5%; text-align:center;
-  font-family:var(--mono); font-weight:500; font-size:10px; letter-spacing:0.16em; text-transform:uppercase;
-  color:rgba(250,248,236,0.82); text-shadow:0 1px 4px rgba(5,5,5,0.7); }
 @keyframes hmk-bob { 0%,100% { transform:translate3d(0,0,0); } 50% { transform:translate3d(0,-8%,0); } }
+@media (max-width:760px) {
+  /* sit closer to the frame on narrow screens so the label never clips the viewport */
+  .hero-mock-tap-label { top:0; right:-4%; font-size:clamp(26px,8vw,34px); }
+  .hero-mock-arrow { top:6%; right:6%; width:34%; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .hero-mock-a, .hero-mock-b, .hero-mock-seams, .hero-mock-piece, .hero-mock-tap { transition:none !important; }
+  .hero-mock-a, .hero-mock-b, .hero-mock-seams, .hero-mock-piece, .hero-mock-tap, .hero-mock-hint { transition:none !important; }
   .hero-mock-piece-bob { animation:none !important; }
 }
 
@@ -286,13 +295,19 @@ a { color:inherit; text-decoration:none; }
 /* scenes cross-fade, one visible at a time — no layout shift */
 .reveal-mock-scene { position:absolute; inset:0; opacity:0; overflow:hidden; transition:opacity .55s ease; }
 .reveal-mock-scene.is-active { opacity:1; }
-/* captions below the phone, swapping in sync */
-.reveal-mock-captions { position:relative; height:44px; margin-top:16px; }
+/* numbered step indicators + captions, ABOVE the phone, in sync with the loop */
+.reveal-mock-steps { display:flex; justify-content:center; align-items:center; gap:8px; margin-bottom:11px; }
+.reveal-mock-step { display:flex; align-items:center; justify-content:center; width:20px; height:20px;
+  border-radius:50%; font-family:var(--mono); font-size:10px; font-weight:500; line-height:1;
+  color:rgba(244,237,223,0.42); border:1px solid rgba(244,237,223,0.18);
+  transition:color .3s ease, background .3s ease, border-color .3s ease; }
+.reveal-mock-step.is-active { color:#1C1913; background:var(--gold-warm); border-color:var(--gold-warm); font-weight:700; }
+.reveal-mock-captions { position:relative; height:22px; margin-bottom:14px; }
 .reveal-mock-caption {
   position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
   text-align:center; opacity:0; transition:opacity .5s ease;
   font-family:Archia,-apple-system,sans-serif; font-size:13.5px; font-weight:500;
-  letter-spacing:0.01em; color:rgba(244,237,223,0.6);
+  letter-spacing:0.01em; color:rgba(244,237,223,0.6); white-space:nowrap;
 }
 .reveal-mock-caption.is-active { opacity:1; }
 
@@ -343,34 +358,45 @@ a { color:inherit; text-decoration:none; }
 .reveal-mock-scene.is-active .reveal-mock-solve1 { animation:rmk-snap1 1.4s cubic-bezier(.5,1.3,.4,1) both; }
 .reveal-mock-scene.is-active .reveal-mock-solve2 { animation:rmk-snap2 1.9s cubic-bezier(.5,1.3,.4,1) both; }
 
-/* Scene 5 — three-badge loader */
-.reveal-mock-s5 { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px;
-  background:radial-gradient(120% 95% at 50% 42%, #14110B, #050505 80%); }
-.reveal-mock-ring { position:relative; width:132px; height:132px; }
-.reveal-mock-glow { position:absolute; left:50%; top:50%; width:132px; height:132px; margin:-66px 0 0 -66px; border-radius:50%;
-  background:radial-gradient(circle, rgba(208,160,54,0.4), rgba(208,160,54,0) 60%); opacity:0.3; }
-.reveal-mock-breath { position:absolute; inset:0; }
-.reveal-mock-orbit { position:absolute; inset:0; transform-origin:center; }
-.reveal-mock-arm { position:absolute; left:50%; top:50%; }
-.reveal-mock-arm-0 { width:52px; height:52px; margin:-26px 0 0 -26px; transform:rotate(0deg) translateY(-24px); }
-.reveal-mock-arm-1, .reveal-mock-arm-2 { width:48px; height:48px; margin:-24px 0 0 -24px; }
-.reveal-mock-arm-1 { transform:rotate(120deg) translateY(-24px); }
-.reveal-mock-arm-2 { transform:rotate(240deg) translateY(-24px); }
-.reveal-mock-badge { width:100%; height:100%; transform-origin:center; }
-.reveal-mock-arm-0 .reveal-mock-badge { filter:drop-shadow(0 6px 13px rgba(124,76,34,0.5)); }
-.reveal-mock-arm-1 .reveal-mock-badge { filter:drop-shadow(0 6px 12px rgba(0,0,0,0.5)); }
-.reveal-mock-arm-2 .reveal-mock-badge { filter:drop-shadow(0 6px 12px rgba(0,0,0,0.6)); }
-.reveal-mock-badge svg { display:block; width:100%; height:100%; }
-.reveal-mock-loaderlabel { font-family:var(--mono); font-weight:500; font-size:10.5px; letter-spacing:0.34em;
-  text-transform:uppercase; color:rgba(214,206,190,0.55); padding-left:0.34em; }
-.reveal-mock-s5.is-active .reveal-mock-glow { animation:rmk-glow 3s ease-in-out infinite; }
-.reveal-mock-s5.is-active .reveal-mock-breath { animation:rmk-breath 3.4s ease-in-out infinite; }
-.reveal-mock-s5.is-active .reveal-mock-orbit { animation:rmk-orbit 6.5s linear infinite; }
-.reveal-mock-s5.is-active .reveal-mock-badge { animation:rmk-counter 6.5s linear infinite; }
-.reveal-mock-s5.is-active .reveal-mock-loaderlabel { animation:rmk-label 3s ease-in-out infinite; }
+/* Scene 5 — the actual receive.html loader: markup, CSS, and keyframes copied
+   verbatim, on its product background (cream), scaled to fit the phone frame. */
+.reveal-mock-s5 { background:#F4EDDF; display:flex; align-items:center; justify-content:center; }
+.reveal-mock-loaderfit { transform:scale(0.8); transform-origin:center; }
+.jz-orbit { display:flex; flex-direction:column; align-items:center; gap:22px; }
+.jz-orbit__ring { position:relative; width:120px; height:120px; animation:jzOrbitSpin 2.8s linear infinite; }
+.jz-orbit__arm  { position:absolute; left:50%; top:50%; width:0; height:0; }
+.jz-orbit__arm:nth-child(1){ transform:rotate(0deg); }
+.jz-orbit__arm:nth-child(2){ transform:rotate(120deg); }
+.jz-orbit__arm:nth-child(3){ transform:rotate(240deg); }
+.jz-orbit__badge { position:absolute; left:8px; top:-23px; width:46px; height:46px;
+  filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5)); animation:jzBadgeSpin 2.2s ease-in-out infinite; }
+.jz-orbit__badge svg { display:block; width:100%; height:100%; overflow:visible; }
+.jz-orbit__label { font-size:12.5px; font-weight:500; letter-spacing:0.16em; text-transform:uppercase; color:rgba(5,5,5,0.45); }
+@keyframes jzOrbitSpin { to { transform:rotate(360deg); } }
+@keyframes jzBadgeSpin { 0%{ transform:rotate(0deg) scale(0.9); } 50%{ transform:rotate(180deg) scale(1.1); } 100%{ transform:rotate(360deg) scale(0.9); } }
+@media (prefers-reduced-motion: reduce){ .jz-orbit__ring,.jz-orbit__badge{ animation:none; } }
 
 /* Scene 6 — the reveal card image, as-is (held) */
 .reveal-mock-s6 img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+
+/* Scene 7 — the reveal card on the product screen with the Save button; the
+   button gets a subtle tap, then a small "Saved" confirmation appears. */
+.reveal-mock-s7 { background:#F4EDDF; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:9px; padding:6% 8%; }
+.reveal-mock-s7-card { height:50%; aspect-ratio:9/16; border-radius:14px; overflow:hidden; flex:none;
+  box-shadow:0 16px 34px rgba(0,0,0,0.28); }
+.reveal-mock-s7-card img { width:100%; height:100%; object-fit:cover; display:block; }
+.reveal-mock-s7-madeA { font-size:15px; font-weight:500; letter-spacing:-0.01em; color:#1C1913; margin-top:2px; }
+.reveal-mock-s7-madeB { font-size:11px; font-weight:500; letter-spacing:0.04em; color:rgba(28,25,19,0.45); }
+/* the product's Save/Download button, exact styling */
+.reveal-mock-s7-btn { margin-top:4px; background:#050505; color:#FAF8EC; border:none; border-radius:999px;
+  padding:12px 24px; font-size:14px; font-weight:600; font-family:Archia,sans-serif; cursor:default; }
+.reveal-mock-s7-saved { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600;
+  color:#1C1913; opacity:0; }
+.reveal-mock-s7-check { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px;
+  border-radius:50%; background:var(--gold-bright); color:#FAF8EC; font-size:10px; line-height:1; }
+.reveal-mock-s7.is-active .reveal-mock-s7-btn { animation:rmk-tap 2.5s ease both; }
+.reveal-mock-s7.is-active .reveal-mock-s7-saved { animation:rmk-saved 2.5s ease both; }
 
 /* dark-adapted hero CTA (no gold) */
 .reveal-band__cta { background:var(--bg); color:var(--ink); font-weight:700; font-size:16px;
@@ -380,24 +406,32 @@ a { color:inherit; text-decoration:none; }
 @keyframes rmk-appear { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 @keyframes rmk-snap1 { 0% { transform:translate3d(-32%,-52%,0); } 55%,100% { transform:translate3d(0,0,0); } }
 @keyframes rmk-snap2 { 0%,22% { transform:translate3d(44%,60%,0); } 88%,100% { transform:translate3d(0,0,0); } }
-@keyframes rmk-orbit { to { transform:rotate(360deg); } }
-@keyframes rmk-counter { to { transform:rotate(-360deg); } }
-@keyframes rmk-breath { 0%,100% { transform:scale(.97); } 50% { transform:scale(1.03); } }
-@keyframes rmk-glow { 0%,100% { opacity:0.22; } 50% { opacity:0.4; } }
-@keyframes rmk-label { 0%,100% { opacity:0.45; } 50% { opacity:0.92; } }
+@keyframes rmk-tap {
+  0% { transform:scale(1); box-shadow:0 0 0 0 rgba(5,5,5,0); }
+  30% { transform:scale(1); box-shadow:0 0 0 0 rgba(5,5,5,0.28); }
+  38% { transform:scale(0.94); }
+  52% { transform:scale(1); }
+  58% { box-shadow:0 0 0 12px rgba(5,5,5,0); }
+  100% { transform:scale(1); box-shadow:0 0 0 12px rgba(5,5,5,0); }
+}
+@keyframes rmk-saved {
+  0%,50% { opacity:0; transform:translateY(6px) scale(0.9); }
+  62% { opacity:1; transform:translateY(0) scale(1); }
+  100% { opacity:1; transform:translateY(0) scale(1); }
+}
 
 /* reduced motion: hold Scene 6, list the captions as plain text steps */
 @media (prefers-reduced-motion: reduce) {
   .reveal-mock-scene, .reveal-mock-caption { transition:none !important; }
   .reveal-mock-scene.is-active .reveal-mock-crop img,
   .reveal-mock-scene.is-active .reveal-mock-msgtext,
-  .reveal-mock-s5.is-active .reveal-mock-glow, .reveal-mock-s5.is-active .reveal-mock-breath,
-  .reveal-mock-s5.is-active .reveal-mock-orbit, .reveal-mock-s5.is-active .reveal-mock-badge,
-  .reveal-mock-s5.is-active .reveal-mock-loaderlabel { animation:none !important; }
+  .reveal-mock-s7.is-active .reveal-mock-s7-btn,
+  .reveal-mock-s7.is-active .reveal-mock-s7-saved { animation:none !important; }
 }
-.reveal-mock-card.is-reduced .reveal-mock-captions { position:static; height:auto; margin-top:18px; }
+.reveal-mock-card.is-reduced .reveal-mock-steps { display:none; }
+.reveal-mock-card.is-reduced .reveal-mock-captions { position:static; height:auto; margin:0 0 16px; }
 .reveal-mock-card.is-reduced .reveal-mock-caption { position:static; inset:auto; opacity:1; display:block;
-  text-align:left; padding:4px 0 4px 22px; color:rgba(244,237,223,0.72); }
+  text-align:left; padding:4px 0 4px 22px; color:rgba(244,237,223,0.72); white-space:normal; }
 .reveal-mock-card.is-reduced .reveal-mock-caption:empty { display:none; }
 .reveal-mock-card.is-reduced .reveal-mock-caption::before { content:""; position:absolute; left:2px; top:11px;
   width:6px; height:6px; border-radius:50%; background:var(--gold-warm); }
