@@ -100,6 +100,13 @@ a { color:inherit; text-decoration:none; }
   font-weight:500; font-size:12.5px; letter-spacing:0.02em;
   color:var(--ink-50); margin-top:22px;
 }
+.hero__cta-fine {
+  font-weight:500; font-size:13.5px; color:var(--gold-deep);
+  margin-top:10px;
+}
+.reveal-steps { margin-bottom:32px; display:flex; flex-direction:column; gap:20px; }
+.reveal-step h3 { font-size:18px; font-weight:500; color:var(--gold-warm); margin:0 0 6px; }
+.reveal-step p { font-size:14.5px; line-height:1.55; color:var(--cream-72); margin:0; max-width:38ch; }
 .min0 { min-width:0; }
 
 /* ---- section headers ---- */
@@ -133,15 +140,15 @@ a { color:inherit; text-decoration:none; }
 .reveal-band__hint { font-weight:500; font-size:12.5px; color:var(--cream-42); margin-top:16px; }
 
 /* ---- use cases ---- */
-.cases { display:grid; grid-template-columns:repeat(auto-fit, minmax(230px,1fr)); gap:16px; }
+.cases { display:grid; grid-template-columns:repeat(auto-fill, minmax(215px,1fr)); gap:12px; }
 .case {
-  padding:24px 22px; border-radius:16px; background:var(--card);
+  padding:18px 20px; border-radius:14px; background:var(--card);
   border:1px solid rgba(28,25,19,0.07);
   transition:transform .25s ease, box-shadow .25s ease;
 }
 .case:hover { transform:translateY(-3px); box-shadow:0 14px 30px rgba(28,25,19,0.1); }
-.case__title { font-weight:500; font-size:21px; letter-spacing:-0.01em; color:#4a3b1e; margin-bottom:8px; }
-.case__body { font-size:15px; line-height:1.55; color:var(--ink-70); }
+.case__title { font-weight:600; font-size:18px; letter-spacing:-0.01em; color:#4a3b1e; margin-bottom:6px; }
+.case__body { font-size:13.5px; line-height:1.5; color:var(--ink-70); }
 
 /* ---- tiers ---- */
 .tiers { display:grid; grid-template-columns:repeat(auto-fit, minmax(250px,1fr)); gap:18px; align-items:stretch; }
@@ -165,7 +172,13 @@ a { color:inherit; text-decoration:none; }
 .tier__feat { display:flex; gap:11px; align-items:flex-start; font-size:15px; line-height:1.4; color:rgba(244,237,223,0.86); }
 .tier__feat .di { color:var(--gold-warm); margin-top:1px; }
 .tier__desc { font-size:15px; line-height:1.5; color:var(--ink-60); margin-bottom:22px; }
-.tier .btn { margin-top:auto; }
+.tier .btn {
+  margin-top:auto;
+  white-space:normal;
+  text-align:center;
+  font-size:14px;
+  padding:14px 18px;
+}
 .tier__notify {
   margin-top:auto; font-family:inherit; font-weight:600; font-size:14px; color:var(--ink);
   background:none; border:1px solid rgba(28,25,19,0.24); border-radius:100px; padding:12px 20px; cursor:pointer;
@@ -196,7 +209,7 @@ a { color:inherit; text-decoration:none; }
    the disclaimer text below it — the logo keeps its natural aspect ratio. */
 .footer__brand { display:flex; flex-direction:column; align-items:flex-start; gap:5px; }
 .footer__logo { height:20px; width:auto; flex:none; opacity:0.9; }
-.footer__by { font-weight:500; font-size:11px; letter-spacing:0.04em; color:var(--ink-50); }
+.footer__by { font-weight:400; font-size:8px; letter-spacing:0.04em; color:var(--ink-30); opacity:0.4; }
 .footer__tag { font-weight:500; font-size:13px; color:var(--ink-50); }
 
 /* =========================================================
