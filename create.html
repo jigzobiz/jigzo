@@ -245,6 +245,26 @@ function phoneValid(v) { const d = phoneDigits(v); return d.length >= 7 && d.len
 /* Pricing — placeholder helper for future geo/currency localization. */
 function priceText() { return "From $5"; }
 
+const BASE_PRICE = 5;   // USD, the digital puzzle itself
+
+/* Every add-on lives in this one array. The Enhance step renders one card per
+   entry, selection stores ids, and the checkout summary + total are all derived
+   from it, so a future upgrade means adding one object here and nothing else.
+   {recipient} in description/preview is filled live from the People step. */
+const UPGRADES = [
+  {
+    id: "insights",
+    name: "JIGZO Insights",
+    price: 1,
+    tagline: "Know exactly when your surprise is discovered.",
+    description: "Be part of the moment. The instant {recipient} solves the puzzle, you'll know, when it happened and how long it took them.",
+    preview: "🧩 {recipient} just solved your Jigzo! Solved on Jun 14, 8:32 PM. It took them 14 minutes to reach your words.",
+  },
+];
+function withRecipient(str, name) {
+  return str.replace(/\{recipient\}/g, (name && name.trim()) ? name.trim() : "they");
+}
+
 /* ---- shared JIGZO puzzle badge (the app icon, used for the uploader) ---- */
 function PuzzleBadge({ size }) {
   return (
@@ -290,7 +310,7 @@ function waMessage(senderName, showIdentity, receiverName) {
   const greetName = (receiverName && receiverName.trim()) ? receiverName.trim() : "there";
   return "Hi " + greetName + ", " + who + " left something special for you. There's a message waiting behind a little challenge. Solve the puzzle to uncover it. 🧩 Open your JIGZO";
 }
-function WhatsAppPreview({ senderName, showIdentity, receiverName }) {
+function WhatsAppPreview({ senderName, showIdentity, receiverName, message }) {
   // authentic WhatsApp (iOS) receiver view: JIGZO is the verified contact, the
   // first notification arrives as an incoming (left) white bubble.
   const WA_SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
@@ -334,7 +354,7 @@ function WhatsAppPreview({ senderName, showIdentity, receiverName }) {
           {/* incoming tail */}
           <span style={{ position: "absolute", top: 0, left: -7, width: 0, height: 0, borderStyle: "solid",
             borderWidth: "0 8px 8px 0", borderColor: "transparent #FFFFFF transparent transparent" }} />
-          <span style={{ whiteSpace: "pre-wrap" }}>{waMessage(senderName, showIdentity, receiverName)}</span>
+          <span style={{ whiteSpace: "pre-wrap" }}>{message != null ? message : waMessage(senderName, showIdentity, receiverName)}</span>
           <span style={{ float: "right", fontSize: 11, color: "#667781", margin: "6px 0 0 8px" }}>{stamp}</span>
         </div>
       </div>
@@ -343,7 +363,7 @@ function WhatsAppPreview({ senderName, showIdentity, receiverName }) {
 }
 
 function StepRail({ idx }) {
-  const labels = ["Photo", "Difficulty", "People", "Message", "Preview", "Checkout"];
+  const labels = ["Photo", "Difficulty", "People", "Message", "Preview", "Enhance", "Checkout"];
   return (
     <div style={{ display: "flex", gap: 6, marginBottom: 28, flexWrap: "wrap" }}>
       {labels.map((s, i) => (
@@ -429,6 +449,7 @@ function JigzoSenderFlow() {
   const [tone, setTone] = useState("");
   const [message, setMessage] = useState("");
   const [revealStage, setRevealStage] = useState(false);
+  const [selectedUpgrades, setSelectedUpgrades] = useState([]);   // ids of chosen add-ons
 
   const dragRef = useRef(null);
   const pointersRef = useRef(new Map()); // active pointers on the crop frame: id -> {x,y} client coords
@@ -599,6 +620,12 @@ function JigzoSenderFlow() {
 
   const occasionObj = OCCASIONS.find((o) => o.id === occasion);
   const toneObj = TONES.find((t) => t.id === tone);
+
+  // Total is always derived: base price + the selected upgrades (never stored).
+  const toggleUpgrade = (id) => setSelectedUpgrades((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : prev.concat(id));
+  const upgradesTotal = selectedUpgrades.reduce((sum, id) => { const u = UPGRADES.find((x) => x.id === id); return sum + (u ? u.price : 0); }, 0);
+  const grandTotal = BASE_PRICE + upgradesTotal;
+  const money = (n) => "$" + n;
   const senderValid = phoneValid(senderCountry.dial + senderPhone);
   const receiverValid = phoneValid(receiverCountry.dial + receiverPhone);
   const contactsReady = senderName && receiverName && senderValid && receiverValid;
@@ -627,7 +654,7 @@ function JigzoSenderFlow() {
     return () => clearTimeout(t);
   }, [step]);
 
-  const railIdx = { upload: 0, crop: 0, pieces: 1, contacts: 2, message: 3, preview: 4, ready: 5, checkout: 5 }[step];
+  const railIdx = { upload: 0, crop: 0, pieces: 1, contacts: 2, message: 3, preview: 4, enhance: 5, ready: 6, checkout: 6 }[step];
 
   return (
     <div style={{ fontFamily: "Archia, sans-serif", color: T.ink, padding: "34px 20px 70px" }}>
@@ -879,12 +906,62 @@ function JigzoSenderFlow() {
 
             <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
               <GhostButton onClick={() => setStep("message")}>Back</GhostButton>
-              <PrimaryButton onClick={() => setStep("ready")} style={{ flex: 1 }}>Continue</PrimaryButton>
+              <PrimaryButton onClick={() => setStep("enhance")} style={{ flex: 1 }}>Continue</PrimaryButton>
             </div>
           </div>
         )}
 
-        {/* ============ STEP 6 — READY ============ */}
+        {/* ============ STEP 6 — ENHANCE YOUR SURPRISE ============ */}
+        {step === "enhance" && (
+          <div style={{ animation: "fadeUp 0.4s ease" }}>
+            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Enhance Your Surprise</h1>
+            <p style={{ fontSize: 14, color: T.ink66, margin: "0 0 20px", lineHeight: 1.55 }}>Small touches to make the moment even more meaningful.</p>
+
+            {UPGRADES.map((u) => {
+              const selected = selectedUpgrades.includes(u.id);
+              return (
+                <div key={u.id} onClick={() => toggleUpgrade(u.id)} role="button" aria-pressed={selected}
+                  style={{ border: selected ? "2px solid " + T.ink : "1.5px solid " + T.ink15,
+                    background: selected ? "rgba(28,25,19,0.04)" : T.card, borderRadius: 16, padding: 18,
+                    marginBottom: 14, cursor: "pointer", transition: "border-color 0.2s ease, background 0.2s ease" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 9 }}>
+                    <div style={{ fontWeight: 600, fontSize: 16, flex: 1 }}>{u.name}</div>
+                    <div style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.ink }}>+{money(u.price)}</div>
+                    <div style={{ width: 24, height: 24, borderRadius: "50%", flex: "none",
+                      border: selected ? "1.5px solid " + T.ink : "1.5px solid rgba(28,25,19,0.3)",
+                      background: selected ? T.ink : "transparent",
+                      display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.2s ease" }}>
+                      {selected && (
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                          <path d="M3 7 L5.5 9.5 L10 4" stroke={T.bg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: T.ink, marginBottom: 6, lineHeight: 1.4 }}>{u.tagline}</div>
+                  <div style={{ fontSize: 13.5, color: T.ink66, lineHeight: 1.55, marginBottom: 14 }}>{withRecipient(u.description, receiverName)}</div>
+                  <div style={{ fontFamily: T.mono, fontSize: 10, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", color: T.ink40, marginBottom: 8 }}>What you'll receive</div>
+                  <div onClick={(e) => e.stopPropagation()} style={{ cursor: "default" }}>
+                    <WhatsAppPreview receiverName={receiverName} message={withRecipient(u.preview, receiverName)} />
+                  </div>
+                </div>
+              );
+            })}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
+              <GhostButton onClick={() => setStep("preview")}>Back</GhostButton>
+              <PrimaryButton onClick={() => setStep("ready")} style={{ flex: 1 }}>Continue</PrimaryButton>
+            </div>
+            <div style={{ textAlign: "center", marginTop: 14 }}>
+              <button onClick={() => { setSelectedUpgrades([]); setStep("ready"); }}
+                style={{ background: "none", border: "none", padding: 6, fontSize: 13, color: T.ink50, cursor: "pointer", fontFamily: "Archia, sans-serif" }}>
+                Continue without extras
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ============ STEP 7 — READY ============ */}
         {step === "ready" && (
           <div style={{ animation: "fadeUp 0.4s ease", textAlign: "center", paddingTop: 20 }}>
             <div style={{ width: 66, height: 66, margin: "0 auto 22px", filter: "drop-shadow(0 8px 18px rgba(124,76,34,0.4))" }}><PuzzleBadge size={66} /></div>
@@ -893,10 +970,10 @@ function JigzoSenderFlow() {
               Your puzzle is prepared. Once you continue we'll securely create your private reveal and deliver it through JIGZO WhatsApp.
             </p>
             <div style={{ fontFamily: T.mono, fontSize: 13, letterSpacing: "0.04em", color: T.goldDeep, marginBottom: 26 }}>
-              {priceText()}
+              {money(grandTotal)}
             </div>
             <PrimaryButton onClick={() => setStep("checkout")} style={{ width: "100%" }}>Create &amp; Send</PrimaryButton>
-            <div style={{ marginTop: 12 }}><GhostButton onClick={() => setStep("preview")}>Back</GhostButton></div>
+            <div style={{ marginTop: 12 }}><GhostButton onClick={() => setStep("enhance")}>Back</GhostButton></div>
           </div>
         )}
 
@@ -914,9 +991,22 @@ function JigzoSenderFlow() {
                   <div><strong>Sender shown</strong> · {revealIdentity ? "Yes" : "Anonymous"}</div>
                 </div>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: "1px solid " + T.ink08, paddingTop: 12 }}>
-                <span style={{ fontSize: 14, color: T.ink60 }}>Total</span>
-                <span style={{ fontFamily: T.mono, fontSize: 16, color: T.ink }}>{priceText()}</span>
+              <div style={{ borderTop: "1px solid " + T.ink08, paddingTop: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, color: T.ink66, marginBottom: 7 }}>
+                  <span>Digital Puzzle</span><span style={{ fontFamily: T.mono }}>{money(BASE_PRICE)}</span>
+                </div>
+                {selectedUpgrades.map((id) => {
+                  const u = UPGRADES.find((x) => x.id === id);
+                  return u ? (
+                    <div key={id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, color: T.ink66, marginBottom: 7 }}>
+                      <span>{u.name}</span><span style={{ fontFamily: T.mono }}>+{money(u.price)}</span>
+                    </div>
+                  ) : null;
+                })}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: "1px solid " + T.ink08, paddingTop: 10, marginTop: 3 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>Total</span>
+                  <span style={{ fontFamily: T.mono, fontSize: 16, fontWeight: 600, color: T.ink }}>{money(grandTotal)}</span>
+                </div>
               </div>
             </div>
 
