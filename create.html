@@ -454,6 +454,9 @@ function JigzoSenderFlow() {
   // Threshold Notice
   const [thresholdNotice, setThresholdNotice] = useState(null);
 
+  // Plans accordion state
+  const [plansOpen, setPlansOpen] = useState(false);
+
   const dragRef = useRef(null);
   const pointersRef = useRef(new Map());
   const pinchRef = useRef(null);
@@ -1056,13 +1059,41 @@ function JigzoSenderFlow() {
             </div>
 
             {/* Live summary */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 14, borderRadius: 12, background: "rgba(184,147,90,0.08)", border: "1px solid rgba(184,147,90,0.15)", marginBottom: 18 }}>
+            <div 
+              onClick={() => setPlansOpen(!plansOpen)} 
+              role="button" 
+              aria-expanded={plansOpen}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 14, borderRadius: 12, background: "rgba(184,147,90,0.08)", border: "1px solid rgba(184,147,90,0.15)", marginBottom: 12, cursor: "pointer" }}
+            >
               <div>
                 <div style={{ fontWeight: 600, fontSize: 14.5 }}>{recipients.length} {recipients.length === 1 ? "recipient" : "recipients"}</div>
-                <div style={{ fontSize: 12.5, color: T.goldDeep, fontWeight: 500 }}>{currentPack.label}</div>
+                <div style={{ fontSize: 12.5, color: T.goldDeep, fontWeight: 500 }}>{currentPack.label} <span style={{ fontSize: 10, marginLeft: 2 }}>{plansOpen ? "▲" : "▼"}</span></div>
               </div>
               <div style={{ fontFamily: T.mono, fontWeight: 600, fontSize: 16 }}>{formatPrice(BASE_PRICE)}</div>
             </div>
+
+            {plansOpen && (
+              <div style={{ padding: 16, borderRadius: 14, background: T.card, border: "1.5px solid " + T.ink15, marginBottom: 18, animation: "fadeUp 0.3s ease" }}>
+                <p style={{ fontSize: 13, color: T.ink66, margin: "0 0 12px" }}>Your plan is selected automatically based on the number of recipients.</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {PACK_OPTIONS.map((p) => {
+                    const isSelected = p.id === currentPack.id;
+                    return (
+                      <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 8, border: isSelected ? "2px solid " + T.goldDeep : "1px solid " + T.ink08, background: isSelected ? "rgba(184,147,90,0.06)" : "transparent" }}>
+                        <div>
+                          <span style={{ fontWeight: 600, fontSize: 14 }}>{p.label}</span>
+                          <span style={{ fontSize: 12, color: T.ink50, marginLeft: 6 }}>
+                            ({p.limit === 1 ? "1 recipient" : `up to ${p.limit} recipients`})
+                          </span>
+                          {isSelected && <span style={{ marginLeft: 6, fontSize: 11, background: T.goldWarm, padding: "2px 6px", borderRadius: 100, color: T.ink, fontWeight: 700 }}>Active</span>}
+                        </div>
+                        <div style={{ fontFamily: T.mono, fontSize: 13.5, fontWeight: 600 }}>{formatPrice(p.price)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Sender details */}
             <div style={{ padding: 16, borderRadius: 14, background: T.card, border: "1px solid " + T.ink08, marginBottom: 18 }}>
@@ -1142,7 +1173,7 @@ function JigzoSenderFlow() {
             </div>
 
             {/* Collapsed puzzle and reveal preview */}
-            <Disclosure title="Preview the puzzle and reveal">
+            <Disclosure title="Preview the puzzle and reveal" defaultOpen={true}>
               <div style={{ width: "100%", maxWidth: 296, margin: "0 auto", position: "relative",
                 background: "#050505", borderRadius: 54, padding: 11,
                 boxShadow: "0 44px 90px -26px rgba(28,25,19,0.5), 0 10px 26px rgba(28,25,19,0.14)" }}>
