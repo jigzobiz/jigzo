@@ -598,21 +598,23 @@ function Receiver({ data }) {
         {/* solved — Save / Replay above the reveal card, with a quiet save hint */}
         {showReveal && (
           <div style={{ textAlign:"center", marginBottom:16, animation:"jzFade 0.5s ease" }}>
-            <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
+            <div style={{ display:"flex", gap:8, justifyContent:"center", flexWrap:"wrap" }}>
               <button onClick={onSaveOrShare} style={{ background:"#050505", color:"#FAF8EC", border:"none", borderRadius:999,
-                padding:"12px 24px", fontSize:14, fontWeight:600, fontFamily:"Archia,sans-serif", cursor:"pointer" }}>
-                {canShareFiles ? "Save to your photos" : "Download"}
+                padding:"12px 22px", fontSize:14, fontWeight:600, fontFamily:"Archia,sans-serif", cursor:"pointer" }}>
+                Save
               </button>
               <button onClick={replay} style={{ background:"transparent", color:"#050505", border:"1px solid rgba(5,5,5,0.2)",
                 borderRadius:999, padding:"12px 22px", fontSize:14, fontWeight:500, fontFamily:"Archia,sans-serif", cursor:"pointer" }}>
                 Replay
               </button>
+              <button onClick={() => window.location.href = "create.html"} style={{ background:"#050505", color:"#FAF8EC", border:"none",
+                borderRadius:999, padding:"12px 22px", fontSize:14, fontWeight:600, fontFamily:"Archia,sans-serif", cursor:"pointer" }}>
+                ✨ Create Yours
+              </button>
             </div>
-            {canShareFiles && (
-              <div style={{ marginTop:9, fontSize:12, color:"rgba(28,25,19,0.5)", letterSpacing:"0.01em" }}>
-                Choose Save Image to keep it in your gallery
-              </div>
-            )}
+            <div style={{ marginTop:9, fontSize:12, color:"rgba(28,25,19,0.5)", letterSpacing:"0.01em" }}>
+              Hope this made you smile, Pass the surprise on.
+            </div>
           </div>
         )}
 
@@ -690,6 +692,11 @@ function Receiver({ data }) {
           </div>
         ) : (
           <div style={{ textAlign:"center", marginTop:20, animation:"jzFade 0.5s ease" }}>
+            <div style={{ marginBottom:14 }}>
+              <a href="create.html" style={{ color: "#B8935A", fontWeight:600, fontSize:14.5, textDecoration:"underline" }}>
+                ✨ Ready to surprise someone else?
+              </a>
+            </div>
             <div style={{ fontSize:18, fontWeight:500, letterSpacing:"-0.01em", margin:"0 0 4px" }}>Created with care.</div>
             <div style={{ fontSize:11.5, fontWeight:500, letterSpacing:"0.04em", color:"rgba(28,25,19,0.45)" }}>Made with JIGZO</div>
           </div>
