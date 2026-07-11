@@ -250,9 +250,9 @@ const PACK_OPTIONS = [
 const UPGRADES = [
   {
     id: "insights",
-    name: "Be There",
-    tagline: "Know when they complete the puzzle.",
-    description: "Get a WhatsApp when the puzzle is completed, including the completion time and how long it took.",
+    name: "Reveal Alert",
+    tagline: "Know the moment they finish.",
+    description: "Get a WhatsApp when they complete the puzzle, including when it happened and how long it took.",
     preview: "🧩Hi {sender}, It happened!\n{recipient} has just discovered your surprise.\nCompleted on June 14 • 8:32 PM, it took them 1:08 minutes to reach your words.\nOne more unforgettable moment, thanks to you. ❤️ We hope it made their day & yours.",
   },
 ];
@@ -1228,7 +1228,7 @@ function JigzoSenderFlow() {
               </div>
             </Disclosure>
 
-            {/* Be There add-on */}
+            {/* Reveal Alert add-on */}
             {UPGRADES.map((u) => {
               const selected = selectedUpgrades.includes(u.id);
               const priceVal = getUpgradePrice(u.id);
@@ -1241,7 +1241,7 @@ function JigzoSenderFlow() {
                     <div style={{ fontWeight: 600, fontSize: 15.5, flex: 1 }}>{u.name}</div>
                     <div style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.ink }}>Add for {formatPrice(priceVal)}</div>
                     <div style={{ width: 20, height: 20, borderRadius: "50%", flex: "none",
-                      border: selected ? "1.5px solid " + T.ink : "1.5px solid rgba(28,25,19,0.3)",
+                      border: selected ? "1.5px solid " + T.ink : "1.5px solid rgba(28, 25, 19, 0.3)",
                       background: selected ? T.ink : "transparent",
                       display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {selected && (
@@ -1265,7 +1265,7 @@ function JigzoSenderFlow() {
               </div>
               {selectedUpgrades.includes("insights") && (
                 <div className="price-row">
-                  <span>Be There Add-on</span>
+                  <span>Reveal Alert Add-on</span>
                   <span>+{formatPrice(getUpgradePrice("insights"))}</span>
                 </div>
               )}
