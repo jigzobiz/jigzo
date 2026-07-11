@@ -400,6 +400,10 @@ function Receiver({ data }) {
       canvas.width = CW; canvas.height = CH;
       const ctx = canvas.getContext("2d");
 
+      // Fill canvas background with cream color before clipping
+      ctx.fillStyle = CREAM;
+      ctx.fillRect(0, 0, CW, CH);
+
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(0, 0, CW, CH, 14 * S);
       else ctx.rect(0, 0, CW, CH);
@@ -459,7 +463,7 @@ function Receiver({ data }) {
         y += rowH + r.gap;
       });
 
-      canvas.toBlob((blob) => { onBlob(blob || null); }, "image/png");
+      canvas.toBlob((blob) => { onBlob(blob || null); }, "image/jpeg", 0.85);
     };
 
     const run = () => {
@@ -483,13 +487,13 @@ function Receiver({ data }) {
   const sharedFileRef = useRef(null);
   useEffect(() => {
     if (!showReveal) { sharedFileRef.current = null; return; }
-    buildRevealPng((blob) => { if (blob) sharedFileRef.current = new File([blob], "jigzo-reveal.png", { type: "image/png" }); });
+    buildRevealPng((blob) => { if (blob) sharedFileRef.current = new File([blob], "jigzo-reveal.jpg", { type: "image/jpeg" }); });
   }, [showReveal]);
 
   const saveAsFile = (file) => {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(file);
-    a.download = "jigzo-reveal.png";
+    a.download = "jigzo-reveal.jpg";
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1500);
   };
@@ -504,7 +508,7 @@ function Receiver({ data }) {
       return;
     }
     if (file) saveAsFile(file);
-    else buildRevealPng((blob) => { if (blob) saveAsFile(new File([blob], "jigzo-reveal.png", { type: "image/png" })); });
+    else buildRevealPng((blob) => { if (blob) saveAsFile(new File([blob], "jigzo-reveal.jpg", { type: "image/jpeg" })); });
   };
 
   const placedCount = placed.filter(Boolean).length;
