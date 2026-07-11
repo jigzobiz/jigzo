@@ -541,8 +541,8 @@ function Receiver({ data }) {
 
         {/* interactive stage (scaled to fit width & height) */}
         <div ref={wrapRef} style={{ width:"100%", maxWidth:stageW, margin:"0 auto", height:stageH * scale, position:"relative" }}>
-          <div ref={stageRef} style={{ width:stageW, height:stageH, transform:`scale(${scale})`, transformOrigin:"0 0",
-            position:"absolute", top:0, left:0, background: showReveal ? "transparent" : "#FAF8EC", borderRadius:16, boxShadow: showReveal ? "none" : "0 4px 24px rgba(5,5,5,0.06)" }}>
+          <div ref={stageRef} style={{ width:stageW, height:stageH, transform:`translateX(-50%) scale(${scale})`, transformOrigin:"top center",
+            position:"absolute", top:0, left:"50%", background: showReveal ? "transparent" : "#FAF8EC", borderRadius:16, boxShadow: showReveal ? "none" : "0 4px 24px rgba(5,5,5,0.06)" }}>
 
             {/* board frame — hidden when solved to avoid background tray showing */}
             {!showReveal && (
