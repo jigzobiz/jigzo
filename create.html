@@ -407,7 +407,7 @@ function GhostButton({ children, onClick, disabled }) {
 
 const inputStyle = {
   width: "100%", padding: "13px 14px", borderRadius: 12, border: "1.5px solid " + T.ink15,
-  fontSize: 14.5, background: T.card, outline: "none", color: T.ink,
+  fontSize: "16px", background: T.card, outline: "none", color: T.ink,
 };
 
 function Disclosure({ title, children, defaultOpen = false }) {
@@ -464,7 +464,18 @@ function JigzoSenderFlow() {
   const cropFrameRef = useRef(null);
   const imgElRef = useRef(null);
 
-  useEffect(() => { window.scrollTo(0, 0); }, [currentStep, isProcessing, isSuccess]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    // Force reset browser viewport zoom on step transition
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (meta) {
+      const orig = meta.getAttribute("content");
+      meta.setAttribute("content", "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0");
+      setTimeout(() => {
+        meta.setAttribute("content", orig || "width=device-width, initial-scale=1.0");
+      }, 150);
+    }
+  }, [currentStep, isProcessing, isSuccess]);
 
   // Sync recipient #1 name with primary recipient name
   const handlePrimaryRecipientNameChange = (val) => {
