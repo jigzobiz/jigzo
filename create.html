@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Create your JIGZO reveal</title>
+<title>Create your JIGZO puzzle</title>
 <!-- create.html — sender flow. No-build runner compiled in-browser with the
      classic JSX runtime. Content/copy rewrite layered on the existing crop +
      piece-geometry mechanics (both preserved verbatim). -->
@@ -35,7 +35,7 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="js/puzzle-shape.js"></script>
 </head>
-<body>
+<body class="create-page">
   <!-- header — matches the homepage nav treatment -->
   <header class="nav">
     <div class="nav__inner">
@@ -241,18 +241,18 @@ function phoneDigits(v) { return (v || "").replace(/\D/g, ""); }
 function phoneValid(v) { const d = phoneDigits(v); return d.length >= 7 && d.length <= 12; }
 
 const PACK_OPTIONS = [
-  { id: "single", label: "Single Surprise: 1 recipient", price: 5, limit: 1, insightsPrice: 1 },
-  { id: "small", label: "Small Group: Up to 5 recipients", price: 8, limit: 5, insightsPrice: 1.5 },
-  { id: "friends", label: "Family & Friends: Up to 20 recipients", price: 15, limit: 20, insightsPrice: 2 },
-  { id: "celebration", label: "Celebration Pack: Up to 50 recipients", price: 25, limit: 50, insightsPrice: 2.5 }
+  { id: "single", label: "Single Surprise", price: 5, limit: 1, insightsPrice: 1 },
+  { id: "small", label: "Small Group", price: 8, limit: 5, insightsPrice: 1.5 },
+  { id: "friends", label: "Family & Friends", price: 15, limit: 20, insightsPrice: 2 },
+  { id: "celebration", label: "Celebration Pack", price: 25, limit: 50, insightsPrice: 2.5 }
 ];
 
 const UPGRADES = [
   {
     id: "insights",
-    name: "Be There - Optional",
-    tagline: "Be there, even if you're miles away.",
-    description: "Be part of the moment. The instant {recipient} solves the puzzle, you'll know, when it happened and how long it took them.",
+    name: "Be There",
+    tagline: "Know when they complete the puzzle.",
+    description: "Get a WhatsApp when the puzzle is completed, including the completion time and how long it took.",
     preview: "🧩Hi {sender}, It happened!\n{recipient} has just discovered your surprise.\nCompleted on June 14 • 8:32 PM, it took them 1:08 minutes to reach your words.\nOne more unforgettable moment, thanks to you. ❤️ We hope it made their day & yours.",
   },
 ];
@@ -265,6 +265,13 @@ function interpolateInsightsPreview(text, sender, recipient) {
   const s = (sender && sender.trim()) ? sender.trim() : "Sender";
   const r = (recipient && recipient.trim()) ? recipient.trim() : "Receiver";
   return text.replace(/\{sender\}/g, s).replace(/\{recipient\}/g, r);
+}
+
+function packageForRecipientCount(count) {
+  if (count <= 1) return PACK_OPTIONS[0];
+  if (count <= 5) return PACK_OPTIONS[1];
+  if (count <= 20) return PACK_OPTIONS[2];
+  return PACK_OPTIONS[3];
 }
 
 /* ---- shared JIGZO puzzle badge ---- */
@@ -306,7 +313,7 @@ function RevealFace({ photo, toName, fromName, message }) {
 }
 
 /* ---- live WhatsApp notification preview ---- */
-function WhatsAppPreview({ senderName, showIdentity, receiverName, message }) {
+function WhatsAppPreview({ senderName, showIdentity, receiverName }) {
   const WA_SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
   const now = new Date();
   let hh = now.getHours(); const ap = hh >= 12 ? "PM" : "AM"; hh = hh % 12 || 12;
@@ -323,21 +330,8 @@ function WhatsAppPreview({ senderName, showIdentity, receiverName, message }) {
     "</g></svg>"
   ) + "\")";
 
-  let contentNode;
-  if (message != null) {
-    contentNode = <span style={{ whiteSpace: "pre-wrap" }}>{message}</span>;
-  } else {
-    const who = (showIdentity && senderName && senderName.trim()) ? senderName.trim() : "Someone";
-    const greetName = (receiverName && receiverName.trim()) ? receiverName.trim() : "receiver";
-    contentNode = (
-      <span style={{ whiteSpace: "pre-wrap" }}>
-        Hi {greetName}, {who} has created a surprise just for you. Solve the puzzle to reveal what's waiting inside. 🧩{" "}
-        <span style={{ color: "#0066cc", textDecoration: "underline", fontWeight: "600", cursor: "pointer" }}>
-          Discover Your Surprise
-        </span>
-      </span>
-    );
-  }
+  const who = (showIdentity && senderName && senderName.trim()) ? senderName.trim() : "Someone";
+  const greetName = (receiverName && receiverName.trim()) ? receiverName.trim() : "receiver";
 
   return (
     <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid " + T.ink08, background: "#E4DDD3", fontFamily: WA_SANS }}>
@@ -360,7 +354,12 @@ function WhatsAppPreview({ senderName, showIdentity, receiverName, message }) {
           padding: "7px 9px 6px 11px", boxShadow: "0 1px 0.5px rgba(0,0,0,0.13)", fontSize: 13.5, lineHeight: 1.4, color: "#111B21" }}>
           <span style={{ position: "absolute", top: 0, left: -7, width: 0, height: 0, borderStyle: "solid",
             borderWidth: "0 8px 8px 0", borderColor: "transparent #FFFFFF transparent transparent" }} />
-          {contentNode}
+          <span style={{ whiteSpace: "pre-wrap" }}>
+            Hi {greetName}, {who} has created a surprise just for you. Solve the puzzle to reveal what's waiting inside. 🧩{" "}
+            <span style={{ color: "#0066cc", textDecoration: "underline", fontWeight: "600", cursor: "pointer" }}>
+              Discover Your Surprise
+            </span>
+          </span>
           <span style={{ float: "right", fontSize: 11, color: "#667781", margin: "6px 0 0 8px" }}>{stamp}</span>
         </div>
       </div>
@@ -368,24 +367,25 @@ function WhatsAppPreview({ senderName, showIdentity, receiverName, message }) {
   );
 }
 
-function StepRail({ idx }) {
-  const labels = ["Photo", "Difficulty", "People", "Message", "Preview", "Almost There", "Checkout"];
+function StepProgressBar({ step }) {
+  const labels = ["Create", "Personalize", "Send", "Review & Pay"];
   return (
-    <div style={{ display: "flex", gap: 6, marginBottom: 28, flexWrap: "wrap" }}>
-      {labels.map((s, i) => (
-        <div key={s} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 7, height: 7, borderRadius: "50%", background: i <= idx ? T.gold : T.ink15, transition: "background 0.3s" }} />
-          <span style={{ fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: i === idx ? T.ink : T.ink40, fontWeight: i === idx ? 600 : 400 }}>{s}</span>
-          {i < labels.length - 1 && <div style={{ width: 14, height: 1, background: T.ink08, marginLeft: 4 }} />}
-        </div>
-      ))}
+    <div style={{ marginBottom: 28 }}>
+      <div className="progress-bar">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className={`progress-bar__seg ${i <= step ? "progress-bar__seg--active" : ""}`} />
+        ))}
+      </div>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: T.ink, letterSpacing: "0.02em" }} aria-current="step">
+        Step {step} of 4 — {labels[step - 1]}
+      </div>
     </div>
   );
 }
 
 function PrimaryButton({ children, onClick, disabled, style }) {
   return (
-    <button onClick={onClick} disabled={disabled}
+    <button type="button" onClick={onClick} disabled={disabled}
       style={{ background: disabled ? T.ink15 : T.ink, color: disabled ? T.ink40 : T.bg, border: "none",
         borderRadius: 999, padding: "14px 28px", fontSize: 15, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer",
         transition: "transform 0.15s ease, opacity 0.15s ease", fontFamily: "Archia, sans-serif", ...style }}
@@ -397,7 +397,7 @@ function PrimaryButton({ children, onClick, disabled, style }) {
 }
 function GhostButton({ children, onClick, disabled }) {
   return (
-    <button onClick={onClick} disabled={disabled}
+    <button type="button" onClick={onClick} disabled={disabled}
       style={{ background: "transparent", color: disabled ? T.ink40 : T.ink, border: "1px solid " + T.ink15,
         borderRadius: 999, padding: "14px 24px", fontSize: 15, fontWeight: 500, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "Archia, sans-serif" }}>
       {children}
@@ -410,99 +410,49 @@ const inputStyle = {
   fontSize: 14.5, background: T.card, outline: "none", color: T.ink,
 };
 
-function ContactBlock({ title, name, setName, country, setCountry, phone, setPhone, showNameCheckbox, revealIdentity, setRevealIdentity }) {
-  const [touched, setTouched] = useState(false);
-  const valid = phoneValid(country.dial + phone);
+function Disclosure({ title, children, defaultOpen = false }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
-    <div style={{ padding: 16, borderRadius: 14, background: T.card, border: "1px solid " + T.ink08, marginBottom: 14 }}>
-      <div style={{ fontWeight: 600, fontSize: 13, letterSpacing: "0.02em", marginBottom: 12, color: T.ink }}>{title}</div>
-      <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: T.ink74 }}>Name</label>
-      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name"
-        style={{ ...inputStyle, marginBottom: 14 }} />
-      <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: T.ink74 }}>WhatsApp number</label>
-      <div style={{ display: "flex", gap: 8 }}>
-        <select value={country.code}
-          onChange={(e) => setCountry(COUNTRIES.find((c) => c.code === e.target.value))}
-          style={{ ...inputStyle, width: "auto", flex: "none", padding: "13px 8px" }}>
-          {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.flag} {c.dial}</option>)}
-        </select>
-        <input value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, ""))} onBlur={() => setTouched(true)}
-          placeholder="Phone number" inputMode="tel" style={{ ...inputStyle, flex: 1 }} />
-      </div>
-      {touched && phone && !valid ? (
-        <div style={{ fontSize: 12, color: "#b23b3b", marginTop: 7 }}>This number doesn't appear to have WhatsApp.</div>
-      ) : null}
-      {showNameCheckbox && (
-        <div style={{ marginTop: 14, borderTop: "1px solid " + T.ink08, paddingTop: 12 }}>
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 14, cursor: "pointer" }}>
-            <input type="checkbox" checked={revealIdentity} onChange={(e) => setRevealIdentity(e.target.checked)}
-              style={{ accentColor: T.gold, width: 16, height: 16, marginTop: 2 }} />
-            <span>Show my name in the WhatsApp notification message</span>
-          </label>
-          <p style={{ fontSize: 12.5, color: T.ink50, margin: "6px 0 0", lineHeight: 1.5, paddingLeft: 25 }}>
-            Your identity only affects the first WhatsApp message. You can still sign your message however you like.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RecipientContactBlock({ idx, recipient, onChange, onRemove, isDuplicate }) {
-  const [touched, setTouched] = useState(false);
-  const valid = phoneValid(recipient.country.dial + recipient.phone);
-  return (
-    <div style={{ padding: 16, borderRadius: 14, background: T.card, border: "1px solid " + T.ink08, marginBottom: 14, position: "relative" }}>
-      {onRemove && (
-        <button onClick={onRemove} style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", color: "#b23b3b", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "Archia" }}>
-          Remove
-        </button>
-      )}
-      <div style={{ fontWeight: 600, fontSize: 13, letterSpacing: "0.02em", marginBottom: 12, color: T.ink }}>
-        Recipient #{idx + 1}
-      </div>
-      <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: T.ink74 }}>Name</label>
-      <input value={recipient.name} onChange={(e) => onChange({ ...recipient, name: e.target.value })} placeholder="Name"
-        style={{ ...inputStyle, marginBottom: 14 }} />
-      <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: T.ink74 }}>WhatsApp number</label>
-      <div style={{ display: "flex", gap: 8 }}>
-        <select value={recipient.country.code}
-          onChange={(e) => onChange({ ...recipient, country: COUNTRIES.find((c) => c.code === e.target.value) })}
-          style={{ ...inputStyle, width: "auto", flex: "none", padding: "13px 8px" }}>
-          {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.flag} {c.dial}</option>)}
-        </select>
-        <input value={recipient.phone} onChange={(e) => onChange({ ...recipient, phone: e.target.value.replace(/[^\d ]/g, "") })} onBlur={() => setTouched(true)}
-          placeholder="Phone number" inputMode="tel" style={{ ...inputStyle, flex: 1 }} />
-      </div>
-      {touched && recipient.phone && !valid ? (
-        <div style={{ fontSize: 12, color: "#b23b3b", marginTop: 7 }}>This number doesn't appear to have WhatsApp.</div>
-      ) : null}
-      {isDuplicate && (
-        <div style={{ fontSize: 12, color: "#b23b3b", marginTop: 7 }}>This number is duplicated in your list.</div>
-      )}
+    <div style={{ marginBottom: 14 }}>
+      <button type="button" onClick={() => setIsOpen(!isOpen)} className="disclosure-btn" aria-expanded={isOpen}>
+        <span>{title}</span>
+        <span style={{ fontSize: 12 }}>{isOpen ? "▲" : "▼"}</span>
+      </button>
+      {isOpen && <div className="disclosure-content">{children}</div>}
     </div>
   );
 }
 
 function JigzoSenderFlow() {
-  const [step, setStep] = useState("upload");
+  const [currentStep, setCurrentStep] = useState(1);
   const [imgSrc, setImgSrc] = useState(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [cropData, setCropData] = useState(null);
   const [pieceCount, setPieceCount] = useState(18);
-  const [senderName, setSenderName] = useState("");
-  const [senderCountry, setSenderCountry] = useState(COUNTRIES[0]);
-  const [senderPhone, setSenderPhone] = useState("");
-  const [packId, setPackId] = useState("single");
-  const [recipients, setRecipients] = useState([{ name: "", phone: "", country: COUNTRIES[0] }]);
-  const [revealIdentity, setRevealIdentity] = useState(true);
+  const [difficultyOpen, setDifficultyOpen] = useState(false);
+  const [primaryRecipientName, setPrimaryRecipientName] = useState("");
+  const [message, setMessage] = useState("");
+  const [helpWriteOpen, setHelpWriteOpen] = useState(false);
   const [occasion, setOccasion] = useState("");
   const [tone, setTone] = useState("");
-  const [message, setMessage] = useState("");
-  const [revealStage, setRevealStage] = useState(false);
+  const [recipients, setRecipients] = useState([{ name: "", phone: "", country: COUNTRIES[0] }]);
+  const [senderName, setSenderName] = useState("");
+  const [senderPhone, setSenderPhone] = useState("");
+  const [senderCountry, setSenderCountry] = useState(COUNTRIES[0]);
+  const [revealIdentity, setRevealIdentity] = useState(true);
   const [selectedUpgrades, setSelectedUpgrades] = useState([]);
   const [termsAgreed, setTermsAgreed] = useState(false);
+  const [revealStage, setRevealStage] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  // Validation touches
+  const [senderPhoneTouched, setSenderPhoneTouched] = useState(false);
+  const [recipientsTouched, setRecipientsTouched] = useState({});
+
+  // Threshold Notice
+  const [thresholdNotice, setThresholdNotice] = useState(null);
 
   const dragRef = useRef(null);
   const pointersRef = useRef(new Map());
@@ -511,18 +461,41 @@ function JigzoSenderFlow() {
   const cropFrameRef = useRef(null);
   const imgElRef = useRef(null);
 
-  useEffect(() => { window.scrollTo(0, 0); }, [step]);
+  useEffect(() => { window.scrollTo(0, 0); }, [currentStep, isProcessing, isSuccess]);
 
-  const currentPack = useMemo(() => PACK_OPTIONS.find(p => p.id === packId) || PACK_OPTIONS[0], [packId]);
+  // Sync recipient #1 name with primary recipient name
+  const handlePrimaryRecipientNameChange = (val) => {
+    setPrimaryRecipientName(val);
+    setRecipients(prev => {
+      const next = [...prev];
+      if (next[0]) {
+        next[0].name = val;
+      } else {
+        next[0] = { name: val, phone: "", country: COUNTRIES[0] };
+      }
+      return next;
+    });
+  };
+
+  const currentPack = useMemo(() => {
+    return packageForRecipientCount(recipients.length);
+  }, [recipients.length]);
+
   const BASE_PRICE = currentPack.price;
 
+  // Threshold notice trigger
+  const prevPackIdRef = useRef(currentPack.id);
   useEffect(() => {
-    if (recipients.length > currentPack.limit) {
-      setRecipients(recipients.slice(0, currentPack.limit));
+    if (prevPackIdRef.current !== currentPack.id) {
+      const newPack = currentPack;
+      setThresholdNotice(`Updated to ${newPack.label} — ${formatPrice(newPack.price)}`);
+      const t = setTimeout(() => setThresholdNotice(null), 3000);
+      prevPackIdRef.current = currentPack.id;
+      return () => clearTimeout(t);
     }
-  }, [packId, currentPack]);
+  }, [currentPack]);
 
-  const dims = useMemo(() => PIECE_OPTIONS.find((p) => p.count === pieceCount) || { cols: 3, rows: 6 }, [pieceCount]);
+  const dims = useMemo(() => PIECE_OPTIONS.find((p) => p.count === pieceCount) || { cols: 3, rows: 6, label: "Classic" }, [pieceCount]);
   const cols = dims.cols, rows = dims.rows;
   const edgeMap = useMemo(() => buildEdgeMap(cols, rows, 1337), [cols, rows]);
   const BOARD_W = 360;
@@ -553,9 +526,10 @@ function JigzoSenderFlow() {
   const handleFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
     const reader = new FileReader();
-    reader.onload = (e) => { setImgSrc(e.target.result); setZoom(1); setPan({ x: 0, y: 0 }); setStep("crop"); };
+    reader.onload = (e) => { setImgSrc(e.target.result); setZoom(1); setPan({ x: 0, y: 0 }); setCropData(null); };
     reader.readAsDataURL(file);
   };
+
   const clampPan = (px, py, z) => {
     const frame = cropFrameRef.current, imgEl = imgElRef.current;
     if (!frame || !imgEl || !imgEl.naturalWidth) return { x: px, y: py };
@@ -565,6 +539,7 @@ function JigzoSenderFlow() {
     const ox = Math.max(0, (dW - Wf) / 2), oy = Math.max(0, (dH - Hf) / 2);
     return { x: Math.max(-ox, Math.min(ox, px)), y: Math.max(-oy, Math.min(oy, py)) };
   };
+
   const onPointerDown = (e) => {
     const f = cropFrameRef.current;
     if (f && e.pointerType === "touch" && f.setPointerCapture) { try { f.setPointerCapture(e.pointerId); } catch (_) {} }
@@ -586,6 +561,7 @@ function JigzoSenderFlow() {
       dragRef.current = { startX: e.clientX, startY: e.clientY, origPan: { ...pan } };
     }
   };
+
   const onPointerMove = (e) => {
     if (!pointersRef.current.has(e.pointerId)) return;
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -609,6 +585,7 @@ function JigzoSenderFlow() {
     const dy = e.clientY - dragRef.current.startY;
     setPan(clampPan(dragRef.current.origPan.x + dx, dragRef.current.origPan.y + dy, zoom));
   };
+
   const onPointerUp = (e) => {
     const f = cropFrameRef.current;
     if (e && e.pointerId != null) {
@@ -623,6 +600,7 @@ function JigzoSenderFlow() {
       dragRef.current = null;
     }
   };
+
   const captureCrop = useCallback(() => {
     const imgEl = imgElRef.current;
     const frame = cropFrameRef.current;
@@ -654,7 +632,6 @@ function JigzoSenderFlow() {
     } catch (e) {}
     ctx.drawImage(imgEl, k * pf0x, k * pf0y, sEff * Wi, sEff * Hi);
     setCropData(canvas.toDataURL("image/jpeg", 0.92));
-    setStep("pieces");
   }, [zoom, pan]);
 
   const occasionObj = OCCASIONS.find((o) => o.id === occasion);
@@ -696,7 +673,7 @@ function JigzoSenderFlow() {
     return true;
   }, [recipients]);
 
-  const contactsReady = senderName && senderValid && recipientsValid;
+  const step3Ready = senderName && senderValid && recipientsValid;
 
   const pickCombo = (occ, tn) => {
     const nextSug = suggestedMessage(occ, tn);
@@ -704,9 +681,14 @@ function JigzoSenderFlow() {
     if (!message.trim() || message === prevSug) setMessage(nextSug);
   };
 
+  const useSuggested = () => {
+    const sug = suggestedMessage(occasion, tone);
+    if (sug) setMessage(sug);
+  };
+
   const savePayload = () => {
     const payload = {
-      cropData, message, fromName: senderName, toName: recipients.map(r => r.name).join(", "),
+      cropData, message, fromName: senderName, toName: recipients[0]?.name || "",
       occasion, occasionLabel: occasionObj ? occasionObj.label : "",
       tone, pieceCount, revealIdentity, recipients,
     };
@@ -714,13 +696,89 @@ function JigzoSenderFlow() {
   };
 
   useEffect(() => {
-    if (step !== "processing") return;
+    if (!isProcessing) return;
     savePayload();
-    const t = setTimeout(() => setStep("success"), 2600);
+    const t = setTimeout(() => {
+      setIsProcessing(false);
+      setIsSuccess(true);
+    }, 2600);
     return () => clearTimeout(t);
-  }, [step]);
+  }, [isProcessing]);
 
-  const railIdx = { upload: 0, crop: 0, pieces: 1, contacts: 2, message: 3, preview: 4, enhance: 5, checkout: 6 }[step];
+  // View state handlers
+  const handleStep1Continue = () => {
+    if (cropData) {
+      setCurrentStep(2);
+    }
+  };
+
+  const handleStep2Continue = () => {
+    if (primaryRecipientName.trim() && message.trim()) {
+      setCurrentStep(3);
+    }
+  };
+
+  const handleStep3Continue = () => {
+    if (step3Ready) {
+      setCurrentStep(4);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const currentDifficulty = useMemo(() => {
+    return PIECE_OPTIONS.find(p => p.count === pieceCount) || PIECE_OPTIONS[2];
+  }, [pieceCount]);
+
+  if (isProcessing) {
+    return (
+      <div style={{ fontFamily: "Archia, sans-serif", color: T.ink, padding: "34px 20px 70px" }}>
+        <div style={{ maxWidth: 480, margin: "0 auto", textAlign: "center", paddingTop: 50 }}>
+          <div className="jz-orbit" role="status" aria-label="Preparing" style={{ marginBottom: 28 }}>
+            <div className="jz-orbit__ring">
+              <div className="jz-orbit__arm"><div className="jz-orbit__badge"><PuzzleBadge size={46} /></div></div>
+              <div className="jz-orbit__arm"><div className="jz-orbit__badge"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="49" fill="#FAF8EC"/><circle cx="50" cy="50" r="48.3" fill="none" stroke="rgba(5,5,5,0.07)" strokeWidth="1"/><g fill="#050505"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>
+              <div className="jz-orbit__arm"><div className="jz-orbit__badge"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="49" fill="#111110"/><circle cx="50" cy="50" r="48.3" fill="none" stroke="rgba(208,160,54,0.5)" strokeWidth="1"/><g fill="#FAF8EC"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>
+            </div>
+          </div>
+          <h1 style={{ fontSize: 22, fontWeight: 500, margin: "0 0 8px", letterSpacing: "-0.01em" }}>Preparing your JIGZO…</h1>
+          <p style={{ fontSize: 14, color: T.ink60 }}>This usually takes only a few seconds.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isSuccess) {
+    const displayRecipientsText = recipients.length === 1 
+      ? `${recipients[0].name || "They"} will receive a WhatsApp from JIGZO with a puzzle to solve. Your message unlocks with the final piece.`
+      : "Your recipients will receive a WhatsApp from JIGZO with a puzzle to solve. Your message unlocks with the final piece.";
+    
+    return (
+      <div style={{ fontFamily: "Archia, sans-serif", color: T.ink, padding: "34px 20px 70px" }}>
+        <div style={{ maxWidth: 480, margin: "0 auto", textAlign: "center", paddingTop: 30 }}>
+          <div style={{ width: 84, height: 84, margin: "0 auto 24px", borderRadius: "50%", background: T.ink,
+            display: "flex", alignItems: "center", justifycontent: "center", animation: "ckPop 0.5s cubic-bezier(.2,.8,.2,1) both", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="42" height="42" viewBox="0 0 42 42" fill="none">
+              <path d="M11 22 L18 29 L31 14" stroke={T.goldWarm} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round"
+                strokeDasharray="40" strokeDashoffset="40" style={{ animation: "ckDraw 0.5s ease 0.35s forwards" }} />
+            </svg>
+          </div>
+          <h1 style={{ fontSize: 27, fontWeight: 300, margin: "0 0 12px", letterSpacing: "-0.02em" }}>Your JIGZO has been delivered.</h1>
+          <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 auto 26px", maxWidth: 360, lineHeight: 1.6 }}>
+            {displayRecipientsText}
+          </p>
+          <PrimaryButton onClick={() => window.open("receive.html", "_blank")} style={{ width: "100%" }}>Open the reveal (local test)</PrimaryButton>
+          <p style={{ fontSize: 11.5, color: T.ink50, marginTop: 12, lineHeight: 1.5 }}>
+            Prototype simulation — did not process a real payment or send a real WhatsApp. Click above to test the solve flow locally.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ fontFamily: "Archia, sans-serif", color: T.ink, padding: "34px 20px 70px" }}>
@@ -733,303 +791,413 @@ function JigzoSenderFlow() {
       `}</style>
 
       <div style={{ maxWidth: 480, margin: "0 auto" }}>
-        {railIdx != null && <StepRail idx={railIdx} />}
+        <StepProgressBar step={currentStep} />
 
-        {/* ============ STEP 1 — PHOTO (upload) ============ */}
-        {step === "upload" && (
+        {/* ============ STEP 1 — CREATE ============ */}
+        {currentStep === 1 && (
           <div style={{ animation: "fadeUp 0.4s ease" }}>
-            <h1 style={{ fontSize: 27, fontWeight: 300, margin: "0 0 12px", letterSpacing: "-0.02em", lineHeight: 1.1 }}>
-              Choose the photo they'll uncover.
-            </h1>
-            <p style={{ fontSize: 15, color: T.ink66, margin: "0 0 26px", lineHeight: 1.55 }}>
-              Upload a photo. Hide your words. We'll deliver a puzzle they'll have to solve before they can read them.
+            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>Create your puzzle</h1>
+            <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 0 20px", lineHeight: 1.5 }}>
+              Choose the photo they’ll uncover. We’ll turn it into the puzzle that hides your message.
             </p>
-            <div
-              onClick={() => fileInputRef.current && fileInputRef.current.click()}
-              onDrop={(e) => { e.preventDefault(); handleFile(e.dataTransfer.files[0]); }}
-              onDragOver={(e) => e.preventDefault()}
-              style={{ border: "1.5px dashed " + T.ink15, borderRadius: 18, padding: "48px 20px",
-                textAlign: "center", cursor: "pointer", background: T.card }}>
-              <div style={{ width: 54, height: 54, margin: "0 auto 14px", filter: "drop-shadow(0 6px 14px rgba(124,76,34,0.35))" }}><PuzzleBadge size={54} /></div>
-              <div style={{ fontWeight: 600, fontSize: 15.5, marginBottom: 4 }}>Upload a photo</div>
-              <div style={{ fontSize: 12.5, color: T.ink50 }}>JPG or PNG</div>
-            </div>
+
+            {/* Choose photo view */}
+            {!imgSrc && (
+              <div
+                onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                onDrop={(e) => { e.preventDefault(); handleFile(e.dataTransfer.files[0]); }}
+                onDragOver={(e) => e.preventDefault()}
+                style={{ border: "1.5px dashed " + T.ink15, borderRadius: 18, padding: "48px 20px",
+                  textAlign: "center", cursor: "pointer", background: T.card }}>
+                <div style={{ width: 54, height: 54, margin: "0 auto 14px", filter: "drop-shadow(0 6px 14px rgba(124,76,34,0.35))" }}><PuzzleBadge size={54} /></div>
+                <div style={{ fontWeight: 600, fontSize: 15.5, marginBottom: 4 }}>Upload a photo</div>
+                <div style={{ fontSize: 12.5, color: T.ink50 }}>JPG or PNG</div>
+              </div>
+            )}
+
+            {/* Crop photo view */}
+            {imgSrc && !cropData && (
+              <div>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+                  <div ref={cropFrameRef}
+                    style={{ position: "relative", width: "100%", maxWidth: 300, aspectRatio: "9 / 16", borderRadius: 20,
+                      overflow: "hidden", background: T.ink, cursor: "grab", touchAction: "none", margin: "0 auto",
+                      boxShadow: "0 0 0 2px " + T.bg + ", 0 0 0 3px " + T.ink08 }}
+                    onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onPointerLeave={onPointerUp}>
+                    <img src={imgSrc} alt="" aria-hidden="true" draggable={false}
+                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
+                        filter: "blur(18px) brightness(0.5)", transform: "scale(1.15)", userSelect: "none", pointerEvents: "none" }} />
+                    <img ref={imgElRef} src={imgSrc} alt="" draggable={false}
+                      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "contain",
+                        transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "center",
+                        userSelect: "none", pointerEvents: "none" }} />
+                    {[{ top: 10, left: 10 }, { top: 10, right: 10 }, { bottom: 10, left: 10 }, { bottom: 10, right: 10 }].map((pos, i) => (
+                      <div key={i} style={{ position: "absolute", width: 16, height: 16, border: "2px solid " + T.goldBright, pointerEvents: "none",
+                        ...(pos.top !== undefined ? { top: pos.top, borderBottom: "none" } : { bottom: pos.bottom, borderTop: "none" }),
+                        ...(pos.left !== undefined ? { left: pos.left, borderRight: "none" } : { right: pos.right, borderLeft: "none" }) }} />
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "10px 0 20px" }}>
+                  <span style={{ fontSize: 18 }}>−</span>
+                  <input type="range" min="1" max="3" step="0.01" value={zoom}
+                    onChange={(e) => { const z = parseFloat(e.target.value); setZoom(z); setPan((p) => clampPan(p.x, p.y, z)); }}
+                    style={{ flex: 1, accentColor: T.gold }} />
+                  <span style={{ fontSize: 18 }}>+</span>
+                </div>
+              </div>
+            )}
+
+            {/* Review cropped photo view */}
+            {cropData && (
+              <div>
+                <div style={{ display: "flex", gap: 14, alignItems: "center", padding: 12, borderRadius: 14, background: T.card, border: "1px solid " + T.ink08, marginBottom: 14 }}>
+                  <img src={cropData} alt="Cropped preview" style={{ width: 54, height: 96, objectFit: "cover", borderRadius: 8 }} />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 4 }}>Photo selected</div>
+                    <button type="button" onClick={() => { setImgSrc(null); setCropData(null); }} className="edit-btn">Change photo</button>
+                  </div>
+                </div>
+
+                {/* Difficulty selection */}
+                {!difficultyOpen ? (
+                  <div className="difficulty-summary">
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 2 }}>Puzzle difficulty</div>
+                      <div style={{ fontSize: 15, fontWeight: 600 }}>{currentDifficulty.label} · {currentDifficulty.pieces}</div>
+                    </div>
+                    <button type="button" onClick={() => setDifficultyOpen(true)} className="btn-change">Change</button>
+                  </div>
+                ) : (
+                  <div style={{ padding: 16, borderRadius: 14, background: T.card, border: "1px solid " + T.ink08, marginTop: 14 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 10 }}>Select difficulty</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {PIECE_OPTIONS.map((opt) => {
+                        const isSel = pieceCount === opt.count;
+                        return (
+                          <button type="button" key={opt.count} onClick={() => { setPieceCount(opt.count); setDifficultyOpen(false); }} className={`difficulty-option ${isSel ? "active" : ""}`}>
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: 14.5 }}>
+                                {opt.label} · {opt.pieces}
+                                {opt.recommended && <span style={{ marginLeft: 6, fontSize: 10, background: T.goldWarm, padding: "2px 6px", borderRadius: 100, color: T.ink, fontWeight: 700 }}>★ Recommended</span>}
+                              </div>
+                              <div style={{ fontSize: 12, color: T.ink60, marginTop: 2 }}>{opt.copy}</div>
+                            </div>
+                            <div style={{ width: 16, height: 16, borderRadius: "50%", border: "1.5px solid " + T.ink, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              {isSel && <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.ink }} />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }}
               onChange={(e) => handleFile(e.target.files[0])} />
+
+            {/* Navigation buttons */}
+            <div className="footer-nav">
+              {imgSrc && !cropData && (
+                <GhostButton onClick={() => { setImgSrc(null); setCropData(null); }}>Back</GhostButton>
+              )}
+              {imgSrc && !cropData && (
+                <PrimaryButton onClick={captureCrop} style={{ flex: 1 }}>Crop photo</PrimaryButton>
+              )}
+              {cropData && (
+                <PrimaryButton onClick={handleStep1Continue} disabled={!cropData} style={{ flex: 1 }}>Continue</PrimaryButton>
+              )}
+            </div>
           </div>
         )}
 
-        {/* ============ STEP 1 — PHOTO (crop) ============ */}
-        {step === "crop" && imgSrc && (
+        {/* ============ STEP 2 — PERSONALIZE ============ */}
+        {currentStep === 2 && (
           <div style={{ animation: "fadeUp 0.4s ease" }}>
-            <h1 style={{ fontSize: 22, fontWeight: 500, margin: "0 0 6px", letterSpacing: "-0.01em" }}>Frame the moment</h1>
-            <p style={{ fontSize: 13.5, color: T.ink60, margin: "0 0 20px" }}>
-              Zoom, drag to reposition. This portrait frame is exactly what gets sent.
+            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>Add your message</h1>
+            <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 0 20px", lineHeight: 1.5 }}>
+              Write the words they’ll discover when the final piece falls into place.
             </p>
-            <div style={{ display: "flex", justifyContent: "center" }}>
-              <div ref={cropFrameRef}
-                style={{ position: "relative", width: "100%", maxWidth: 300, aspectRatio: "9 / 16", borderRadius: 20,
-                  overflow: "hidden", background: T.ink, cursor: "grab", touchAction: "none", margin: "0 auto",
-                  boxShadow: "0 0 0 2px " + T.bg + ", 0 0 0 3px " + T.ink08 }}
-                onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onPointerLeave={onPointerUp}>
-                <img src={imgSrc} alt="" aria-hidden="true" draggable={false}
-                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
-                    filter: "blur(18px) brightness(0.5)", transform: "scale(1.15)", userSelect: "none", pointerEvents: "none" }} />
-                <img ref={imgElRef} src={imgSrc} alt="" draggable={false}
-                  style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "contain",
-                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "center",
-                    userSelect: "none", pointerEvents: "none" }} />
-                {[{ top: 10, left: 10 }, { top: 10, right: 10 }, { bottom: 10, left: 10 }, { bottom: 10, right: 10 }].map((pos, i) => (
-                  <div key={i} style={{ position: "absolute", width: 16, height: 16, border: "2px solid " + T.goldBright, pointerEvents: "none",
-                    ...(pos.top !== undefined ? { top: pos.top, borderBottom: "none" } : { bottom: pos.bottom, borderTop: "none" }),
-                    ...(pos.left !== undefined ? { left: pos.left, borderRight: "none" } : { right: pos.right, borderLeft: "none" }) }} />
-                ))}
+
+            <div style={{ padding: 16, borderRadius: 14, background: T.card, border: "1px solid " + T.ink08, marginBottom: 18 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: T.ink74 }}>Recipient's first name</label>
+              <input value={primaryRecipientName} onChange={(e) => handlePrimaryRecipientNameChange(e.target.value)} placeholder="e.g. Sofia"
+                style={{ ...inputStyle, marginBottom: 14 }} />
+
+              <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: T.ink74 }}>Message</label>
+              <textarea value={message} onChange={(e) => setMessage(e.target.value.slice(0, 200))} rows={4}
+                placeholder="Write something personal here..."
+                style={{ ...inputStyle, resize: "none", lineHeight: 1.5, padding: 14, marginBottom: 4 }} />
+              <div style={{ display: "flex", justifyContent: "flex-end", fontSize: 11.5, color: T.ink40 }}>
+                {message.length}/200
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0 6px" }}>
-              <span style={{ fontSize: 18 }}>−</span>
-              <input type="range" min="1" max="3" step="0.01" value={zoom}
-                onChange={(e) => { const z = parseFloat(e.target.value); setZoom(z); setPan((p) => clampPan(p.x, p.y, z)); }}
-                style={{ flex: 1, accentColor: T.gold }} />
-              <span style={{ fontSize: 18 }}>+</span>
-            </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-              <GhostButton onClick={() => setStep("upload")}>Back</GhostButton>
-              <PrimaryButton onClick={captureCrop} style={{ flex: 1 }}>Continue</PrimaryButton>
+
+            {/* Help me write it disclosure */}
+            <Disclosure title="Help me write it" defaultOpen={helpWriteOpen}>
+              <div style={{ padding: 14, borderRadius: 12, background: "rgba(28,25,19,0.03)", border: "1.5px solid " + T.ink15 }}>
+                <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: T.ink74 }}>Occasion</label>
+                    <select value={occasion} onChange={(e) => { setOccasion(e.target.value); pickCombo(e.target.value, tone); }}
+                      style={{ ...inputStyle, padding: "10px" }}>
+                      <option value="">Choose…</option>
+                      {OCCASIONS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: T.ink74 }}>Tone</label>
+                    <select value={tone} onChange={(e) => { setTone(e.target.value); pickCombo(occasion, e.target.value); }}
+                      style={{ ...inputStyle, padding: "10px" }}>
+                      <option value="">Choose…</option>
+                      {TONES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+                {occasion && tone && (
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: T.ink74, marginBottom: 6 }}>Suggested suggestion:</div>
+                    <p style={{ fontSize: 13.5, fontStyle: "italic", background: T.card, padding: 12, borderRadius: 8, margin: "0 0 12px", border: "1px dashed " + T.ink15 }}>
+                      {suggestedMessage(occasion, tone)}
+                    </p>
+                    <button type="button" onClick={useSuggested} className="btn-change" style={{ fontSize: 13, textDecoration: "underline" }}>Use this message</button>
+                  </div>
+                )}
+              </div>
+            </Disclosure>
+
+            <div className="footer-nav">
+              <GhostButton onClick={handleBack}>Back</GhostButton>
+              <PrimaryButton onClick={handleStep2Continue} disabled={!primaryRecipientName.trim() || !message.trim()} style={{ flex: 1 }}>Continue</PrimaryButton>
             </div>
           </div>
         )}
 
-        {/* ============ STEP 2 — DIFFICULTY ============ */}
-        {step === "pieces" && (
+        {/* ============ STEP 3 — SEND ============ */}
+        {currentStep === 3 && (
           <div style={{ animation: "fadeUp 0.4s ease" }}>
-            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Choose the challenge.</h1>
-            <p style={{ fontSize: 14, color: T.ink66, margin: "0 0 20px" }}>More pieces mean more anticipation before the final reveal.</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {PIECE_OPTIONS.map((opt) => {
-                const sel = pieceCount === opt.count;
+            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>Choose who receives it</h1>
+            <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 0 20px", lineHeight: 1.5 }}>
+              We’ll send each person a private WhatsApp link to solve your puzzle.
+            </p>
+
+            {/* Threshold Notification banner */}
+            {thresholdNotice && (
+              <div className="notice-banner" role="alert">
+                {thresholdNotice}
+              </div>
+            )}
+
+            {/* Recipient list */}
+            <div>
+              {recipients.map((rec, i) => {
+                const isFirst = i === 0;
+                const recValid = phoneValid(rec.country.dial + rec.phone);
+                const recTouched = recipientsTouched[i];
                 return (
-                  <button key={opt.count} onClick={() => setPieceCount(opt.count)}
-                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "16px 18px",
-                      borderRadius: 14, border: sel ? "1.5px solid " + T.ink : "1.5px solid " + T.ink15,
-                      background: sel ? "rgba(28,25,19,0.04)" : T.card, cursor: "pointer", textAlign: "left" }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                        <span style={{ fontWeight: 600, fontSize: 16 }}>{opt.label}</span>
-                        <span style={{ fontSize: 12, color: T.ink50 }}>· {opt.pieces}</span>
-                        {opt.recommended && (
-                          <span style={{ fontFamily: T.mono, fontWeight: 500, fontSize: 9.5, letterSpacing: "0.08em", textTransform: "uppercase",
-                            color: T.ink, background: T.goldWarm, borderRadius: 100, padding: "3px 8px" }}>★ Recommended</span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 12.5, color: T.ink60, lineHeight: 1.4 }}>{opt.copy}</div>
+                  <div key={i} style={{ padding: 16, borderRadius: 14, background: T.card, border: "1px solid " + T.ink08, marginBottom: 14, position: "relative" }}>
+                    {!isFirst && (
+                      <button type="button" onClick={() => setRecipients(recipients.filter((_, idx) => idx !== i))} style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", color: "#b23b3b", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "Archia" }}>
+                        Remove
+                      </button>
+                    )}
+                    <div style={{ fontWeight: 600, fontSize: 13, letterSpacing: "0.02em", marginBottom: 12, color: T.ink }}>
+                      Recipient #{i + 1} {isFirst && <span style={{ fontWeight: 400, color: T.ink40 }}>(Primary)</span>}
                     </div>
-                    <div style={{ width: 18, height: 18, borderRadius: "50%", border: "1.5px solid " + T.ink, flex: "none",
-                      display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {sel && <div style={{ width: 9, height: 9, borderRadius: "50%", background: T.ink }} />}
+
+                    <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: T.ink74 }}>Name</label>
+                    <input value={rec.name} onChange={(e) => {
+                      const next = [...recipients];
+                      next[i] = { ...rec, name: e.target.value };
+                      setRecipients(next);
+                      if (isFirst) setPrimaryRecipientName(e.target.value);
+                    }} placeholder="Recipient name" style={{ ...inputStyle, marginBottom: 14 }} />
+
+                    <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: T.ink74 }}>WhatsApp number</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <select value={rec.country.code}
+                        onChange={(e) => {
+                          const next = [...recipients];
+                          next[i] = { ...rec, country: COUNTRIES.find((c) => c.code === e.target.value) };
+                          setRecipients(next);
+                        }}
+                        style={{ ...inputStyle, width: "auto", flex: "none", padding: "13px 8px" }}>
+                        {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.flag} {c.dial}</option>)}
+                      </select>
+                      <input value={rec.phone} onChange={(e) => {
+                        const next = [...recipients];
+                        next[i] = { ...rec, phone: e.target.value.replace(/[^\d ]/g, "") };
+                        setRecipients(next);
+                      }} onBlur={() => setRecipientsTouched({ ...recipientsTouched, [i]: true })}
+                        placeholder="Phone number" inputMode="tel" aria-invalid={recTouched && rec.phone && !recValid ? "true" : "false"} style={{ ...inputStyle, flex: 1 }} />
                     </div>
-                  </button>
+                    {recTouched && rec.phone && !recValid ? (
+                      <div style={{ fontSize: 12, color: "#b23b3b", marginTop: 7 }}>Enter a valid phone number.</div>
+                    ) : null}
+                    {isDuplicate(rec.country.dial + rec.phone) && (
+                      <div style={{ fontSize: 12, color: "#b23b3b", marginTop: 7 }}>This number is duplicated in your list.</div>
+                    )}
+                  </div>
                 );
               })}
-            </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-              <GhostButton onClick={() => setStep("crop")}>Back</GhostButton>
-              <PrimaryButton onClick={() => setStep("contacts")} style={{ flex: 1 }}>Continue</PrimaryButton>
-            </div>
-          </div>
-        )}
 
-        {/* ============ STEP 3 — SENDER & RECEIVER ============ */}
-        {step === "contacts" && (
-          <div style={{ animation: "fadeUp 0.4s ease" }}>
-            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 16px", letterSpacing: "-0.02em", display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-              <span>Who is this for?</span>
-              <span style={{ fontSize: 12, color: T.ink50, fontWeight: 400, letterSpacing: "normal" }}>Their first message</span>
-            </h1>
-
-            {/* Preview placed at the top */}
-            <div style={{ marginBottom: 20 }}>
-              <WhatsAppPreview senderName={senderName} showIdentity={revealIdentity} receiverName={recipients[0]?.name} />
-            </div>
-
-            <ContactBlock title="From (you)" name={senderName} setName={setSenderName}
-              country={senderCountry} setCountry={setSenderCountry} phone={senderPhone} setPhone={setSenderPhone}
-              showNameCheckbox={true} revealIdentity={revealIdentity} setRevealIdentity={setRevealIdentity} />
-
-            {/* Recipient Package Dropdown */}
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: T.ink74 }}>Surprise Package</label>
-              <select value={packId} onChange={(e) => setPackId(e.target.value)} style={inputStyle}>
-                {PACK_OPTIONS.map((p) => <option key={p.id} value={p.id}>{p.label} - {formatPrice(p.price)}</option>)}
-              </select>
-            </div>
-
-            {/* To Box / List of Recipients */}
-            <div>
-              {recipients.map((rec, i) => (
-                <RecipientContactBlock
-                  key={i}
-                  idx={i}
-                  recipient={rec}
-                  isDuplicate={isDuplicate(rec.country.dial + rec.phone)}
-                  onChange={(updated) => {
-                    const next = [...recipients];
-                    next[i] = updated;
-                    setRecipients(next);
-                  }}
-                  onRemove={recipients.length > 1 ? () => {
-                    setRecipients(recipients.filter((_, idx) => idx !== i));
-                  } : null}
-                />
-              ))}
-
-              {recipients.length < currentPack.limit && (
+              {/* Add recipient button */}
+              {recipients.length < 50 && (
                 <button
                   type="button"
                   onClick={() => setRecipients([...recipients, { name: "", phone: "", country: COUNTRIES[0] }])}
                   style={{ width: "100%", padding: "12px", border: "1.5px dashed " + T.ink15, borderRadius: 12, background: "none", cursor: "pointer", color: T.goldDeep, fontWeight: 600, fontSize: 14, marginBottom: 18, fontFamily: "Archia" }}
                 >
-                  + Add Recipient (Up to {currentPack.limit})
+                  + Add another recipient
                 </button>
               )}
             </div>
 
-            <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-              <GhostButton onClick={() => setStep("pieces")}>Back</GhostButton>
-              <PrimaryButton onClick={() => setStep("message")} disabled={!contactsReady} style={{ flex: 1 }}>Continue</PrimaryButton>
-            </div>
-          </div>
-        )}
-
-        {/* ============ STEP 4 — OCCASION & MESSAGE ============ */}
-        {step === "message" && (
-          <div style={{ animation: "fadeUp 0.4s ease" }}>
-            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Say it right.</h1>
-            <p style={{ fontSize: 14, color: T.ink66, margin: "0 0 18px" }}>Pick an occasion and a tone, we'll suggest a message you can make your own.</p>
-
-            <div style={{ position: "relative", borderRadius: 20, overflow: "hidden", border: "1px solid " + T.ink15, padding: "24px 20px" }}>
-              <div style={{ position: "absolute", inset: 0, zIndex: 1 }}>
-                <RevealFace photo={cropData} toName={recipients[0]?.name} fromName={senderName} message={message} />
+            {/* Live summary */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 14, borderRadius: 12, background: "rgba(184,147,90,0.08)", border: "1px solid rgba(184,147,90,0.15)", marginBottom: 18 }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14.5 }}>{recipients.length} {recipients.length === 1 ? "recipient" : "recipients"}</div>
+                <div style={{ fontSize: 12.5, color: T.goldDeep, fontWeight: 500 }}>{currentPack.label}</div>
               </div>
-              <div style={{ position: "absolute", inset: 0, zIndex: 2, background: "rgba(28,25,19,0.72)", backdropFilter: "blur(8px)" }} />
+              <div style={{ fontFamily: T.mono, fontWeight: 600, fontSize: 16 }}>{formatPrice(BASE_PRICE)}</div>
+            </div>
 
-              <div style={{ position: "relative", zIndex: 3, color: "#F4EDDF" }}>
-                <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: "rgba(244,237,223,0.85)" }}>Occasion</label>
-                    <select value={occasion} onChange={(e) => { setOccasion(e.target.value); pickCombo(e.target.value, tone); }}
-                      style={{ ...inputStyle, background: "rgba(251,247,238,0.12)", border: "1.5px solid rgba(244,237,223,0.3)", color: "#FFF" }}>
-                      <option value="" style={{ color: T.ink }}>Choose…</option>
-                      {OCCASIONS.map((o) => <option key={o.id} value={o.id} style={{ color: T.ink }}>{o.label}</option>)}
-                    </select>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: "rgba(244,237,223,0.85)" }}>Tone</label>
-                    <select value={tone} onChange={(e) => { setTone(e.target.value); pickCombo(occasion, e.target.value); }}
-                      style={{ ...inputStyle, background: "rgba(251,247,238,0.12)", border: "1.5px solid rgba(244,237,223,0.3)", color: "#FFF" }}>
-                      <option value="" style={{ color: T.ink }}>Choose…</option>
-                      {TONES.map((t) => <option key={t.id} value={t.id} style={{ color: T.ink }}>{t.label}</option>)}
-                    </select>
-                  </div>
-                </div>
+            {/* Sender details */}
+            <div style={{ padding: 16, borderRadius: 14, background: T.card, border: "1px solid " + T.ink08, marginBottom: 18 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, letterSpacing: "0.02em", marginBottom: 12, color: T.ink }}>Your details (sender)</div>
+              
+              <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: T.ink74 }}>Your name</label>
+              <input value={senderName} onChange={(e) => setSenderName(e.target.value)} placeholder="Your name"
+                style={{ ...inputStyle, marginBottom: 14 }} />
 
-                <label style={{ fontSize: 12.5, fontWeight: 600, display: "block", marginBottom: 6, color: "rgba(244,237,223,0.85)" }}>
-                  Message {occasion && tone && <span style={{ fontWeight: 400, color: "rgba(244,237,223,0.6)" }}>· suggested, edit freely</span>}
+              <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: T.ink74 }}>Your WhatsApp number</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <select value={senderCountry.code}
+                  onChange={(e) => setSenderCountry(COUNTRIES.find((c) => c.code === e.target.value))}
+                  style={{ ...inputStyle, width: "auto", flex: "none", padding: "13px 8px" }}>
+                  {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.flag} {c.dial}</option>)}
+                </select>
+                <input value={senderPhone} onChange={(e) => setSenderPhone(e.target.value.replace(/[^\d ]/g, ""))} onBlur={() => setSenderPhoneTouched(true)}
+                  placeholder="Phone number" inputMode="tel" aria-invalid={senderPhoneTouched && senderPhone && !senderValid ? "true" : "false"} style={{ ...inputStyle, flex: 1 }} />
+              </div>
+              {senderPhoneTouched && senderPhone && !senderValid ? (
+                <div style={{ fontSize: 12, color: "#b23b3b", marginTop: 7 }}>Enter a valid phone number.</div>
+              ) : null}
+              <p style={{ fontSize: 12.5, color: T.ink50, margin: "6px 0 0", lineHeight: 1.4 }}>
+                Used for order updates and completion notifications when selected.
+              </p>
+
+              <div style={{ marginTop: 14, borderTop: "1px solid " + T.ink08, paddingTop: 12 }}>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 14, cursor: "pointer" }}>
+                  <input type="checkbox" checked={revealIdentity} onChange={(e) => setRevealIdentity(e.target.checked)}
+                    style={{ accentColor: T.gold, width: 16, height: 16, marginTop: 2 }} />
+                  <span>Show my name in their WhatsApp message</span>
                 </label>
-                <textarea value={message} onChange={(e) => setMessage(e.target.value.slice(0, 200))} rows={4}
-                  placeholder={occasion && tone ? suggestedMessage(occasion, tone) : "Pick an occasion and tone above, or just start typing…"}
-                  style={{ ...inputStyle, resize: "none", lineHeight: 1.5, padding: 14, background: "rgba(251,247,238,0.12)", border: "1.5px solid rgba(244,237,223,0.3)", color: "#FFF" }} />
-                
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                  {occasion && tone ? (
-                    <button onClick={() => setMessage(suggestedMessage(occasion, tone))}
-                      style={{ background: "none", border: "none", padding: 0, fontSize: 11.5, color: T.goldWarm, fontWeight: 600, cursor: "pointer" }}>
-                      Reset to suggested
-                    </button>
-                  ) : <span />}
-                  <div style={{ fontSize: 11.5, color: "rgba(244,237,223,0.6)" }}>{message.length}/200</div>
-                </div>
+                <p style={{ fontSize: 12.5, color: T.ink50, margin: "6px 0 0", lineHeight: 1.4, paddingLeft: 25 }}>
+                  Turn this off to keep the first notification anonymous. Your signed message can still include your name.
+                </p>
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-              <GhostButton onClick={() => setStep("contacts")}>Back</GhostButton>
-              <PrimaryButton onClick={() => setStep("preview")} disabled={!occasion || !tone || !message.trim()} style={{ flex: 1 }}>Continue</PrimaryButton>
+            {/* Collapsed disclosure for preview */}
+            <Disclosure title="Preview their WhatsApp message">
+              <WhatsAppPreview senderName={senderName} showIdentity={revealIdentity} receiverName={recipients[0]?.name} />
+            </Disclosure>
+
+            <div className="footer-nav">
+              <GhostButton onClick={handleBack}>Back</GhostButton>
+              <PrimaryButton onClick={handleStep3Continue} disabled={!step3Ready} style={{ flex: 1 }}>Continue</PrimaryButton>
             </div>
           </div>
         )}
 
-        {/* ============ STEP 5 — PREVIEW ============ */}
-        {step === "preview" && cropData && (
+        {/* ============ STEP 4 — REVIEW & PAY ============ */}
+        {currentStep === 4 && (
           <div style={{ animation: "fadeUp 0.4s ease" }}>
-            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 16px", letterSpacing: "-0.02em" }}>Exactly what they'll see.</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>Review and send</h1>
+            <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 0 20px", lineHeight: 1.5 }}>
+              Check the details before your JIGZO is delivered.
+            </p>
 
-            <div style={{ width: "100%", maxWidth: 296, margin: "0 auto", position: "relative",
-              background: "#050505", borderRadius: 54, padding: 11,
-              boxShadow: "0 44px 90px -26px rgba(28,25,19,0.5), 0 10px 26px rgba(28,25,19,0.14)" }}>
-              <div onClick={() => setRevealStage((s) => !s)}
-                style={{ borderRadius: 44, overflow: "hidden", background: T.bg, position: "relative", aspectRatio: "9 / 16", cursor: "pointer" }}>
-                {!revealStage ? (
-                  <div style={{ position: "relative", width: "100%", height: "100%" }}>
-                    <svg viewBox={viewBox} style={{ width: "100%", height: "100%", display: "block" }}>
-                      <defs>
-                        <filter id="pieceShadow" x="-25%" y="-25%" width="150%" height="150%">
-                          <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000000" floodOpacity="0.4" />
-                        </filter>
-                        {scramble.map((p, i) => (
-                          <clipPath id={`lockPc-${i}`} key={i}><path d={piecePath(p.r, p.c, cols, rows, pieceW, pieceH, edgeMap)} /></clipPath>
-                        ))}
-                      </defs>
-                      {scramble.map((p, i) => (
-                        <g key={i} transform={`translate(${p.x} ${p.y}) rotate(${p.rot} ${pieceW / 2} ${pieceH / 2})`} filter="url(#pieceShadow)">
-                          <g clipPath={`url(#lockPc-${i})`}>
-                            <image href={cropData} x={-p.c * pieceW} y={-p.r * pieceH} width={BOARD_W} height={BOARD_H} preserveAspectRatio="xMidYMid slice" />
-                          </g>
-                          <path d={piecePath(p.r, p.c, cols, rows, pieceW, pieceH, edgeMap)} fill="none" stroke="#050505" strokeOpacity="0.35" strokeWidth="1.1" />
-                        </g>
-                      ))}
-                    </svg>
-                    <div style={{
-                      position: "absolute",
-                      top: "60px",
-                      left: "15px",
-                      right: "15px",
-                      textAlign: "center",
-                      fontFamily: "'Caveat', cursive",
-                      fontSize: "30px",
-                      fontWeight: "700",
-                      color: T.goldBright,
-                      textShadow: "0 2px 8px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.9)",
-                      transform: "rotate(-3deg)",
-                      pointerEvents: "none",
-                      lineHeight: "1.2"
-                    }}>
-                      Tap the puzzle to watch it solve and reveal.
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ position: "absolute", inset: 0, animation: "fadeUp 0.5s ease" }}>
-                    <RevealFace photo={cropData} toName={recipients[0]?.name} fromName={senderName} message={message} />
+            <div style={{ padding: 18, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, marginBottom: 16 }}>
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 14 }}>
+                {cropData && (
+                  <div style={{ position: "relative", flex: "none" }}>
+                    <img src={cropData} alt="" style={{ width: 52, height: 92, objectFit: "cover", borderRadius: 8 }} />
+                    <button type="button" onClick={() => setCurrentStep(1)} className="edit-btn" style={{ display: "block", marginTop: 4, textAlign: "center", width: "100%" }}>Edit</button>
                   </div>
                 )}
-                <div style={{ position: "absolute", top: 13, left: "50%", transform: "translateX(-50%)", width: 92, height: 27,
-                  background: "#050505", borderRadius: 100, zIndex: 40, pointerEvents: "none" }} />
+                <div style={{ fontSize: 13.5, lineHeight: 1.7, flex: 1 }}>
+                  <div><strong>Recipients ({recipients.length})</strong> · {recipients.map(r => r.name || "—").join(", ")} <button type="button" onClick={() => setCurrentStep(3)} className="edit-btn">Edit</button></div>
+                  <div style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", maxWidth: 260 }}>
+                    <strong>Message</strong> · "{message}" <button type="button" onClick={() => setCurrentStep(2)} className="edit-btn">Edit</button>
+                  </div>
+                  <div><strong>Difficulty</strong> · {dims.label} ({pieceCount} pieces) <button type="button" onClick={() => setCurrentStep(1)} className="edit-btn">Edit</button></div>
+                  <div><strong>Sender shown</strong> · {revealIdentity ? `Yes (${senderName})` : "Anonymous"} <button type="button" onClick={() => setCurrentStep(3)} className="edit-btn">Edit</button></div>
+                  <div><strong>Package</strong> · {currentPack.label}</div>
+                </div>
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
-              <GhostButton onClick={() => setStep("message")}>Back</GhostButton>
-              <PrimaryButton onClick={() => setStep("enhance")} style={{ flex: 1 }}>Continue</PrimaryButton>
-            </div>
-          </div>
-        )}
+            {/* Collapsed puzzle and reveal preview */}
+            <Disclosure title="Preview the puzzle and reveal">
+              <div style={{ width: "100%", maxWidth: 296, margin: "0 auto", position: "relative",
+                background: "#050505", borderRadius: 54, padding: 11,
+                boxShadow: "0 44px 90px -26px rgba(28,25,19,0.5), 0 10px 26px rgba(28,25,19,0.14)" }}>
+                <div onClick={() => setRevealStage((s) => !s)}
+                  style={{ borderRadius: 44, overflow: "hidden", background: T.bg, position: "relative", aspectRatio: "9 / 16", cursor: "pointer" }}>
+                  {!revealStage ? (
+                    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                      <svg viewBox={viewBox} style={{ width: "100%", height: "100%", display: "block" }}>
+                        <defs>
+                          <filter id="pieceShadow" x="-25%" y="-25%" width="150%" height="150%">
+                            <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000000" floodOpacity="0.4" />
+                          </filter>
+                          {scramble.map((p, i) => (
+                            <clipPath id={`lockPc-${i}`} key={i}><path d={piecePath(p.r, p.c, cols, rows, pieceW, pieceH, edgeMap)} /></clipPath>
+                          ))}
+                        </defs>
+                        {scramble.map((p, i) => (
+                          <g key={i} transform={`translate(${p.x} ${p.y}) rotate(${p.rot} ${pieceW / 2} ${pieceH / 2})`} filter="url(#pieceShadow)">
+                            <g clipPath={`url(#lockPc-${i})`}>
+                              <image href={cropData} x={-p.c * pieceW} y={-p.r * pieceH} width={BOARD_W} height={BOARD_H} preserveAspectRatio="xMidYMid slice" />
+                            </g>
+                            <path d={piecePath(p.r, p.c, cols, rows, pieceW, pieceH, edgeMap)} fill="none" stroke="#050505" strokeOpacity="0.35" strokeWidth="1.1" />
+                          </g>
+                        ))}
+                      </svg>
+                      <div style={{
+                        position: "absolute",
+                        top: "60px",
+                        left: "15px",
+                        right: "15px",
+                        textAlign: "center",
+                        fontFamily: "'Caveat', cursive",
+                        fontSize: "24px",
+                        fontWeight: "700",
+                        color: T.goldBright,
+                        textShadow: "0 2px 8px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.9)",
+                        transform: "rotate(-3deg)",
+                        pointerEvents: "none",
+                        lineHeight: "1.2"
+                      }}>
+                        Tap to simulate solving
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ position: "absolute", inset: 0, animation: "fadeUp 0.5s ease" }}>
+                      <RevealFace photo={cropData} toName={recipients[0]?.name} fromName={senderName} message={message} />
+                    </div>
+                  )}
+                  <div style={{ position: "absolute", top: 13, left: "50%", transform: "translateX(-50%)", width: 92, height: 27,
+                    background: "#050505", borderRadius: 100, zIndex: 40, pointerEvents: "none" }} />
+                </div>
+              </div>
+            </Disclosure>
 
-        {/* ============ STEP 6 — ALMOST THERE ============ */}
-        {step === "enhance" && (
-          <div style={{ animation: "fadeUp 0.4s ease" }}>
-            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 6px", letterSpacing: "-0.02em" }}>Make the Moment Even More Special</h1>
-            <p style={{ fontSize: 14, color: T.ink66, margin: "0 0 20px", lineHeight: 1.55 }}>Add optional extras to make your surprise even more memorable.</p>
-
+            {/* Be There add-on */}
             {UPGRADES.map((u) => {
               const selected = selectedUpgrades.includes(u.id);
               const priceVal = getUpgradePrice(u.id);
@@ -1037,122 +1205,57 @@ function JigzoSenderFlow() {
                 <div key={u.id} onClick={() => toggleUpgrade(u.id)} role="button" aria-pressed={selected}
                   style={{ border: selected ? "2px solid " + T.ink : "1.5px solid " + T.ink15,
                     background: selected ? "rgba(28,25,19,0.04)" : T.card, borderRadius: 16, padding: 18,
-                    marginBottom: 14, cursor: "pointer", transition: "border-color 0.2s ease, background 0.2s ease" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 9 }}>
-                    <div style={{ fontWeight: 600, fontSize: 16, flex: 1 }}>{u.name}</div>
-                    <div style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.ink }}>Add for just {formatPrice(priceVal)}</div>
-                    <div style={{ width: 24, height: 24, borderRadius: "50%", flex: "none",
+                    marginBottom: 16, cursor: "pointer", transition: "border-color 0.2s ease, background 0.2s ease" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                    <div style={{ fontWeight: 600, fontSize: 15.5, flex: 1 }}>{u.name}</div>
+                    <div style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.ink }}>Add for {formatPrice(priceVal)}</div>
+                    <div style={{ width: 20, height: 20, borderRadius: "50%", flex: "none",
                       border: selected ? "1.5px solid " + T.ink : "1.5px solid rgba(28,25,19,0.3)",
                       background: selected ? T.ink : "transparent",
-                      display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.2s ease" }}>
+                      display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {selected && (
-                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                          <path d="M3 7 L5.5 9.5 L10 4" stroke={T.bg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <svg width="10" height="10" viewBox="0 0 13 13" fill="none">
+                          <path d="M3 7 L5.5 9.5 L10 4" stroke={T.bg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       )}
                     </div>
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: T.ink, marginBottom: 6, lineHeight: 1.4 }}>{u.tagline}</div>
-                  <div style={{ fontSize: 13.5, color: T.ink66, lineHeight: 1.55, marginBottom: 14 }}>{u.description.replace(/\{recipient\}/g, recipients[0]?.name || "they")}</div>
-                  <div style={{ fontFamily: T.mono, fontSize: 10, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", color: T.ink40, marginBottom: 8 }}>Here's what you'll receive</div>
-                  <div onClick={(e) => e.stopPropagation()} style={{ cursor: "default" }}>
-                    <WhatsAppPreview receiverName={senderName} message={interpolateInsightsPreview(u.preview, senderName, recipients[0]?.name)} />
-                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: T.goldDeep, marginBottom: 4 }}>{u.tagline}</div>
+                  <div style={{ fontSize: 12.5, color: T.ink66, lineHeight: 1.4 }}>{u.description}</div>
                 </div>
               );
             })}
 
-            <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
-              <GhostButton onClick={() => setStep("preview")}>Back</GhostButton>
-              <PrimaryButton onClick={() => setStep("checkout")} style={{ flex: 1 }}>Continue</PrimaryButton>
-            </div>
-            <div style={{ textAlign: "center", marginTop: 14 }}>
-              <button onClick={() => { setSelectedUpgrades([]); setStep("checkout"); }}
-                style={{ background: "none", border: "none", padding: 6, fontSize: 13, color: T.ink50, cursor: "pointer", fontFamily: "Archia, sans-serif" }}>
-                Continue without extras
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ============ STEP 7 — SECURE CHECKOUT ============ */}
-        {step === "checkout" && (
-          <div style={{ animation: "fadeUp 0.4s ease" }}>
-            <h1 style={{ fontSize: 28, fontWeight: 300, margin: "0 0 18px", letterSpacing: "-0.02em", textAlign: "center" }}>Everything is ready.</h1>
-            <div style={{ padding: 18, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, marginBottom: 16 }}>
-              <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-                {cropData && <img src={cropData} alt="" style={{ width: 52, height: 92, objectFit: "cover", borderRadius: 8, flex: "none" }} />}
-                <div style={{ fontSize: 13.5, lineHeight: 1.7 }}>
-                  <div><strong>Occasion</strong> · {occasionObj ? occasionObj.label : "—"}{toneObj ? " · " + toneObj.label : ""}</div>
-                  <div><strong>To</strong> · {recipients.map(r => r.name || "—").join(", ")}</div>
-                  <div><strong>Difficulty</strong> · {dims.label} ({pieceCount} pieces)</div>
-                  <div><strong>Sender shown</strong> · {revealIdentity ? "Yes" : "Anonymous"}</div>
-                </div>
+            {/* Price Summary */}
+            <div style={{ padding: 16, borderRadius: 14, background: T.card, border: "1px solid " + T.ink08, marginBottom: 16 }}>
+              <div className="price-row">
+                <span>{currentPack.label} ({recipients.length} {recipients.length === 1 ? "recipient" : "recipients"})</span>
+                <span>{formatPrice(BASE_PRICE)}</span>
               </div>
-              <div style={{ borderTop: "1px solid " + T.ink08, paddingTop: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, color: T.ink66, marginBottom: 7 }}>
-                  <span>Digital Puzzle ({currentPack.label.split(":")[0]})</span><span style={{ fontFamily: T.mono }}>{formatPrice(BASE_PRICE)}</span>
+              {selectedUpgrades.includes("insights") && (
+                <div className="price-row">
+                  <span>Be There Add-on</span>
+                  <span>+{formatPrice(getUpgradePrice("insights"))}</span>
                 </div>
-                {selectedUpgrades.map((id) => {
-                  const u = UPGRADES.find((x) => x.id === id);
-                  return u ? (
-                    <div key={id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, color: T.ink66, marginBottom: 7 }}>
-                      <span>{u.name}</span><span style={{ fontFamily: T.mono }}>+{formatPrice(getUpgradePrice(id))}</span>
-                    </div>
-                  ) : null;
-                })}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: "1px solid " + T.ink08, paddingTop: 10, marginTop: 3 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>Total</span>
-                  <span style={{ fontFamily: T.mono, fontSize: 16, fontWeight: 600, color: T.ink }}>{formatPrice(grandTotal)}</span>
-                </div>
+              )}
+              <div className="price-row total">
+                <span>Total</span>
+                <span>{formatPrice(grandTotal)}</span>
               </div>
             </div>
 
-            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", fontSize: 13.5, color: T.ink74, margin: "18px 0 20px", lineHeight: 1.5, textAlign: "left" }}>
+            {/* Terms and Pay */}
+            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", fontSize: 13, color: T.ink74, margin: "18px 0 20px", lineHeight: 1.5, textAlign: "left" }}>
               <input type="checkbox" checked={termsAgreed} onChange={(e) => setTermsAgreed(e.target.checked)} style={{ marginTop: 4, flex: "none" }} />
               <span>
-                I confirm that I own or have permission to use the uploaded photos and content, and I have read and agree to the <a href="terms.html" target="_blank" style={{ color: T.goldDeep, textDecoration: "underline", fontWeight: 600 }}>Terms &amp; Conditions and Privacy Policy</a>.
+                I confirm that I own or have permission to use the uploaded photos, and agree to the <a href="terms.html" target="_blank" style={{ color: T.goldDeep, textDecoration: "underline", fontWeight: 600 }}>Terms &amp; Conditions and Privacy Policy</a>.
               </span>
             </label>
 
-            <PrimaryButton onClick={() => setStep("processing")} disabled={!termsAgreed} style={{ width: "100%" }}>Pay &amp; Send</PrimaryButton>
-            <div style={{ marginTop: 12, textAlign: "center" }}><GhostButton onClick={() => setStep("enhance")}>Back</GhostButton></div>
-          </div>
-        )}
-
-        {/* ============ STEP 8 — PROCESSING ============ */}
-        {step === "processing" && (
-          <div style={{ animation: "fadeUp 0.4s ease", textAlign: "center", paddingTop: 30 }}>
-            <div className="jz-orbit" role="status" aria-label="Preparing" style={{ marginBottom: 28 }}>
-              <div className="jz-orbit__ring">
-                <div className="jz-orbit__arm"><div className="jz-orbit__badge"><PuzzleBadge size={46} /></div></div>
-                <div className="jz-orbit__arm"><div className="jz-orbit__badge"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="49" fill="#FAF8EC"/><circle cx="50" cy="50" r="48.3" fill="none" stroke="rgba(5,5,5,0.07)" strokeWidth="1"/><g fill="#050505"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>
-                <div className="jz-orbit__arm"><div className="jz-orbit__badge"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="49" fill="#111110"/><circle cx="50" cy="50" r="48.3" fill="none" stroke="rgba(208,160,54,0.5)" strokeWidth="1"/><g fill="#FAF8EC"><rect x="33" y="33" width="34" height="34" rx="8"/><circle cx="50" cy="29" r="8.6"/><circle cx="50" cy="71" r="8.6"/><circle cx="29" cy="50" r="8.6"/><circle cx="71" cy="50" r="8.6"/></g></svg></div></div>
-              </div>
+            <div className="footer-nav">
+              <GhostButton onClick={handleBack}>Back</GhostButton>
+              <PrimaryButton onClick={() => setIsProcessing(true)} disabled={!termsAgreed} style={{ flex: 1 }}>Pay &amp; Send</PrimaryButton>
             </div>
-            <h1 style={{ fontSize: 22, fontWeight: 500, margin: "0 0 8px", letterSpacing: "-0.01em" }}>Your reveal is being prepared…</h1>
-            <p style={{ fontSize: 14, color: T.ink60 }}>This usually takes only a few seconds.</p>
-          </div>
-        )}
-
-        {/* ============ STEP 9 — SUCCESS ============ */}
-        {step === "success" && (
-          <div style={{ animation: "fadeUp 0.4s ease", textAlign: "center", paddingTop: 30 }}>
-            <div style={{ width: 84, height: 84, margin: "0 auto 24px", borderRadius: "50%", background: T.ink,
-              display: "flex", alignItems: "center", justifyContent: "center", animation: "ckPop 0.5s cubic-bezier(.2,.8,.2,1) both" }}>
-              <svg width="42" height="42" viewBox="0 0 42 42" fill="none">
-                <path d="M11 22 L18 29 L31 14" stroke={T.goldWarm} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round"
-                  strokeDasharray="40" strokeDashoffset="40" style={{ animation: "ckDraw 0.5s ease 0.35s forwards" }} />
-              </svg>
-            </div>
-            <h1 style={{ fontSize: 27, fontWeight: 300, margin: "0 0 12px", letterSpacing: "-0.02em" }}>Your JIGZO has been delivered.</h1>
-            <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 auto 26px", maxWidth: 360, lineHeight: 1.6 }}>
-              {recipients.map(r => r.name || "They").join(", ")} will get a WhatsApp from JIGZO with a puzzle to solve, your words are waiting to be discovered... One piece at a time.
-            </p>
-            <PrimaryButton onClick={() => window.open("receive.html", "_blank")} style={{ width: "100%" }}>Open the reveal (local test)</PrimaryButton>
-            <p style={{ fontSize: 11.5, color: T.ink50, marginTop: 12, lineHeight: 1.5 }}>
-              Local test — opens the receiver experience (solve → reveal) in a new tab. No real WhatsApp send or payment yet.
-            </p>
           </div>
         )}
       </div>
