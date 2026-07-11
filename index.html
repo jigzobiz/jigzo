@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Jigzo — Every surprise deserves a memorable reveal</title>
-<meta name="description" content="Turn any message into an unforgettable reveal. Upload a photo, write your words, and let them uncover your surprise one piece at a time.">
+<title>JIGZO — Turn Any Photo Into a Puzzle Surprise</title>
+<meta name="description" content="Turn any photo into a puzzle surprise. Hide a personal message inside, deliver it instantly through WhatsApp, and let them solve it to reveal your words.">
 <!-- Design faces: JetBrains Mono (labels) + Playfair Display italic (reveal message). Archia is self-hosted via styles.css -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,13 +15,13 @@
 <script src="js/puzzle-shape.js"></script>
 <script src="js/loader.js"></script>
 </head>
-<body>
+<body class="landing-page">
 
   <!-- ===================== NAV ===================== -->
   <header class="nav">
     <div class="nav__inner">
       <a href="#top" aria-label="Jigzo home"><img class="nav__logo" src="assets/JIGZO-Logo-Black.png" alt="JIGZO"></a>
-      <a class="btn btn-ghost" href="create.html">Create your reveal</a>
+      <a class="btn btn-ghost nav__btn" href="create.html">Create Puzzle</a>
     </div>
   </header>
 
@@ -32,14 +32,20 @@
       <div class="wrap hero__grid">
         <div class="min0">
           <div class="eyebrow eyebrow--dot"><span></span>A surprise worth uncovering</div>
-          <h1>Some words deserve <span class="accent">a moment</span> before they're read.</h1>
-          <p class="hero__lede">Turn any message into an unforgettable reveal. Upload a photo, write your words, and let them uncover your surprise one piece at a time.</p>
-          <div class="hero__cta">
-            <a class="btn btn-dark" href="create.html">Create Your Reveal</a>
-            <a class="btn btn-text" href="#demo">See how it works <span class="arrow">→</span></a>
+          <h1 class="hero__headline">Turn any photo into a puzzle that reveals your message.</h1>
+          <p class="hero__lede">Upload a photo, add your words, and send it through WhatsApp. They unlock your message with the final piece.</p>
+          <div class="hero__cta-group">
+            <a class="btn btn-dark" id="hero-cta-btn" href="create.html">Create Your Puzzle</a>
+            <div class="hero__whatsapp-line">Delivered instantly through WhatsApp</div>
           </div>
-          <div class="hero__cta-fine">Starting from $5 • Delivered instantly via WhatsApp</div>
-          <div class="hero__fine">Ready in under a minute • Works on any phone • Instantly shareable</div>
+          <div class="hero__trust-row">
+            <span class="trust-item" data-price-short></span>
+            <span class="trust-divider">·</span>
+            <span class="trust-item">Ready in about a minute</span>
+            <span class="trust-divider">·</span>
+            <span class="trust-item">Works on any phone</span>
+          </div>
+          <p class="hero__secondary-line">Some words deserve a moment before they’re read.</p>
         </div>
         <div class="min0"><div data-hero-mock></div></div>
       </div>
@@ -48,54 +54,55 @@
     <!-- ===================== HOW IT WORKS ===================== -->
     <section class="wrap sec">
       <div class="steps">
-        <div class="step"><div class="step__num">01</div><div class="step__title">Upload a photo</div><div class="step__body">The picture becomes their puzzle.</div></div>
-        <div class="step"><div class="step__num">02</div><div class="step__title">Write your message</div><div class="step__body">Your words, hidden until the end.</div></div>
-        <div class="step"><div class="step__num">03</div><div class="step__title">They solve it</div><div class="step__body">A few quiet minutes, just for you.</div></div>
-        <div class="step"><div class="step__num">04</div><div class="step__title">The reveal</div><div class="step__body">Your message unlocks at the final piece.</div></div>
+        <div class="step">
+          <div class="step__num">01</div>
+          <div class="step__title">Upload your photo</div>
+          <div class="step__body">It becomes their puzzle.</div>
+        </div>
+        <div class="step">
+          <div class="step__num">02</div>
+          <div class="step__title">Add your message</div>
+          <div class="step__body">Your words stay hidden until the final piece.</div>
+        </div>
+        <div class="step">
+          <div class="step__num">03</div>
+          <div class="step__title">Send the surprise</div>
+          <div class="step__body">JIGZO delivers it through WhatsApp.</div>
+        </div>
       </div>
     </section>
 
     <!-- ===================== USE CASES ===================== -->
     <section class="wrap sec">
       <div class="sec__head">
-        <span class="eyebrow">Every Memory Starts with a Surprise</span>
-        <h2>Some moments are too big for a text.</h2>
+        <span class="eyebrow">Occasions</span>
+        <h2>Made for the moments that matter.</h2>
+        <p class="sec__sub">Birthdays, love, friendship, milestones—or no reason at all.</p>
       </div>
-      <div class="cases">
-        <div class="case"><div class="case__title">Birthdays</div><div class="case__body">Turn another birthday into an unforgettable memory.</div></div>
-        <div class="case"><div class="case__title">Anniversaries</div><div class="case__body">Celebrate your story, one piece at a time.</div></div>
-        <div class="case"><div class="case__title">Proposals</div><div class="case__body">One question.<br>One unforgettable reveal.</div></div>
-        <div class="case"><div class="case__title">Baby Announcements</div><div class="case__body">The biggest little surprise they'll ever solve.</div></div>
-        <div class="case"><div class="case__title">Congratulations</div><div class="case__body">Celebrate milestones worth remembering forever.</div></div>
-        <div class="case"><div class="case__title">Just Because</div><div class="case__body">Sometimes the best surprises are the unexpected ones.</div></div>
-        <div class="case"><div class="case__title">Thank You</div><div class="case__body">Sometimes "thank you" deserves more than words.</div></div>
-        <div class="case"><div class="case__title">Long distance</div><div class="case__body">Close the miles, one piece at a time.</div></div>
-        <div class="case"><div class="case__title">Love</div><div class="case__body">Say it slower than a text ever could.</div></div>
-        <div class="case"><div class="case__title">Sorry</div><div class="case__body">Some apologies deserve to be earned, piece by piece.</div></div>
+      <div class="occasions-wrapper">
+        <div class="occasions-chips">
+          <div class="chip">Birthday</div>
+          <div class="chip">Love</div>
+          <div class="chip">Friendship</div>
+          <div class="chip">Anniversary</div>
+          <div class="chip">Congratulations</div>
+          <div class="chip">Thank You</div>
+          <div class="chip">Just Because</div>
+          <div class="chip">Long Distance</div>
+        </div>
       </div>
     </section>
 
     <!-- ===================== THE REVEAL (climax) ===================== -->
     <section class="reveal-band" id="demo">
       <div class="wrap reveal-band__grid">
-        <div class="min0">
-          <div class="eyebrow">See it in action</div>
-          <h2>How it works</h2>
-          <div class="reveal-steps">
-            <div class="reveal-step">
-              <h3>Create Your Reveal</h3>
-              <p>Upload a photo and write the message you want them to discover.</p>
-            </div>
-            <div class="reveal-step">
-              <h3>Share the Surprise</h3>
-              <p>We'll deliver your JIGZO instantly through WhatsApp.</p>
-            </div>
-            <div class="reveal-step">
-              <h3>Watch the Magic Happen</h3>
-              <p>As they solve the puzzle, your hidden message is finally revealed.</p>
-            </div>
+        <div class="min0 reveal-band__text">
+          <div class="eyebrow">Walkthrough</div>
+          <h2>From photo to unforgettable reveal.</h2>
+          <p class="reveal-band__lede">You create it in minutes. They experience it one piece at a time.</p>
+          <div class="reveal-band__cta-wrap">
+            <a class="btn btn-gold" href="create.html">Create Your Puzzle</a>
           </div>
-          <a class="btn reveal-band__cta" href="create.html">Create your reveal</a>
         </div>
         <div class="min0"><div data-reveal-mock></div></div>
       </div>
@@ -104,57 +111,47 @@
     <!-- ===================== TIERS ===================== -->
     <section class="wrap sec">
       <div class="sec__head">
-        <span class="eyebrow">Choose your reveal</span>
+        <span class="eyebrow">Pricing</span>
         <h2>Start with the one that's ready today.</h2>
       </div>
       <div class="tiers">
-
         <div class="tier tier--active">
           <span class="tier__flag tier__flag--now">Available now</span>
-          <div class="tier__name">Digital Puzzle</div>
+          <div class="tier__name">Digital JIGZO</div>
           <div class="tier__price">
             <span class="from" data-price-from></span>
             <span class="amt" data-price-amt></span>
             <span class="unit" data-price-unit></span>
           </div>
           <div class="tier__feats">
-            <div class="tier__feat"><span class="di">◆</span>Your photo, your message</div>
-            <div class="tier__feat"><span class="di">◆</span>Words unlock at the final piece</div>
-            <div class="tier__feat"><span class="di">◆</span>Instant, private share link</div>
-            <div class="tier__feat"><span class="di">◆</span>Edit everything before you send</div>
+            <div class="tier__feat"><span class="di">◆</span>Your photo and hidden message</div>
+            <div class="tier__feat"><span class="di">◆</span>WhatsApp delivery</div>
+            <div class="tier__feat"><span class="di">◆</span>Message revealed after the final piece</div>
+            <div class="tier__feat"><span class="di">◆</span>Works on any phone</div>
+            <div class="tier__feat"><span class="di">◆</span>Save and share after solving</div>
           </div>
-          <a class="btn btn-gold" href="create.html">Create your reveal · <span data-price-full></span></a>
+          <a class="btn btn-gold" href="create.html">Create Your Puzzle · <span data-price-full></span></a>
         </div>
-
-        <div class="tier tier--locked">
-          <span class="tier__flag tier__flag--soon">Coming soon</span>
-          <div class="tier__name">Video Reveal</div>
-          <div class="tier__desc">The final piece plays your video: a face, a voice, a moment that moves.</div>
-          <button class="tier__notify">Notify me</button>
-        </div>
-
-        <div class="tier tier--locked">
-          <span class="tier__flag tier__flag--soon">Coming soon</span>
-          <div class="tier__name">Luxury Physical Puzzle</div>
-          <div class="tier__desc">Real pieces, boxed and delivered. The reveal you can hold in your hands.</div>
-          <button class="tier__notify">Join the waitlist</button>
-        </div>
-
+      </div>
+      <div class="pricing-future-note">
+        More experiences, like Video Reveals and Physical Puzzles, coming later.
       </div>
     </section>
 
     <!-- ===================== BUY / low friction ===================== -->
     <section class="wrap sec" id="buy">
       <div class="buy__inner">
-        <span class="eyebrow">Why people love JIGZO</span>
-        <h2>One photo. One unforgettable moment.<br>Ready in minutes.</h2>
-        <p>More thoughtful than a text. More personal than a greeting card. More memorable than a photo. Ready in about a minute.</p>
-        <a class="btn btn-dark" href="create.html">Make their moment&nbsp;·&nbsp;<span data-price-full></span></a>
+        <span class="eyebrow">Send a surprise</span>
+        <h2>Make the message something they experience.</h2>
+        <p>More memorable than a text. More personal than a greeting card. Ready in minutes.</p>
+        <a class="btn btn-dark" href="create.html">Create Your Puzzle</a>
+        <div class="buy__cta-fine"><span data-price-starting></span> · Delivered through WhatsApp</div>
         <div class="buy__trust">
-          <div class="t"><span class="ck">✓</span>Secure payment</div>
-          <div class="t"><span class="ck">✓</span>Instant share link</div>
-          <div class="t"><span class="ck">✓</span>Edit before sending</div>
+          <div class="t"><span class="ck">✓</span>Private and personal</div>
           <div class="t"><span class="ck">✓</span>Works on any phone</div>
+          <div class="t"><span class="ck">✓</span>Delivered through WhatsApp</div>
+          <div class="t"><span class="ck">✓</span><span data-price-starting></span></div>
+          <div class="t"><span class="ck">✓</span>Edit before sending</div>
         </div>
       </div>
     </section>
@@ -169,8 +166,22 @@
         <span class="footer__by">Product by Jigpuzzle</span>
       </div>
       <div class="footer__tag">Every surprise deserves a memorable reveal.</div>
+      <div class="footer__links">
+        <a class="footer__link" href="terms.html">Terms of Service</a>
+      </div>
     </div>
   </footer>
+
+  <!-- Sticky Bottom CTA (Mobile Only) -->
+  <div class="sticky-cta" id="sticky-cta" aria-hidden="true">
+    <a href="create.html" class="sticky-cta__link" tabindex="-1" id="sticky-cta-link">
+      <div class="sticky-cta__text-wrap">
+        <span class="sticky-cta__title">Create Your Puzzle</span>
+        <span class="sticky-cta__price" data-price-short></span>
+      </div>
+      <div class="sticky-cta__btn">Go</div>
+    </a>
+  </div>
 
   <script>
     (function () {
@@ -179,13 +190,20 @@
          localization. No real payment logic yet; base prices are
          hardcoded USD and every visible price flows through here so
          a later geo/IP + currency lookup is a one-function change.
-      --------------------------------------------------------- */
+         --------------------------------------------------------- */
       function jigzoPrice(tier) {
         var BASE_USD = { digital: 5 };                 // TODO: real tier pricing
         var currency = { symbol: '$', code: 'USD' };   // TODO: detect region -> currency
         var amount = (BASE_USD[tier] != null ? BASE_USD[tier] : 5);
         var money = currency.symbol + amount;
-        return { amount: money, from: 'Starting from', unit: 'one reveal', full: 'Starting from ' + money };
+        return {
+          amount: money,
+          from: 'Starting from',
+          unit: 'one puzzle',
+          full: 'Starting from ' + money,
+          short: 'From ' + money,
+          starting: 'Starting from ' + money
+        };
       }
       function applyPricing() {
         var p = jigzoPrice('digital');
@@ -194,6 +212,8 @@
         set('[data-price-from]', p.from);
         set('[data-price-amt]', p.amount);
         set('[data-price-unit]', p.unit);
+        set('[data-price-short]', p.short);
+        set('[data-price-starting]', p.starting);
       }
 
       /* ============================================================
@@ -246,6 +266,9 @@
           '</svg>';
 
         mount.className = 'hero-mock-card';
+        mount.setAttribute('role', 'button');
+        mount.setAttribute('tabindex', '0');
+        mount.setAttribute('aria-label', 'Interactive jigsaw puzzle demo. Press space or enter to solve or replay.');
         // All labels/hints sit above (or off the top of) the frame — nothing below it.
         // "Tap to replay" hint above the frame (State B); "Tap Me" floats at the
         // frame's upper-right, overlapping and extending off the right edge (State A).
@@ -283,10 +306,17 @@
           mount.classList.remove('is-b');               // reveal fades back to the board
           t = setTimeout(function () { mount.classList.remove('is-solving'); }, reduced ? 0 : 500);
         }
+        function toggleState() {
+          if (state === 'a') { state = 'b'; toB(); } else { state = 'a'; toA(); }
+        }
         // Pointer Events, touch + mouse; a scroll gesture fires pointercancel
         // (no toggle), a genuine tap fires pointerup (toggles). Never scrolls/zooms.
-        screen.addEventListener('pointerup', function () {
-          if (state === 'a') { state = 'b'; toB(); } else { state = 'a'; toA(); }
+        screen.addEventListener('pointerup', toggleState);
+        mount.addEventListener('keydown', function (e) {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            toggleState();
+          }
         });
       }
 
@@ -434,7 +464,32 @@
         })();
       }
 
-      function init() { applyPricing(); initHeroMock(); initRevealMock(); }
+      function initStickyCta() {
+        var sticky = document.getElementById('sticky-cta');
+        var link = document.getElementById('sticky-cta-link');
+        var heroCta = document.getElementById('hero-cta-btn');
+        if (!sticky || !heroCta || !link) return;
+
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (!entry.isIntersecting) {
+              sticky.classList.add('is-visible');
+              sticky.setAttribute('aria-hidden', 'false');
+              link.removeAttribute('tabindex');
+            } else {
+              sticky.classList.remove('is-visible');
+              sticky.setAttribute('aria-hidden', 'true');
+              link.setAttribute('tabindex', '-1');
+            }
+          });
+        }, {
+          threshold: 0
+        });
+
+        observer.observe(heroCta);
+      }
+
+      function init() { applyPricing(); initHeroMock(); initRevealMock(); initStickyCta(); }
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
       else init();
     })();

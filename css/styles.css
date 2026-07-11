@@ -445,3 +445,270 @@ a { color:inherit; text-decoration:none; }
   .reveal-band__grid { padding:60px 22px; }
   .hero__grid { padding:44px 22px 16px; }
 }
+
+/* =========================================================
+   LANDING PAGE SPECIFIC OVERRIDES AND STYLES
+   ========================================================= */
+.landing-page {
+  --bg: #FAF8EC;
+  --ink: #050505;
+}
+
+/* Mobile responsive padding reduction (25-35%) */
+@media (max-width: 760px) {
+  .landing-page .sec {
+    padding: 40px 22px;
+  }
+  .landing-page .hero__grid {
+    padding: 24px 22px 16px;
+  }
+  .landing-page .reveal-band__grid {
+    padding: 40px 22px;
+  }
+}
+
+/* Header button override */
+.landing-page .nav__btn {
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 100px;
+  border: 1px solid var(--ink);
+  font-weight: 600;
+}
+
+/* Hero elements styling */
+.landing-page .hero__headline {
+  font-weight: 300;
+  font-size: clamp(32px, 5.4vw, 56px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0 0 16px;
+}
+.landing-page .hero__lede {
+  font-size: 16.5px;
+  line-height: 1.55;
+  color: var(--ink-74);
+  margin: 0 0 24px;
+  max-width: 44ch;
+}
+.landing-page .hero__cta-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.landing-page .hero__whatsapp-line {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--gold-deep);
+}
+.landing-page .hero__trust-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-60);
+  margin-top: 24px;
+  margin-bottom: 16px;
+}
+.landing-page .hero__secondary-line {
+  font-size: 13.5px;
+  font-style: italic;
+  color: var(--ink-50);
+  margin: 16px 0 0;
+}
+
+/* Keyboard accessibility focus style for Hero card */
+.landing-page .hero-mock-card:focus-visible {
+  outline: 3px solid var(--gold-deep);
+  outline-offset: 4px;
+  border-radius: 54px;
+}
+
+/* Desktop layout split */
+@media (min-width: 761px) {
+  .landing-page .hero__grid {
+    grid-template-columns: 1.2fr 1.0fr;
+    gap: 64px;
+    padding: 80px 22px 40px;
+  }
+}
+
+/* Occasions Chips style */
+.landing-page .sec__sub {
+  font-size: 16px;
+  color: var(--ink-74);
+  margin-top: 8px;
+  margin-bottom: 0;
+}
+.landing-page .occasions-wrapper {
+  overflow-x: auto;
+  margin: 0 -22px;
+  padding: 0 22px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.landing-page .occasions-wrapper::-webkit-scrollbar {
+  display: none;
+}
+.landing-page .occasions-chips {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0 24px;
+  width: max-content;
+}
+.landing-page .chip {
+  padding: 12px 20px;
+  border-radius: 100px;
+  background: var(--card);
+  border: 1px solid rgba(28,25,19,0.08);
+  font-weight: 500;
+  font-size: 14.5px;
+  color: var(--ink);
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(28,25,19,0.03);
+}
+
+@media (min-width: 768px) {
+  .landing-page .occasions-wrapper {
+    overflow-x: visible;
+    margin: 0;
+    padding: 0;
+  }
+  .landing-page .occasions-chips {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    padding: 0;
+  }
+  .landing-page .chip {
+    text-align: center;
+  }
+}
+
+/* Section 5 - Reveal Band adjustments */
+.landing-page .reveal-band__lede {
+  font-size: 17px;
+  line-height: 1.65;
+  color: var(--cream-72);
+  margin: 0 0 28px;
+  max-width: 36ch;
+}
+.landing-page .reveal-band__cta-wrap {
+  margin-top: 24px;
+}
+
+/* Section 6 - Pricing Single Card layout */
+.landing-page .tiers {
+  display: block;
+  max-width: 440px;
+  margin: 0 auto;
+}
+.landing-page .pricing-future-note {
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-50);
+  margin-top: 32px;
+}
+
+/* Final CTA tweaks */
+.landing-page .buy__cta-fine {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink-50);
+  margin-top: 12px;
+  margin-bottom: 24px;
+}
+
+/* Footer link styling */
+.landing-page .footer__links {
+  font-size: 13px;
+  color: var(--ink-50);
+  margin-top: 8px;
+}
+.landing-page .footer__link {
+  color: var(--ink);
+  font-weight: 500;
+}
+.landing-page .footer__link:hover {
+  text-decoration: underline;
+}
+
+/* Sticky CTA (Mobile Only) */
+.landing-page .sticky-cta {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .landing-page .sticky-cta {
+    display: block;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--ink);
+    color: var(--bg);
+    z-index: 100;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.15);
+    
+    /* Hidden state */
+    visibility: hidden;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(100%);
+    transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.3s ease;
+  }
+  .landing-page .sticky-cta.is-visible {
+    visibility: visible;
+    pointer-events: auto;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .landing-page .sticky-cta__link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .landing-page .sticky-cta__text-wrap {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+  }
+  .landing-page .sticky-cta__title {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .landing-page .sticky-cta__price {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+  .landing-page .sticky-cta__btn {
+    background: var(--gold-warm);
+    color: var(--ink);
+    font-weight: 700;
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: 100px;
+    text-align: center;
+  }
+  body.landing-page {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-page .sticky-cta {
+    transition: none !important;
+  }
+}
+
+
