@@ -459,11 +459,40 @@ a { color:inherit; text-decoration:none; }
   .landing-page .sec {
     padding: 40px 22px;
   }
+  .landing-page .hero {
+    padding: 0;
+  }
   .landing-page .hero__grid {
-    padding: 24px 22px 16px;
+    display: block;
+    padding: 0;
+  }
+  .landing-page .hero__content {
+    box-sizing: border-box;
+    min-height: calc(100vh - 56px);
+    min-height: calc(100svh - 56px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 32px 22px;
+  }
+  .landing-page .hero__mock-column {
+    box-sizing: border-box;
+    padding: 56px 22px;
+    background: var(--bg);
   }
   .landing-page .reveal-band__grid {
     padding: 40px 22px;
+  }
+
+  /* Simplified mobile hero: eyebrow, headline, description, and CTA only */
+  .landing-page .hero__whatsapp-line {
+    display: none;
+  }
+  .landing-page .hero__trust-row {
+    display: none;
+  }
+  .landing-page .hero__secondary-line {
+    display: none;
   }
 }
 
