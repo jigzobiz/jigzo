@@ -198,6 +198,16 @@ function Receiver({ data }) {
   const [placed, setPlaced] = useState(() => homes.map(() => false));
   const [gid, setGid] = useState(() => homes.map((_, i) => i));
   const [showReveal, setShowReveal] = useState(false);
+  const [loaderRunning, setLoaderRunning] = useState(false);
+  useEffect(() => {
+    if (showReveal) {
+      setLoaderRunning(true);
+      const t = setTimeout(() => setLoaderRunning(false), 3000);
+      return () => clearTimeout(t);
+    } else {
+      setLoaderRunning(false);
+    }
+  }, [showReveal]);
   const [scale, setScale] = useState(1);
   const wrapRef = useRef(null), stageRef = useRef(null), cardRef = useRef(null);
   const pieceRefs = useRef([]);
