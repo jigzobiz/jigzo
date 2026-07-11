@@ -34,16 +34,14 @@
           <div class="eyebrow eyebrow--dot"><span></span>A surprise worth uncovering</div>
           <h1 class="hero__headline">Turn any photo into a puzzle that reveals your message.</h1>
           <p class="hero__lede">Upload a photo, add your words, and send it through WhatsApp. They unlock your message with the final piece.</p>
-          <div class="hero__cta-group">
+          <div class="hero__cta-wrap">
             <a class="btn btn-dark" id="hero-cta-btn" href="create.html">Create Your Puzzle</a>
-            <div class="hero__whatsapp-line">Delivered instantly through WhatsApp</div>
+          </div>
+          <div class="hero__whatsapp-wrap">
+            <a href="#how-it-works" class="hero__whatsapp-link">Delivered instantly through WhatsApp ↓</a>
           </div>
           <div class="hero__trust-row">
-            <span class="trust-item" data-price-short></span>
-            <span class="trust-divider">·</span>
-            <span class="trust-item">Ready in about a minute</span>
-            <span class="trust-divider">·</span>
-            <span class="trust-item">Works on any phone</span>
+            <span data-price-short></span> · Ready in about a minute · Works on any phone
           </div>
           <p class="hero__secondary-line">Some words deserve a moment before they’re read.</p>
         </div>
@@ -52,7 +50,7 @@
     </section>
 
     <!-- ===================== HOW IT WORKS ===================== -->
-    <section class="wrap sec">
+    <section class="wrap sec" id="how-it-works">
       <div class="steps">
         <div class="step">
           <div class="step__num">01</div>
@@ -467,8 +465,8 @@
       function initStickyCta() {
         var sticky = document.getElementById('sticky-cta');
         var link = document.getElementById('sticky-cta-link');
-        var heroCta = document.getElementById('hero-cta-btn');
-        if (!sticky || !heroCta || !link) return;
+        var hero = document.querySelector('.hero');
+        if (!sticky || !hero || !link) return;
 
         var observer = new IntersectionObserver(function (entries) {
           entries.forEach(function (entry) {
@@ -486,7 +484,7 @@
           threshold: 0
         });
 
-        observer.observe(heroCta);
+        observer.observe(hero);
       }
 
       function init() { applyPricing(); initHeroMock(); initRevealMock(); initStickyCta(); }
