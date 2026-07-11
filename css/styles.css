@@ -1037,4 +1037,17 @@ a { color:inherit; text-decoration:none; }
   }
 }
 
+/* =========================================================
+   RECEIVE PAGE SPECIFIC OVERRIDES AND STYLES
+   ========================================================= */
+.receive-page {
+  --bg: #FAF8EC;
+  --ink: #050505;
+  background: var(--bg) !important;
+  min-height: 100vh;
+  padding-top: max(10px, env(safe-area-inset-top));
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
 

@@ -39,27 +39,10 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="js/puzzle-shape.js"></script>
 </head>
-<body>
-  <!-- header — matches the homepage nav treatment (logo only) -->
-  <header class="nav">
-    <div class="nav__inner">
-      <a href="index.html" aria-label="Jigzo home"><img class="nav__logo" src="assets/JIGZO-Logo-Black.png" alt="JIGZO"></a>
-    </div>
-  </header>
+<body class="receive-page">
 
   <div id="root"><div class="jz-boot" id="jz-boot"></div></div>
   <script>if (window.JZLoader) document.getElementById('jz-boot').appendChild(JZLoader.build());</script>
-
-  <!-- footer — matches the homepage disclaimer -->
-  <footer class="footer">
-    <div class="footer__inner">
-      <div class="footer__brand">
-        <img class="footer__logo" src="assets/JIGZO-Logo-Black.png" alt="JIGZO">
-        <span class="footer__by">Product by Jigpuzzle</span>
-      </div>
-      <div class="footer__tag">Every surprise deserves a memorable reveal.</div>
-    </div>
-  </footer>
 
   <script type="text/plain" id="jigzo-src">
 const { useState, useRef, useEffect, useMemo, useCallback } = React;
@@ -77,7 +60,7 @@ const SETTLE = "transform 260ms cubic-bezier(.22,.61,.36,1), filter 200ms ease";
 
 function NoPuzzle() {
   return (
-    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"Archia,sans-serif", padding:24 }}>
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifycontent:"center", fontFamily:"Archia,sans-serif", padding:24, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ maxWidth:380, textAlign:"center" }}>
         <div style={{ fontWeight:700, fontSize:22, marginBottom:10 }}>No puzzle to open yet</div>
         <p style={{ fontSize:14.5, lineHeight:1.6, color:"rgba(5,5,5,0.6)", margin:"0 0 22px" }}>
@@ -127,7 +110,7 @@ function RevealBeat({ w, h, pad, radius }) {
     const glow = root.querySelector("[data-b=glow]");
     const radii = Array.from(root.querySelectorAll("[data-b=radius]"));
     const badges = Array.from(root.querySelectorAll("[data-b=badge]"));
-    const dur = 3000, R = radius, anims = [];   // held ~3s (was 1500) so the reveal moment lands, not rushed
+    const dur = 3000, R = radius, anims = [];
     anims.push(orbit.animate([{ transform:"rotate(0deg)" }, { transform:"rotate(430deg)" }],
       { duration:dur, easing:"cubic-bezier(.45,.05,.2,1)", fill:"both" }));
     radii.forEach((el) => anims.push(el.animate([
@@ -181,15 +164,10 @@ function RevealBeat({ w, h, pad, radius }) {
 function Receiver({ data }) {
   const g = GRID_FOR[data.pieceCount] || { cols: 3, rows: 6 };
   const cols = g.cols, rows = g.rows;
-  const BW = 288, BH = 512, PAD = 46;          // 9:16 board + tray margin
+  const BW = 288, BH = 512, PAD = 46;
   const stageW = BW + PAD * 2, stageH = BH + PAD * 2;
-  const pieceW = BW / cols, pieceH = BH / rows;   // near-square with the non-square grid
-  const tabPad = 0.46 * Math.max(pieceW, pieceH);   // visual tab overhang (SVG viewBox margin); big enough for the chunky knob
-  // Movement boundary for a piece's core. Must never be tighter than the tray
-  // inset (PAD), or edge/corner homes (which start at PAD) fall outside the
-  // draggable region. tabPad grows with the larger piece dimension and can
-  // exceed PAD — which is exactly why corners were unreachable before.
-  // Capping at PAD keeps every home reachable at all grids.
+  const pieceW = BW / cols, pieceH = BH / rows;
+  const tabPad = 0.46 * Math.max(pieceW, pieceH);
   const bound = Math.min(tabPad, PAD);
   const elemW = pieceW + tabPad * 2, elemH = pieceH + tabPad * 2;
   const SNAP = Math.max(20, Math.min(pieceW, pieceH) * 0.36);
@@ -206,41 +184,47 @@ function Receiver({ data }) {
     const minX = bound, maxX = stageW - pieceW - bound;
     const minY = bound, maxY = stageH - pieceH - bound;
     return homes.map((h) => {
-      // scatter, but keep a little away from the exact home so nothing starts solved
       let x, y, tries = 0;
       do {
         x = minX + rand() * (maxX - minX);
         y = minY + rand() * (maxY - minY);
         tries++;
       } while (tries < 8 && Math.hypot(x - h.hx, y - h.hy) < SNAP * 2);
-      // slight random rotation on scattered pieces (straightens to 0 on pickup)
       return { x, y, rot: (rand() - 0.5) * 2 * 9 };
     });
   }, [homes]);
 
   const [positions, setPositions] = useState(scatter);
   const [placed, setPlaced] = useState(() => homes.map(() => false));
-  // Group id per piece. Pieces in the same group share ONE translation offset
-  // from the solution (position - home is identical across the group), so a
-  // group is a rigid, solution-consistent block. Everyone starts in their own.
   const [gid, setGid] = useState(() => homes.map((_, i) => i));
   const [showReveal, setShowReveal] = useState(false);
   const [scale, setScale] = useState(1);
   const wrapRef = useRef(null), stageRef = useRef(null), cardRef = useRef(null);
   const pieceRefs = useRef([]);
 
-  // fit the fixed-size stage into the available width
+  // Fit stage dynamically based on BOTH width and height of available viewport
   useEffect(() => {
     const wrap = wrapRef.current;
     if (!wrap) return;
-    const fit = () => setScale(Math.min(1, wrap.clientWidth / stageW));
+    const fit = () => {
+      const availW = wrap.clientWidth;
+      const offsetHeight = showReveal ? 240 : 130;
+      const availH = Math.max(240, window.innerHeight - offsetHeight);
+      
+      const scaleW = availW / stageW;
+      const scaleH = availH / stageH;
+      setScale(Math.min(1, scaleW, scaleH));
+    };
     fit();
     const ro = new ResizeObserver(fit);
     ro.observe(wrap);
-    return () => ro.disconnect();
-  }, [stageW]);
+    window.addEventListener("resize", fit);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", fit);
+    };
+  }, [stageW, stageH, showReveal]);
 
-  // true solution neighbours of piece i (the pieces sharing an edge with it)
   const gridNeighbors = (i) => {
     const h = homes[i], res = [];
     if (h.c > 0) res.push(i - 1);
@@ -250,14 +234,6 @@ function Receiver({ data }) {
     return res;
   };
 
-  // Unified Pointer Events drag with real-jigsaw clustering. Grabbing any piece
-  // drags its whole group as one unit. Live movement is written straight to the
-  // members' transforms in a rAF loop (no re-render per move); state is committed
-  // once, on drop. On drop we resolve, in order: (1) board snap — if the group's
-  // offset is within SNAP of the solution, snap the whole group home and every
-  // member counts as placed; (2) cluster — merge with any neighbour group whose
-  // offset matches within SNAP (anywhere on the board); (3) float — leave it put.
-  // A single piece is a group of one, so its float/snap behaviour is unchanged.
   const onDown = (i, e) => {
     if (placed[i] || showReveal) return;
     e.preventDefault();
@@ -266,12 +242,10 @@ function Receiver({ data }) {
     for (let k = 0; k < gid.length; k++) if (gid[k] === myGid) members.push(k);
     if (!pieceRefs.current[i]) return;
 
-    // cache the stage rect once so each frame is a pure math step, no reflow
     const rect0 = stageRef.current.getBoundingClientRect();
     const sc = rect0.width / stageW || 1;
     const toLoc = (cx, cy) => ({ x: (cx - rect0.left) / sc, y: (cy - rect0.top) / sc });
 
-    // snapshot member origins + the group's bounding box (to clamp as one unit)
     const orig = {};
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     members.forEach((m) => {
@@ -294,7 +268,6 @@ function Receiver({ data }) {
         n.style.transform = `translate3d(${orig[m].x + dx - tabPad}px, ${orig[m].y + dy - tabPad}px, 0) scale(1.05)`;
       });
     };
-    // tactile pickup: lift the whole group off the board (also straightens rot)
     members.forEach((m) => {
       const n = pieceRefs.current[m]; if (!n) return;
       n.style.transition = "none"; n.style.willChange = "transform"; n.style.zIndex = "50";
@@ -318,10 +291,8 @@ function Receiver({ data }) {
 
       const q = toLoc(pointer.x, pointer.y);
       const d = clampDelta((q.x - grabx) - orig[i].x, (q.y - graby) - orig[i].y);
-      // the group's offset from the solution after this drop (same for all members)
       const G = { x: (orig[i].x + d.x) - homes[i].hx, y: (orig[i].y + d.y) - homes[i].hy };
 
-      // soft, bounce-free settle of a set of pieces to per-piece targets
       const settle = (list, target, asPlaced) => {
         list.forEach((m) => {
           const n = pieceRefs.current[m]; if (!n) return;
@@ -347,16 +318,14 @@ function Receiver({ data }) {
         });
       };
 
-      // (1) board snap — the whole group is within tolerance of its home
       if (Math.hypot(G.x, G.y) <= SNAP) { placeGroup(members); return; }
 
-      // (2) clustering — a neighbour group whose offset matches within SNAP
       const draggedSet = new Set(members);
       const offsetOf = (label) => {
         for (let k = 0; k < gid.length; k++) if (gid[k] === label) return { x: positions[k].x - homes[k].hx, y: positions[k].y - homes[k].hy };
         return null;
       };
-      const cand = new Map();   // label -> that group's offset
+      const cand = new Map();
       members.forEach((m) => {
         gridNeighbors(m).forEach((n) => {
           if (draggedSet.has(n) || placed[n]) return;
@@ -366,7 +335,6 @@ function Receiver({ data }) {
       });
 
       if (cand.size) {
-        // align the dragged group onto the closest matching neighbour group
         let Ht = null, bestD = Infinity;
         cand.forEach((off) => { const dd = Math.hypot(off.x - G.x, off.y - G.y); if (dd < bestD) { bestD = dd; Ht = off; } });
         const mergeLabels = new Set([myGid]);
@@ -375,7 +343,6 @@ function Receiver({ data }) {
         const merged = [];
         for (let k = 0; k < newGid.length; k++) if (mergeLabels.has(gid[k])) { newGid[k] = myGid; merged.push(k); }
 
-        // if the merged block now sits within board tolerance, place it all
         if (Math.hypot(Ht.x, Ht.y) <= SNAP) { setGid(newGid); placeGroup(merged); return; }
         const np = positions.slice();
         merged.forEach((m) => { np[m] = { x: homes[m].hx + Ht.x, y: homes[m].hy + Ht.y, rot: 0 }; });
@@ -385,7 +352,6 @@ function Receiver({ data }) {
         return;
       }
 
-      // (3) float — no snap, no cluster; the group stays where it was left
       const np = positions.slice();
       members.forEach((m) => { np[m] = { x: orig[m].x + d.x, y: orig[m].y + d.y, rot: 0 }; });
       settle(members, (m) => ({ x: orig[m].x + d.x, y: orig[m].y + d.y }), false);
@@ -397,14 +363,6 @@ function Receiver({ data }) {
 
   const replay = () => { setShowReveal(false); setPlaced(homes.map(() => false)); setGid(homes.map((_, i) => i)); setPositions(scatter()); };
 
-  // Export the reveal card as a PNG by drawing it directly on a canvas.
-  // We do NOT use html2canvas: it rasterises text with grayscale AA and
-  // drops the message's text-shadow, so exported text came out lighter/thinner
-  // than the live page. Here every value (font weight, cream colour, per-line
-  // opacity, the 0/2/20 rgba(5,5,5,.6) shadow) is set literally from the live
-  // CSS, so the download matches what's on screen.
-  // Mobile browsers that support sharing files get the native share sheet
-  // (save to photos / share directly); everyone else keeps the download.
   const canShareFiles = useMemo(() => {
     try {
       const f = new File([new Uint8Array([137, 80, 78, 71])], "jigzo-reveal.png", { type: "image/png" });
@@ -413,12 +371,6 @@ function Receiver({ data }) {
   }, []);
 
   const buildRevealPng = (onBlob) => {
-    // Export at the viewer's device resolution so the saved PNG is crisp on any
-    // phone. The whole card is rebuilt at this size: S scales the text/divider/
-    // geometry up and every glyph is drawn at full size (not upscaled).
-    // Only match the screen when it is PORTRAIT (height > width). On a landscape
-    // screen (desktop) matching the screen makes a wide canvas that crops the
-    // portrait card, so use a fixed portrait 9:16 1080x1920 instead.
     const W = BW, H = BH;
     const dpr = window.devicePixelRatio || 1;
     const scr = window.screen || {};
@@ -430,7 +382,7 @@ function Receiver({ data }) {
     } else {
       CW = 1080; CH = 1920;
     }
-    const S = Math.min(CW / W, CH / H);   // proportional scale (uniform, no stretch)
+    const S = Math.min(CW / W, CH / H);
     const CREAM = "rgb(250,248,236)";
 
     const paint = (img) => {
@@ -438,13 +390,11 @@ function Receiver({ data }) {
       canvas.width = CW; canvas.height = CH;
       const ctx = canvas.getContext("2d");
 
-      // clip to the card's 14px rounded corners (matches borderRadius:14)
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(0, 0, CW, CH, 14 * S);
       else ctx.rect(0, 0, CW, CH);
       ctx.clip();
 
-      // photo, object-fit: cover
       if (img && img.width) {
         const s = Math.max(CW / img.width, CH / img.height);
         const dw = img.width * s, dh = img.height * s;
@@ -452,8 +402,6 @@ function Receiver({ data }) {
       } else { ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, CW, CH); }
 
       const cx = CW * 0.5, cy = CH * 0.42;
-      // reveal scrim (matches the on-screen card):
-      // radial-gradient(120% 100% at 50% 42%, rgba(23,19,13,.66), rgba(5,5,5,.93) 76%)
       const R = Math.hypot(Math.max(cx, CW - cx), Math.max(cy, CH - cy)) * 1.02;
       const vg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
       vg.addColorStop(0, "rgba(23,19,13,0.34)");
@@ -461,9 +409,7 @@ function Receiver({ data }) {
       vg.addColorStop(1, "rgba(5,5,5,0.76)");
       ctx.fillStyle = vg; ctx.fillRect(0, 0, CW, CH);
 
-      // ---- text: receiver name (top), message, divider, sender name (bottom) ----
-      // No badge icon, no "Unlocked"/"From" labels — just the two names, plain.
-      const contentW = (W * 0.78) * S;   // 11% padding each side
+      const contentW = (W * 0.78) * S;
       ctx.font = `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`;
       const msgLines = [];
       (data.message || "").split("\n").forEach((para) => {
@@ -495,7 +441,6 @@ function Receiver({ data }) {
           ctx.save();
           ctx.font = r.f; ctx.fillStyle = r.color;
           if ("letterSpacing" in ctx) ctx.letterSpacing = (r.ls || 0) + "px";
-          // dark shadow keeps text legible over the (now brighter) photo, on light or dark shots
           if (r.shadow) { ctx.shadowColor = "rgba(5,5,5,0.92)"; ctx.shadowBlur = 9 * S; ctx.shadowOffsetY = 2 * S; }
           else { ctx.shadowColor = "rgba(5,5,5,0.8)"; ctx.shadowBlur = 5 * S; ctx.shadowOffsetY = 1 * S; }
           ctx.fillText(r.t, CW / 2, y + rowH / 2);
@@ -515,8 +460,6 @@ function Receiver({ data }) {
         img.src = data.cropData;
       } else paint(null);
     };
-    // The exact faces the export draws must be loaded before fillText, or the
-    // glyphs fall back to a lighter system font (the washed-out-download bug).
     if (document.fonts && document.fonts.ready) {
       Promise.all([
         'italic 400 20px "Playfair Display"',
@@ -527,8 +470,6 @@ function Receiver({ data }) {
     } else run();
   };
 
-  // Pre-generate the PNG the moment the reveal appears, so the Save/Share tap is
-  // instant and stays inside the user gesture (mobile Web Share needs it).
   const sharedFileRef = useRef(null);
   useEffect(() => {
     if (!showReveal) { sharedFileRef.current = null; return; }
@@ -543,31 +484,21 @@ function Receiver({ data }) {
     setTimeout(() => URL.revokeObjectURL(a.href), 1500);
   };
 
-  // Save/Share tap handler. The PNG is already built, so we verify canShare with
-  // the ACTUAL file and call navigator.share directly from the gesture (no awaits
-  // in between). Fall back to download only when Web Share with files is genuinely
-  // unavailable, logging the reason. Desktop (canShare false) keeps the download.
   const onSaveOrShare = () => {
     const file = sharedFileRef.current;
     if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
       navigator.share({ files: [file], title: "Your JIGZO reveal" }).catch((err) => {
-        if (err && err.name === "AbortError") return;   // user dismissed the share sheet
-        console.log("[jigzo] Web Share failed, downloading instead:", (err && err.message) || err);
+        if (err && err.name === "AbortError") return;
         saveAsFile(file);
       });
       return;
     }
-    if (!navigator.canShare) console.log("[jigzo] navigator.canShare unavailable — downloading.");
-    else if (!file) console.log("[jigzo] reveal PNG not ready yet — downloading.");
-    else console.log("[jigzo] navigator.canShare({ files }) returned false — downloading.");
     if (file) saveAsFile(file);
     else buildRevealPng((blob) => { if (blob) saveAsFile(new File([blob], "jigzo-reveal.png", { type: "image/png" })); });
   };
 
   const placedCount = placed.filter(Boolean).length;
-  const teaserFrom = data.revealIdentity ? (data.fromName || "someone") : "a secret admirer";
 
-  // expose state + geometry for automated testing
   useEffect(() => {
     window.__JZ = {
       stageW, stageH, PAD, pieceW, pieceH, cols, rows, total: homes.length, SNAP, scale,
@@ -580,52 +511,34 @@ function Receiver({ data }) {
 
   return (
     <div style={{ fontFamily:"Archia,sans-serif", color:"#1C1913",
-      display:"flex", flexDirection:"column", alignItems:"center", padding:"30px 14px 52px" }}>
+      display:"flex", flexDirection:"column", alignItems:"center", padding:"10px 14px 20px" }}>
       <div style={{ width:"100%", maxWidth:440 }}>
 
         {/* above the puzzle — heading + live piece counter */}
         {!showReveal && (
-          <div style={{ textAlign:"center", marginBottom:18 }}>
-            <div style={{ fontSize:21, fontWeight:500, letterSpacing:"-0.015em" }}>
-              Something special is waiting...
-            </div>
-            <div style={{ marginTop:10, fontSize:12.5, fontWeight:600, color:"#B8935A", letterSpacing:"0.04em" }}>
+          <div style={{ textAlign:"center", marginBottom:12 }}>
+            <h1 style={{ fontSize:19, fontWeight:600, margin:"0 0 4px", letterSpacing:"-0.015em", color:"#050505" }}>
+              Solve to reveal your message
+            </h1>
+            <p style={{ fontSize:13, color:"rgba(5,5,5,0.6)", margin:"0 0 8px" }}>
+              Move the pieces into place.
+            </p>
+            <div style={{ fontSize:11, fontWeight:600, color:"#B8935A", letterSpacing:"0.04em" }}>
               {placedCount} / {homes.length} pieces placed
             </div>
           </div>
         )}
 
-        {/* solved — Save / Replay above the reveal card, with a quiet save hint */}
-        {showReveal && (
-          <div style={{ textAlign:"center", marginBottom:16, animation:"jzFade 0.5s ease" }}>
-            <div style={{ display:"flex", gap:8, justifyContent:"center", flexWrap:"wrap" }}>
-              <button onClick={onSaveOrShare} style={{ background:"#050505", color:"#FAF8EC", border:"none", borderRadius:999,
-                padding:"12px 22px", fontSize:14, fontWeight:600, fontFamily:"Archia,sans-serif", cursor:"pointer" }}>
-                Save
-              </button>
-              <button onClick={replay} style={{ background:"transparent", color:"#050505", border:"1px solid rgba(5,5,5,0.2)",
-                borderRadius:999, padding:"12px 22px", fontSize:14, fontWeight:500, fontFamily:"Archia,sans-serif", cursor:"pointer" }}>
-                Replay
-              </button>
-              <button onClick={() => window.location.href = "create.html"} style={{ background:"#050505", color:"#FAF8EC", border:"none",
-                borderRadius:999, padding:"12px 22px", fontSize:14, fontWeight:600, fontFamily:"Archia,sans-serif", cursor:"pointer" }}>
-                ✨ Create Yours
-              </button>
-            </div>
-            <div style={{ marginTop:9, fontSize:12, color:"rgba(28,25,19,0.5)", letterSpacing:"0.01em" }}>
-              Hope this made you smile, Pass the surprise on.
-            </div>
-          </div>
-        )}
-
-        {/* interactive stage (scaled to fit width) */}
+        {/* interactive stage (scaled to fit width & height) */}
         <div ref={wrapRef} style={{ width:"100%", maxWidth:stageW, margin:"0 auto", height:stageH * scale, position:"relative" }}>
           <div ref={stageRef} style={{ width:stageW, height:stageH, transform:`scale(${scale})`, transformOrigin:"0 0",
-            position:"absolute", top:0, left:0, background:"#FAF8EC", borderRadius:16 }}>
+            position:"absolute", top:0, left:0, background: showReveal ? "transparent" : "#FAF8EC", borderRadius:16, boxShadow: showReveal ? "none" : "0 4px 24px rgba(5,5,5,0.06)" }}>
 
-            {/* board frame — plain cream only; the photo stays fully hidden until solved */}
-            <div style={{ position:"absolute", left:PAD, top:PAD, width:BW, height:BH, borderRadius:14,
-              zIndex:0, boxShadow:"inset 0 0 0 1.5px rgba(5,5,5,0.16)", background:"rgba(5,5,5,0.02)" }} />
+            {/* board frame — hidden when solved to avoid background tray showing */}
+            {!showReveal && (
+              <div style={{ position:"absolute", left:PAD, top:PAD, width:BW, height:BH, borderRadius:14,
+                zIndex:0, boxShadow:"inset 0 0 0 1.5px rgba(5,5,5,0.16)", background:"rgba(5,5,5,0.02)" }} />
+            )}
 
             {/* pieces — positioned with GPU-friendly translate3d */}
             {!showReveal && homes.map((h, i) => {
@@ -656,7 +569,6 @@ function Receiver({ data }) {
                 style={{ position:"absolute", left:PAD, top:PAD, width:BW, height:BH, borderRadius:14, overflow:"hidden",
                   zIndex:40, animation:"jzFade 0.6s ease" }}>
                 <img src={data.cropData} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-                {/* lighter scrim so the photo stays visible; legibility comes from the text shadows */}
                 <div style={{ position:"absolute", inset:0, background:"radial-gradient(120% 100% at 50% 42%, rgba(23,19,13,0.34), rgba(5,5,5,0.76) 78%)" }} />
                 <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center",
                   justifyContent:"center", textAlign:"center", padding:"9% 11%" }}>
@@ -683,22 +595,34 @@ function Receiver({ data }) {
           </div>
         </div>
 
-        {/* controls */}
-        {!showReveal ? (
-          <div style={{ textAlign:"center", marginTop:20 }}>
-            <p style={{ fontSize:14.5, color:"rgba(28,25,19,0.7)", margin:"0 auto", lineHeight:1.55, maxWidth:350 }}>
-              {data.toName ? `${data.toName}, your surprise is almost here..` : "Your surprise is almost here.."} Drag each piece into place. The final piece unlocks something made just for you.
-            </p>
-          </div>
-        ) : (
-          <div style={{ textAlign:"center", marginTop:20, animation:"jzFade 0.5s ease" }}>
-            <div style={{ marginBottom:14 }}>
-              <a href="create.html" style={{ color: "#B8935A", fontWeight:600, fontSize:14.5, textDecoration:"underline" }}>
-                ✨ Ready to surprise someone else?
-              </a>
+        {/* solved controls */}
+        {showReveal && (
+          <div style={{ textAlign:"center", marginTop:18, animation:"jzFade 0.5s ease" }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:10, alignItems:"center" }}>
+              {/* Primary: Save or Share */}
+              <button type="button" onClick={onSaveOrShare} style={{ background:"#050505", color:"#FAF8EC", border:"none", borderRadius:999,
+                padding:"13px 26px", fontSize:14.5, fontWeight:700, fontFamily:"Archia,sans-serif", cursor:"pointer", width:"100%", maxWidth:280 }}>
+                Save or Share
+              </button>
+              
+              {/* Secondary: Create Your Puzzle */}
+              <button type="button" onClick={() => window.location.href = "create.html"} style={{ background:"transparent", color:"#050505", border:"1.5px solid #050505",
+                borderRadius:999, padding:"13px 26px", fontSize:14.5, fontWeight:600, fontFamily:"Archia,sans-serif", cursor:"pointer", width:"100%", maxWidth:280 }}>
+                Create Your Puzzle
+              </button>
+
+              {/* Tertiary text action: Replay Puzzle */}
+              <button type="button" onClick={replay} style={{ background:"none", border:"none", color:"rgba(5,5,5,0.6)",
+                fontSize:13.5, fontWeight:600, fontFamily:"Archia,sans-serif", cursor:"pointer", textDecoration:"underline", marginTop:4 }}>
+                Replay Puzzle
+              </button>
             </div>
-            <div style={{ fontSize:18, fontWeight:500, letterSpacing:"-0.01em", margin:"0 0 4px" }}>Created with care.</div>
-            <div style={{ fontSize:11.5, fontWeight:500, letterSpacing:"0.04em", color:"rgba(28,25,19,0.45)" }}>Made with JIGZO</div>
+            
+            {/* Minimal branding */}
+            <div style={{ marginTop:24, opacity:0.8 }}>
+              <div style={{ fontSize:12.5, fontWeight:600, color:"rgba(5,5,5,0.7)" }}>Created with care.</div>
+              <div style={{ fontSize:10.5, fontWeight:500, color:"rgba(5,5,5,0.42)", textTransform:"uppercase", letterSpacing:"0.05em", marginTop:2 }}>Made with JIGZO</div>
+            </div>
           </div>
         )}
 
