@@ -125,6 +125,9 @@ export default function CreatePage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [testLink, setTestLink] = useState("");
+  const [interestEmail, setInterestEmail] = useState("");
+  const [interestRegistered, setInterestRegistered] = useState(false);
+  const [interestRegistering, setInterestRegistering] = useState(false);
 
   const [recipients, setRecipients] = useState([
     { name: "", phone: "", country: COUNTRIES[0] }
@@ -415,6 +418,20 @@ export default function CreatePage() {
     }
   };
 
+  const handleNotifyMe = async () => {
+    if (!interestEmail.trim()) return;
+    setInterestRegistering(true);
+    try {
+      await api.registerLaunchInterest(interestEmail);
+      setInterestRegistered(true);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to register interest: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setInterestRegistering(false);
+    }
+  };
+
   // View state navigation handlers
   const handleStep1Continue = () => {
     if (cropData) {
@@ -610,7 +627,14 @@ export default function CreatePage() {
                           <button type="button" key={opt.count} onClick={() => { setPieceCount(opt.count); setDifficultyOpen(false); }} className={`difficulty-option ${isSel ? "active" : ""}`}
                             style={{ display: "block", width: "100%", padding: "14px 16px" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 6 }}>
-                              <span style={{ fontWeight: 600, fontSize: 14.5, color: T.ink }}>{opt.label}</span>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <span style={{ fontWeight: 600, fontSize: 14.5, color: T.ink }}>{opt.label}</span>
+                                {opt.recommended && (
+                                  <span style={{ fontSize: 10.5, fontWeight: 700, background: T.goldWarm, color: T.ink, padding: "2px 8px", borderRadius: 99, whiteSpace: "nowrap" }}>
+                                    ★ Recommended
+                                  </span>
+                                )}
+                              </div>
                               <span style={{ fontSize: 11.5, fontWeight: 500, color: isSel ? T.bg : T.ink50, background: isSel ? T.ink : "rgba(28,25,19,0.06)", padding: "3px 10px", borderRadius: 99, whiteSpace: "nowrap" }}>{opt.pieces}</span>
                             </div>
                             <div style={{ fontSize: 12.5, color: isSel ? T.ink74 : T.ink66, textAlign: "left", lineHeight: 1.4 }}>{opt.copy}</div>
@@ -937,13 +961,34 @@ export default function CreatePage() {
 
             <div style={{ textAlign: 'center', padding: '20px', background: T.card, borderRadius: 16, border: '1.5px solid ' + T.ink15, margin: "20px 0" }}>
               <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 6, color: T.ink }}>JIGZO is launching soon</h2>
-              <p style={{ fontSize: 13.5, color: T.ink66, lineHeight: 1.4, marginBottom: 14 }}>
-                Leave your details and we’ll let you know when sending opens.
-              </p>
-              <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-                <input type="email" placeholder="Your email address" style={{ ...inputStyle, flex: 1 }} disabled />
-                <PrimaryButton disabled style={{ flex: 'none', padding: '10px 20px' }}>Notify Me</PrimaryButton>
-              </div>
+              {interestRegistered ? (
+                <p style={{ fontSize: 14.5, color: T.goldDeep, fontWeight: 600, margin: "14px 0" }}>
+                  🎉 You're on the list! We'll notify you soon.
+                </p>
+              ) : (
+                <>
+                  <p style={{ fontSize: 13.5, color: T.ink66, lineHeight: 1.4, marginBottom: 14 }}>
+                    Leave your details and we’ll let you know when sending opens.
+                  </p>
+                  <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+                    <input 
+                      type="email" 
+                      placeholder="Your email address" 
+                      value={interestEmail}
+                      onChange={(e) => setInterestEmail(e.target.value)}
+                      style={{ ...inputStyle, flex: 1 }} 
+                      disabled={interestRegistering}
+                    />
+                    <PrimaryButton 
+                      onClick={handleNotifyMe} 
+                      disabled={!interestEmail.trim() || interestRegistering} 
+                      style={{ flex: 'none', padding: '10px 20px' }}
+                    >
+                      {interestRegistering ? "..." : "Notify Me"}
+                    </PrimaryButton>
+                  </div>
+                </>
+              )}
               <div style={{ fontSize: 12, color: T.goldDeep, fontWeight: 600 }}>
                 No payment will be taken.
               </div>

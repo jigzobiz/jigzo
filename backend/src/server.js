@@ -10,6 +10,7 @@ const errorHandler = require('./middleware/errorHandler');
 const puzzlesRouter = require('./routes/puzzles');
 const ordersRouter = require('./routes/orders');
 const webhooksRouter = require('./routes/webhooks');
+const interestRouter = require('./routes/interest');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -48,6 +49,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/puzzles', puzzlesRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/webhooks', webhooksRouter);
+app.use('/api/interest', interestRouter);
 
 // Base Check
 app.get('/health', (req, res) => {

@@ -127,5 +127,10 @@ export const api = {
       }
     });
     return response.data;
+  },
+
+  registerLaunchInterest: async (email) => {
+    const response = await API.post('/api/interest', { email });
+    return response.data;
   }
 };
