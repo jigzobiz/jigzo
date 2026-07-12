@@ -4,7 +4,7 @@ const isLocalTest = import.meta.env.VITE_ENABLE_LOCAL_TEST === 'true';
 
 // Base API URL configuration
 const API = axios.create({
-  baseURL: import.meta.env.DEV ? '' : 'https://api.jigzo.biz',
+  baseURL: '',
   timeout: 10000,
 });
 
