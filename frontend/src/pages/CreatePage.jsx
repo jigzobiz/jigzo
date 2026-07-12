@@ -124,6 +124,8 @@ export default function CreatePage() {
   const [revealIdentity, setRevealIdentity] = useState(true);
   const [pieceCount, setPieceCount] = useState(18);
   const [selectedUpgrades, setSelectedUpgrades] = useState([]);
+  const [occasion, setOccasion] = useState("");
+  const [tone, setTone] = useState("");
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -208,8 +210,6 @@ export default function CreatePage() {
 
   const BASE_PRICE = currentPack.price;
 
-  const [occasion, setOccasion] = useState("");
-  const [tone, setTone] = useState("");
   const [packageAccordionOpen, setPackageAccordionOpen] = useState(false);
   const [difficultyOpen, setDifficultyOpen] = useState(false);
 
