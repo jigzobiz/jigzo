@@ -9,6 +9,7 @@ import WhatsAppPreview from '../components/WhatsAppPreview';
 import RevealFace from '../components/RevealFace';
 import LoaderOrbit from '../components/LoaderOrbit';
 import RevealBeat from '../components/RevealBeat';
+import { buildEdgeMap, piecePath } from '../puzzle/puzzle-shape';
 
 const T = {
   bg: "#FAF8EC",
@@ -202,6 +203,29 @@ export default function CreatePage() {
   const toggleUpgrade = (id) => setSelectedUpgrades((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : prev.concat(id));
   const upgradesTotal = selectedUpgrades.reduce((sum, id) => sum + getUpgradePrice(id), 0);
   const grandTotal = BASE_PRICE + upgradesTotal;
+
+  // Jigsaw SVG Preview pieces calculation
+  const previewPieces = useMemo(() => {
+    const Wf = 170, Hf = 302;
+    const opt = PIECE_OPTIONS.find(o => o.count === pieceCount) || PIECE_OPTIONS[2];
+    const cols = opt.cols;
+    const rows = opt.rows;
+    const pw = Wf / cols;
+    const ph = Hf / rows;
+    const edgeMap = buildEdgeMap(cols, rows, 42);
+    
+    const paths = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const d = piecePath(r, c, cols, rows, pw, ph, edgeMap);
+        paths.push({
+          d,
+          transform: `translate(${c * pw}, ${r * ph})`
+        });
+      }
+    }
+    return paths;
+  }, [pieceCount]);
 
   // Country Dial Selectors
   const [senderCountry, setSenderCountry] = useState(COUNTRIES[0]);
@@ -928,11 +952,19 @@ export default function CreatePage() {
                       <img src={cropData} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.65 }} />
                       <div style={{ position: "absolute", inset: 0, background: "rgba(5,5,5,0.48)" }} />
                       
-                      {/* Simple puzzle grid graphic over the image */}
+                      {/* Real jigsaw pieces outline grid over the image */}
                       <div style={{ position: "absolute", inset: 0, opacity: 0.85 }}>
                         <svg viewBox="0 0 170 302" style={{ display: "block", width: "100%", height: "100%" }}>
-                          <path d="M 0 50 L 170 50 M 0 100 L 170 100 M 0 150 L 170 150 M 0 200 L 170 200 M 0 250 L 170 250 M 56 0 L 56 302 M 113 0 L 113 302"
-                            stroke="rgba(250,248,236,0.34)" strokeWidth="1.2" fill="none" strokeDasharray="3 3" />
+                          {previewPieces.map((p, idx) => (
+                            <path
+                              key={idx}
+                              d={p.d}
+                              transform={p.transform}
+                              stroke="rgba(250,248,236,0.36)"
+                              strokeWidth="1.2"
+                              fill="none"
+                            />
+                          ))}
                         </svg>
                       </div>
 
