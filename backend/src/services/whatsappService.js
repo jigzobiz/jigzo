@@ -11,6 +11,13 @@ class WhatsAppService {
    * @returns {Promise<boolean>}
    */
   async sendPuzzle(recipientPhone, publicId, senderName) {
+    if (process.env.WHATSAPP_ENABLED !== 'true') {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const link = `${frontendUrl}/p/${publicId}`;
+      console.log(`[WhatsAppService] Delivery disabled via environment flags. Mocking link for publicId: ${publicId} (URL: ${link})`);
+      return { success: true, status: 'disabled' };
+    }
+
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const link = `${frontendUrl}/p/${publicId}`;
     console.log(`[WhatsAppService] Sending puzzle message to ${recipientPhone}:`);
@@ -28,6 +35,11 @@ class WhatsAppService {
    * @returns {Promise<boolean>}
    */
   async sendRevealAlert(senderPhone, { recipientName, durationSeconds }) {
+    if (process.env.WHATSAPP_ENABLED !== 'true') {
+      console.log(`[WhatsAppService] Reveal Alert disabled via environment flags. Suppressed dispatch for recipient: ${recipientName}`);
+      return { success: true, status: 'disabled' };
+    }
+
     const minutes = Math.floor(durationSeconds / 60);
     const seconds = durationSeconds % 60;
     const timeStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;

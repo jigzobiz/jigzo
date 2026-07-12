@@ -864,16 +864,23 @@ export default function CreatePage() {
               </div>
             </div>
 
-            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", fontSize: 13, color: T.ink74, margin: "18px 0 20px", lineHeight: 1.5, textAlign: "left" }}>
-              <input type="checkbox" checked={termsAgreed} onChange={(e) => setTermsAgreed(e.target.checked)} style={{ marginTop: 4, flex: "none" }} />
-              <span>
-                I confirm that I own or have permission to use the uploaded photos, and agree to the <Link to="/terms" target="_blank" style={{ color: T.goldDeep, textDecoration: "underline", fontWeight: 600 }}>Terms &amp; Conditions and Privacy Policy</Link>.
-              </span>
-            </label>
+            <div style={{ textAlign: 'center', padding: '20px', background: T.card, borderRadius: 16, border: '1.5px solid ' + T.ink15, margin: "20px 0" }}>
+              <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 6, color: T.ink }}>JIGZO is launching soon</h2>
+              <p style={{ fontSize: 13.5, color: T.ink66, lineHeight: 1.4, marginBottom: 14 }}>
+                Leave your details and we’ll let you know when sending opens.
+              </p>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+                <input type="email" placeholder="Your email address" style={{ ...inputStyle, flex: 1 }} disabled />
+                <PrimaryButton disabled style={{ flex: 'none', padding: '10px 20px' }}>Notify Me</PrimaryButton>
+              </div>
+              <div style={{ fontSize: 12, color: T.goldDeep, fontWeight: 600 }}>
+                No payment will be taken.
+              </div>
+            </div>
 
             <div className="footer-nav">
               <GhostButton onClick={handleBack}>Back</GhostButton>
-              <PrimaryButton onClick={handlePayAndSend} disabled={!termsAgreed} style={{ flex: 1 }}>Pay &amp; Send</PrimaryButton>
+              <PrimaryButton disabled style={{ flex: 1 }}>Pay &amp; Send</PrimaryButton>
             </div>
           </div>
         )}

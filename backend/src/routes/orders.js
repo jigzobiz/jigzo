@@ -24,6 +24,13 @@ function getPackageDetails(count) {
  */
 router.post('/', async (req, res, next) => {
   try {
+    if (process.env.CHECKOUT_ENABLED !== 'true') {
+      return res.status(503).json({
+        error: "JIGZO checkout is not open yet.",
+        code: "CHECKOUT_DISABLED"
+      });
+    }
+
     const { puzzleId, recipientCount, hasRevealAlert } = req.body;
 
     if (!puzzleId) {
