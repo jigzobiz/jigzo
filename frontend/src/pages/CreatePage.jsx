@@ -562,12 +562,13 @@ export default function CreatePage() {
                       {PIECE_OPTIONS.map((opt) => {
                         const isSel = opt.count === pieceCount;
                         return (
-                          <button type="button" key={opt.count} onClick={() => { setPieceCount(opt.count); setDifficultyOpen(false); }} className={`difficulty-option ${isSel ? "active" : ""}`}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <span style={{ fontWeight: 600, fontSize: 14.5 }}>{opt.label}</span>
-                              <span style={{ fontSize: 12, color: isSel ? T.bg : T.ink50, background: isSel ? T.ink : "rgba(28,25,19,0.06)", padding: "2px 8px", borderRadius: 99 }}>{opt.pieces}</span>
+                          <button type="button" key={opt.count} onClick={() => { setPieceCount(opt.count); setDifficultyOpen(false); }} className={`difficulty-option ${isSel ? "active" : ""}`}
+                            style={{ display: "block", width: "100%", padding: "14px 16px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 6 }}>
+                              <span style={{ fontWeight: 600, fontSize: 14.5, color: T.ink }}>{opt.label}</span>
+                              <span style={{ fontSize: 11.5, fontWeight: 500, color: isSel ? T.bg : T.ink50, background: isSel ? T.ink : "rgba(28,25,19,0.06)", padding: "3px 10px", borderRadius: 99, whiteSpace: "nowrap" }}>{opt.pieces}</span>
                             </div>
-                            <div style={{ fontSize: 12, color: isSel ? T.ink74 : T.ink66, marginTop: 3, textAlign: "left" }}>{opt.copy}</div>
+                            <div style={{ fontSize: 12.5, color: isSel ? T.ink74 : T.ink66, textAlign: "left", lineHeight: 1.4 }}>{opt.copy}</div>
                           </button>
                         );
                       })}
@@ -666,12 +667,19 @@ export default function CreatePage() {
                   {PACK_OPTIONS.map((pack) => {
                     const isSel = pack.id === currentPack.id;
                     return (
-                      <div key={pack.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: 10, border: isSel ? "1.5px solid " + T.ink : "1px solid " + T.ink08, background: isSel ? "rgba(28,25,19,0.02)" : "transparent" }}>
+                      <div key={pack.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", borderRadius: 10, border: isSel ? "1.5px solid " + T.ink : "1px solid " + T.ink08, background: isSel ? "rgba(28,25,19,0.02)" : "transparent" }}>
                         <div>
-                          <div style={{ fontWeight: 600, fontSize: 14.5 }}>{pack.label} {isSel && <span style={{ fontSize: 11, background: T.ink, color: T.bg, padding: "2px 8px", borderRadius: 99, marginLeft: 6 }}>Selected</span>}</div>
-                          <div style={{ fontSize: 12, color: T.ink66 }}>Up to {pack.limit} {pack.limit === 1 ? "recipient" : "recipients"}</div>
+                          <div style={{ fontWeight: 600, fontSize: 14.5, display: "flex", alignItems: "center", gap: 6 }}>
+                            <span>{pack.label}</span>
+                            {isSel && (
+                              <span style={{ fontSize: 10.5, fontWeight: 700, background: T.goldWarm, color: T.ink, padding: "2px 8px", borderRadius: 99, whiteSpace: "nowrap", display: "inline-block" }}>
+                                Active
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 12, color: T.ink66, marginTop: 4 }}>Up to {pack.limit} {pack.limit === 1 ? "recipient" : "recipients"}</div>
                         </div>
-                        <span style={{ fontFamily: T.mono, fontWeight: 600 }}>${pack.price}</span>
+                        <span style={{ fontFamily: T.mono, fontWeight: 600, fontSize: 15, color: T.ink }}>${pack.price}</span>
                       </div>
                     );
                   })}
