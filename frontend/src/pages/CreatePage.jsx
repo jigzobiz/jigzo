@@ -8,6 +8,7 @@ import { PIECE_OPTIONS, OCCASIONS, TONES, suggestedMessage } from '../config/dif
 import WhatsAppPreview from '../components/WhatsAppPreview';
 import RevealFace from '../components/RevealFace';
 import LoaderOrbit from '../components/LoaderOrbit';
+import RevealBeat from '../components/RevealBeat';
 
 const T = {
   bg: "#FAF8EC",
@@ -128,6 +129,8 @@ export default function CreatePage() {
   const [interestEmail, setInterestEmail] = useState("");
   const [interestRegistered, setInterestRegistered] = useState(false);
   const [interestRegistering, setInterestRegistering] = useState(false);
+  const [revealSimSolved, setRevealSimSolved] = useState(false);
+  const [revealSimLoading, setRevealSimLoading] = useState(false);
 
   const [recipients, setRecipients] = useState([
     { name: "", phone: "", country: COUNTRIES[0] }
@@ -148,6 +151,8 @@ export default function CreatePage() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    setRevealSimSolved(false);
+    setRevealSimLoading(false);
     // Force reset browser viewport zoom on step transition
     const meta = document.querySelector('meta[name="viewport"]');
     if (meta) {
@@ -430,6 +435,14 @@ export default function CreatePage() {
     } finally {
       setInterestRegistering(false);
     }
+  };
+
+  const handleSimulateSolve = () => {
+    setRevealSimLoading(true);
+    setRevealSimSolved(true);
+    setTimeout(() => {
+      setRevealSimLoading(false);
+    }, 3000);
   };
 
   // View state navigation handlers
@@ -905,13 +918,61 @@ export default function CreatePage() {
 
             <Disclosure title="Preview the reveal layout">
               <div style={{ display: "flex", justifyContent: "center", margin: "14px 0" }}>
-                <div style={{ position: "relative", width: 170, aspectRatio: "9 / 16", borderRadius: 20,
-                  boxShadow: "0 4px 18px rgba(0,0,0,0.18), 0 0 0 3px #050505", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", inset: 0 }}>
-                    <RevealFace photo={cropData} toName={recipients[0]?.name} fromName={senderName} message={message} />
-                  </div>
+                <div 
+                  onClick={() => { if (!revealSimSolved) handleSimulateSolve(); }}
+                  style={{ position: "relative", width: 170, aspectRatio: "9 / 16", borderRadius: 20,
+                    boxShadow: "0 4px 18px rgba(0,0,0,0.18), 0 0 0 3px #050505", overflow: "hidden", cursor: revealSimSolved ? "default" : "pointer" }}>
+                  
+                  {!revealSimSolved ? (
+                    <div style={{ position: "absolute", inset: 0 }}>
+                      <img src={cropData} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.65 }} />
+                      <div style={{ position: "absolute", inset: 0, background: "rgba(5,5,5,0.48)" }} />
+                      
+                      {/* Simple puzzle grid graphic over the image */}
+                      <div style={{ position: "absolute", inset: 0, opacity: 0.85 }}>
+                        <svg viewBox="0 0 170 302" style={{ display: "block", width: "100%", height: "100%" }}>
+                          <path d="M 0 50 L 170 50 M 0 100 L 170 100 M 0 150 L 170 150 M 0 200 L 170 200 M 0 250 L 170 250 M 56 0 L 56 302 M 113 0 L 113 302"
+                            stroke="rgba(250,248,236,0.34)" strokeWidth="1.2" fill="none" strokeDasharray="3 3" />
+                        </svg>
+                      </div>
+
+                      <div style={{
+                        position: "absolute",
+                        top: "40%",
+                        left: 0,
+                        right: 0,
+                        textAlign: "center",
+                        fontFamily: "Caveat, cursive",
+                        fontSize: "20px",
+                        fontWeight: "700",
+                        color: T.goldBright,
+                        textShadow: "0 2px 8px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.9)",
+                        transform: "rotate(-3deg)",
+                        pointerEvents: "none",
+                        lineHeight: "1.2"
+                      }}>
+                        Tap to simulate solving
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ position: "absolute", inset: 0, animation: "fadeUp 0.5s ease" }}>
+                      <RevealFace photo={cropData} toName={recipients[0]?.name} fromName={senderName} message={message} />
+                    </div>
+                  )}
+
+                  {/* Standard loader overlay */}
+                  {revealSimLoading && (
+                    <RevealBeat w="100%" h="100%" pad={0} radius={60} />
+                  )}
                 </div>
               </div>
+              {revealSimSolved && !revealSimLoading && (
+                <div style={{ textAlign: "center", marginTop: 8 }}>
+                  <button type="button" onClick={() => { setRevealSimSolved(false); setRevealSimLoading(false); }} className="btn-change" style={{ fontSize: 12.5 }}>
+                    Reset simulation
+                  </button>
+                </div>
+              )}
             </Disclosure>
 
             {UPGRADES.map((u) => {
