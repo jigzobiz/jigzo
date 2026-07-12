@@ -214,13 +214,36 @@ export default function CreatePage() {
     const ph = Hf / rows;
     const edgeMap = buildEdgeMap(cols, rows, 42);
     
+    const tabPad = 0.46 * Math.max(pw, ph);
+    const elemW = pw + tabPad * 2;
+    const elemH = ph + tabPad * 2;
+    
     const paths = [];
+    const rand = mulberry32(101);
+    
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const d = piecePath(r, c, cols, rows, pw, ph, edgeMap);
+        
+        // Scatter puzzle pieces randomly across the 170x302 phone stage
+        const minX = 6, maxX = Wf - pw - 6;
+        const minY = 6, maxY = Hf - ph - 6;
+        const posX = minX + rand() * (maxX - minX);
+        const posY = minY + rand() * (maxY - minY);
+        const angle = (rand() - 0.5) * 60;
+        
         paths.push({
+          r,
+          c,
           d,
-          transform: `translate(${c * pw}, ${r * ph})`
+          posX,
+          posY,
+          angle,
+          pw,
+          ph,
+          tabPad,
+          elemW,
+          elemH
         });
       }
     }
@@ -958,34 +981,32 @@ export default function CreatePage() {
                           key={idx}
                           style={{
                             position: "absolute",
-                            left: p.posX - p.tabPad,
-                            top: p.posY - p.tabPad,
-                            width: p.elemW,
-                            height: p.elemH,
+                            left: `${p.posX - p.tabPad}px`,
+                            top: `${p.posY - p.tabPad}px`,
+                            width: `${p.elemW}px`,
+                            height: `${p.elemH}px`,
                             transform: `rotate(${p.angle}deg)`,
                             pointerEvents: "none",
                             zIndex: 10 + idx
                           }}
                         >
-                          <svg width={p.elemW} height={p.elemH} style={{ overflow: "visible", display: "block" }}>
-                            <g transform={`translate(${p.tabPad}, ${p.tabPad})`}>
-                              <defs>
-                                <clipPath id={`preview-clip-${idx}`}>
-                                  <path d={p.d} />
-                                </clipPath>
-                              </defs>
-                              <g clipPath={`url(#preview-clip-${idx})`}>
-                                <image
-                                  href={cropData}
-                                  x={-p.c * p.pw}
-                                  y={-p.r * p.ph}
-                                  width={170}
-                                  height={302}
-                                  preserveAspectRatio="none"
-                                />
-                              </g>
-                              <path d={p.d} stroke="rgba(28,25,19,0.22)" strokeWidth="0.8" fill="none" />
+                          <svg viewBox={`${-p.tabPad} ${-p.tabPad} ${p.elemW} ${p.elemH}`} width={p.elemW} height={p.elemH} style={{ display: "block", overflow: "visible" }}>
+                            <defs>
+                              <clipPath id={`preview-clip-${idx}`}>
+                                <path d={p.d} />
+                              </clipPath>
+                            </defs>
+                            <g clipPath={`url(#preview-clip-${idx})`}>
+                              <image
+                                href={cropData}
+                                x={-p.c * p.pw}
+                                y={-p.r * p.ph}
+                                width={170}
+                                height={302}
+                                preserveAspectRatio="xMidYMid slice"
+                              />
                             </g>
+                            <path d={p.d} stroke="rgba(28,25,19,0.32)" strokeWidth="1.1" fill="none" />
                           </svg>
                         </div>
                       ))}
