@@ -658,6 +658,9 @@ export default function CreatePage() {
 
             {packageAccordionOpen && (
               <div style={{ padding: 16, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, marginBottom: 16, animation: "fadeUp 0.3s ease" }}>
+                <div style={{ fontSize: 12, color: T.ink50, marginBottom: 12, lineHeight: 1.4 }}>
+                  Your plan is selected automatically based on the number of recipients.
+                </div>
                 <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 10 }}>Available Plans</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {PACK_OPTIONS.map((pack) => {
@@ -672,9 +675,6 @@ export default function CreatePage() {
                       </div>
                     );
                   })}
-                </div>
-                <div style={{ fontSize: 12, color: T.ink50, marginTop: 12, lineHeight: 1.4 }}>
-                  Your plan is selected automatically based on the number of recipients.
                 </div>
               </div>
             )}
