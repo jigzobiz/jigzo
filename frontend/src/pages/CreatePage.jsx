@@ -948,38 +948,64 @@ export default function CreatePage() {
                     boxShadow: "0 4px 18px rgba(0,0,0,0.18), 0 0 0 3px #050505", overflow: "hidden", cursor: revealSimSolved ? "default" : "pointer" }}>
                   
                   {!revealSimSolved ? (
-                    <div style={{ position: "absolute", inset: 0 }}>
-                      <img src={cropData} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.65 }} />
-                      <div style={{ position: "absolute", inset: 0, background: "rgba(5,5,5,0.48)" }} />
+                    <div style={{ position: "absolute", inset: 0, background: "#FAF8EC", overflow: "hidden" }}>
+                      {/* Blank board target guide lines inside */}
+                      <div style={{ position: "absolute", inset: 8, border: "1.5px dashed rgba(28,25,19,0.12)", borderRadius: 10 }} />
                       
-                      {/* Real jigsaw pieces outline grid over the image */}
-                      <div style={{ position: "absolute", inset: 0, opacity: 0.85 }}>
-                        <svg viewBox="0 0 170 302" style={{ display: "block", width: "100%", height: "100%" }}>
-                          {previewPieces.map((p, idx) => (
-                            <path
-                              key={idx}
-                              d={p.d}
-                              transform={p.transform}
-                              stroke="rgba(250,248,236,0.36)"
-                              strokeWidth="1.2"
-                              fill="none"
-                            />
-                          ))}
-                        </svg>
-                      </div>
+                      {/* Scrambled pieces scattered on top of the blank board */}
+                      {previewPieces.map((p, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            position: "absolute",
+                            left: p.posX - p.tabPad,
+                            top: p.posY - p.tabPad,
+                            width: p.elemW,
+                            height: p.elemH,
+                            transform: `rotate(${p.angle}deg)`,
+                            pointerEvents: "none",
+                            zIndex: 10 + idx
+                          }}
+                        >
+                          <svg width={p.elemW} height={p.elemH} style={{ overflow: "visible", display: "block" }}>
+                            <g transform={`translate(${p.tabPad}, ${p.tabPad})`}>
+                              <defs>
+                                <clipPath id={`preview-clip-${idx}`}>
+                                  <path d={p.d} />
+                                </clipPath>
+                              </defs>
+                              <g clipPath={`url(#preview-clip-${idx})`}>
+                                <image
+                                  href={cropData}
+                                  x={-p.c * p.pw}
+                                  y={-p.r * p.ph}
+                                  width={170}
+                                  height={302}
+                                  preserveAspectRatio="none"
+                                />
+                              </g>
+                              <path d={p.d} stroke="rgba(28,25,19,0.22)" strokeWidth="0.8" fill="none" />
+                            </g>
+                          </svg>
+                        </div>
+                      ))}
 
+                      {/* Text indicator */}
                       <div style={{
                         position: "absolute",
-                        top: "40%",
+                        bottom: "15%",
                         left: 0,
                         right: 0,
                         textAlign: "center",
                         fontFamily: "Caveat, cursive",
                         fontSize: "20px",
                         fontWeight: "700",
-                        color: T.goldBright,
-                        textShadow: "0 2px 8px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.9)",
-                        transform: "rotate(-3deg)",
+                        color: "#FAF8EC",
+                        background: "rgba(28, 25, 19, 0.78)",
+                        padding: "6px 0",
+                        backdropFilter: "blur(2px)",
+                        textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+                        zIndex: 100,
                         pointerEvents: "none",
                         lineHeight: "1.2"
                       }}>
