@@ -602,7 +602,7 @@ export default function CreatePage() {
 
             <div style={{ marginBottom: 18 }}>
               <label style={{ display: "block", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50, marginBottom: 8 }}>What's the occasion?</label>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <div className={`occasions-chips-wrapper ${occasion ? "chips-container-has-selection" : ""}`} style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {OCCASIONS.map((o) => (
                   <button type="button" key={o.id} onClick={() => { setOccasion(o.id); pickCombo(o.id, tone); }}
                     className={`occasion-chip ${o.id === occasion ? "active" : ""}`}>{o.label}</button>
@@ -613,7 +613,7 @@ export default function CreatePage() {
             {occasion && (
               <div style={{ marginBottom: 18, animation: "fadeUp 0.3s ease" }}>
                 <label style={{ display: "block", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50, marginBottom: 8 }}>Choose a tone</label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <div className={`tones-chips-wrapper ${tone ? "chips-container-has-selection" : ""}`} style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {TONES.map((t) => (
                     <button type="button" key={t.id} onClick={() => { setTone(t.id); pickCombo(occasion, t.id); }}
                       className={`tone-chip ${t.id === tone ? "active" : ""}`}>{t.label}</button>
