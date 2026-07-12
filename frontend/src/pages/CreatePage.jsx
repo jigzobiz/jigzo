@@ -91,21 +91,17 @@ function PuzzleBadge({ size }) {
 }
 
 function StepProgressBar({ step }) {
-  const titles = ["Create", "Personalize", "Send", "Review & Pay"];
+  const labels = ["Create", "Personalize", "Send", "Review & Pay"];
   return (
-    <div className="wizard-bar" aria-label="Step progress bar">
-      <div className="wizard-bar__progress" style={{ width: `${((step - 1) / 3) * 100}%` }} />
-      {titles.map((t, idx) => {
-        const sNum = idx + 1;
-        const active = sNum === step;
-        const past = sNum < step;
-        return (
-          <div key={sNum} className={`wizard-bar__step ${active ? "active" : ""} ${past ? "past" : ""}`}>
-            <span className="num">{sNum}</span>
-            <span className="lbl">{t}</span>
-          </div>
-        );
-      })}
+    <div style={{ marginBottom: 28 }}>
+      <div className="progress-bar">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className={`progress-bar__seg ${i <= step ? "progress-bar__seg--active" : ""}`} />
+        ))}
+      </div>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: T.ink, letterSpacing: "0.02em" }} aria-current="step">
+        Step {step} of 4 — {labels[step - 1]}
+      </div>
     </div>
   );
 }
