@@ -137,6 +137,7 @@ export default function CreatePage() {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const pointersRef = useRef(new Map());
   const dragRef = useRef(null);
+  const pinchRef = useRef(null);
 
   const fileInputRef = useRef(null);
   const cropFrameRef = useRef(null);
@@ -261,29 +262,63 @@ export default function CreatePage() {
   const onPointerDown = (e) => {
     const frame = cropFrameRef.current;
     if (!frame) return;
-    frame.setPointerCapture(e.pointerId);
+    if (e.pointerType === "touch" && frame.setPointerCapture) {
+      try { frame.setPointerCapture(e.pointerId); } catch (_) {}
+    }
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointersRef.current.size === 1) {
-      const only = [...pointersRef.current.values()][0];
-      dragRef.current = { startX: only.x, startY: only.y, origPan: { ...pan } };
-    } else if (pointersRef.current.size === 0) {
+    const size = pointersRef.current.size;
+    if (size === 2) {
+      const pts = [...pointersRef.current.values()];
+      const a = pts[0], b = pts[1];
+      const r = frame.getBoundingClientRect();
+      pinchRef.current = {
+        startDist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+        startZoom: zoom,
+        startPan: { ...pan },
+        startMid: { x: (a.x + b.x) / 2 - r.left, y: (a.y + b.y) / 2 - r.top },
+        C: { x: r.width / 2, y: r.height / 2 },
+      };
       dragRef.current = null;
+    } else if (size === 1) {
+      dragRef.current = { startX: e.clientX, startY: e.clientY, origPan: { ...pan } };
     }
   };
 
   const onPointerMove = (e) => {
     if (!pointersRef.current.has(e.pointerId)) return;
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointersRef.current.size === 1 && dragRef.current) {
-      const only = [...pointersRef.current.values()][0];
-      const dx = only.x - dragRef.current.startX;
-      const dy = only.y - dragRef.current.startY;
-      setPan(clampPan(dragRef.current.origPan.x + dx, dragRef.current.origPan.y + dy, zoom));
+    if (pointersRef.current.size >= 2 && pinchRef.current) {
+      const pts = [...pointersRef.current.values()];
+      const a = pts[0], b = pts[1];
+      const frame = cropFrameRef.current, r = frame.getBoundingClientRect();
+      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      const curMid = { x: (a.x + b.x) / 2 - r.left, y: (a.y + b.y) / 2 - r.top };
+      const g = pinchRef.current;
+      const z1 = Math.max(1, Math.min(3, g.startZoom * (dist / g.startDist)));
+      const ratio = z1 / g.startZoom;
+      const px = (curMid.x - g.C.x) - ratio * (g.startMid.x - g.C.x - g.startPan.x);
+      const py = (curMid.y - g.C.y) - ratio * (g.startMid.y - g.C.y - g.startPan.y);
+      setZoom(z1);
+      setPan(clampPan(px, py, z1));
+      return;
     }
+    if (!dragRef.current) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    setPan(clampPan(dragRef.current.origPan.x + dx, dragRef.current.origPan.y + dy, zoom));
   };
 
   const onPointerUp = (e) => {
-    pointersRef.current.delete(e.pointerId);
+    const frame = cropFrameRef.current;
+    if (e && e.pointerId != null) {
+      if (frame && frame.releasePointerCapture) {
+        try { frame.releasePointerCapture(e.pointerId); } catch (_) {}
+      }
+      pointersRef.current.delete(e.pointerId);
+    } else {
+      pointersRef.current.clear();
+    }
+    if (pointersRef.current.size < 2) pinchRef.current = null;
     if (pointersRef.current.size === 1) {
       const only = [...pointersRef.current.values()][0];
       dragRef.current = { startX: only.x, startY: only.y, origPan: { ...pan } };
