@@ -9,7 +9,7 @@ import WhatsAppPreview from '../components/WhatsAppPreview';
 import RevealFace from '../components/RevealFace';
 import LoaderOrbit from '../components/LoaderOrbit';
 import RevealBeat from '../components/RevealBeat';
-import { buildEdgeMap, piecePath } from '../puzzle/puzzle-shape';
+import { buildEdgeMap, piecePath, mulberry32 } from '../puzzle/puzzle-shape';
 
 const T = {
   bg: "#FAF8EC",
