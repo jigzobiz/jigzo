@@ -691,6 +691,8 @@ export default function CreatePage() {
             {recipients.map((rec, idx) => {
               const recTouched = rec.name || rec.phone;
               const recValid = phoneValid(rec.country.dial + rec.phone);
+              const fullPhone = rec.country.dial + rec.phone;
+              const isDuplicate = rec.phone && recipients.some((r, i) => i !== idx && (r.country.dial + r.phone) === fullPhone);
               return (
                 <div key={idx} style={{ padding: 18, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, marginBottom: 16, position: "relative" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -740,6 +742,18 @@ export default function CreatePage() {
                       style={{ ...inputStyle, flex: 1 }}
                     />
                   </div>
+
+                  {rec.phone && (!recValid || isDuplicate) && (
+                    <div style={{ marginTop: 8, fontSize: 12.5, color: T.goldDeep, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 4 }}>
+                      <span>⚠️</span>
+                      <span>
+                        {!recValid 
+                          ? "Please enter a valid phone number (7 to 12 digits)." 
+                          : "Duplicate phone number. Each recipient must be unique."
+                        }
+                      </span>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -755,7 +769,7 @@ export default function CreatePage() {
               <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 12 }}>Sender details</div>
               <input type="text" placeholder="Your name (as you want it shown)" value={senderName} onChange={(e) => setSenderName(e.target.value)}
                 style={{ ...inputStyle, marginBottom: 14 }} />
-              <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+              <div style={{ display: "flex", gap: 10 }}>
                 <select value={senderCountry.code} onChange={(e) => setSenderCountry(COUNTRIES.find(c => c.code === e.target.value))}
                   style={{ ...inputStyle, width: "auto", flex: "none", padding: "13px 8px" }}>
                   {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.dial}</option>)}
@@ -763,6 +777,14 @@ export default function CreatePage() {
                 <input type="tel" placeholder="Your phone number" value={senderPhone} onChange={(e) => setSenderPhone(e.target.value)}
                   style={{ ...inputStyle, flex: 1 }} />
               </div>
+
+              {senderPhone && !senderValid && (
+                <div style={{ marginTop: 8, fontSize: 12.5, color: T.goldDeep, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 4 }}>
+                  <span>⚠️</span>
+                  <span>Please enter a valid phone number (7 to 12 digits).</span>
+                </div>
+              )}
+
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 14 }}>
                 <input type="checkbox" id="show-identity" checked={revealIdentity} onChange={(e) => setRevealIdentity(e.target.checked)} style={{ marginTop: 4, flex: "none" }} />
                 <div style={{ fontSize: 13, lineHeight: 1.4 }}>
