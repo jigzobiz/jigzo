@@ -18,3 +18,5 @@ backend/uploads/
 # OS files
 .DS_Store
 Thumbs.db
+# Local environment overrides
+**/.env.local
