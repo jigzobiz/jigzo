@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { packageForRecipientCount } from '../services/pricing';
 import { COUNTRIES } from '../config/countries';
@@ -458,16 +458,26 @@ export default function CreatePage() {
   }
 
   return (
-    <div className="create-page" style={{ fontFamily: "Archia, sans-serif", color: T.ink, padding: "34px 20px 70px" }}>
-      <style>{`
-        ::placeholder { color: ${T.ink40}; }
-        textarea, input, select { font-family: 'Archia', sans-serif; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes ckPop { 0%{ transform:scale(0); } 70%{ transform:scale(1.12); } 100%{ transform:scale(1); } }
-        @keyframes ckDraw { to { stroke-dashoffset:0; } }
-      `}</style>
+    <div className="create-page">
+      {/* ===================== NAV ===================== */}
+      <header className="nav" style={{ marginBottom: 20 }}>
+        <div className="nav__inner">
+          <Link to="/" aria-label="Jigzo home">
+            <img className="nav__logo" src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" />
+          </Link>
+        </div>
+      </header>
 
-      <div style={{ maxWidth: 480, margin: "0 auto" }}>
+      <div style={{ fontFamily: "Archia, sans-serif", color: T.ink, padding: "0 20px 70px" }}>
+        <style>{`
+          ::placeholder { color: ${T.ink40}; }
+          textarea, input, select { font-family: 'Archia', sans-serif; }
+          @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+          @keyframes ckPop { 0%{ transform:scale(0); } 70%{ transform:scale(1.12); } 100%{ transform:scale(1); } }
+          @keyframes ckDraw { to { stroke-dashoffset:0; } }
+        `}</style>
+
+        <div style={{ maxWidth: 480, margin: "0 auto" }}>
         <StepProgressBar step={currentStep} />
 
         {/* ============ STEP 1 — CREATE ============ */}
@@ -626,7 +636,7 @@ export default function CreatePage() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50 }}>Hidden Message</label>
                 {occasion && tone && suggestedMessage(occasion, tone) && (
-                  <button type="button" onClick={useSuggested} className="btn-suggested">Insert suggested message</button>
+                  <button type="button" onClick={useSuggested} className="btn-change">Insert suggested message</button>
                 )}
               </div>
               <textarea placeholder="Write your hidden message here..." value={message} onChange={(e) => setMessage(e.target.value)}
@@ -911,6 +921,21 @@ export default function CreatePage() {
           </div>
         )}
       </div>
+      </div>
+
+      {/* ===================== FOOTER ===================== */}
+      <footer className="footer" style={{ marginTop: 60 }}>
+        <div className="footer__inner">
+          <div className="footer__brand">
+            <img className="footer__logo" src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" />
+            <span className="footer__by">Product by Jigpuzzle</span>
+          </div>
+          <div className="footer__tag">Every surprise deserves a memorable reveal.</div>
+          <div className="footer__links">
+            <Link className="footer__link" to="/terms">Terms of Service</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
