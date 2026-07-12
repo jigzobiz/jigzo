@@ -2,11 +2,14 @@ import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import HeroMock from '../components/HeroMock';
 import RevealMock from '../components/RevealMock';
+import { analytics } from '../services/analytics';
 
 export default function LandingPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    analytics.track('landing_viewed');
+    
     // Sticky bottom mobile CTA intersection observer logic
     const sticky = document.getElementById('sticky-cta');
     const link = document.getElementById('sticky-cta-link');

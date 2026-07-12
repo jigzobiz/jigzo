@@ -10,6 +10,7 @@ import RevealFace from '../components/RevealFace';
 import LoaderOrbit from '../components/LoaderOrbit';
 import RevealBeat from '../components/RevealBeat';
 import { buildEdgeMap, piecePath, mulberry32 } from '../puzzle/puzzle-shape';
+import { analytics } from '../services/analytics';
 
 const T = {
   bg: "#FAF8EC",
@@ -154,6 +155,28 @@ export default function CreatePage() {
     window.scrollTo(0, 0);
     setRevealSimSolved(false);
     setRevealSimLoading(false);
+
+    // Track funnel journey steps dynamically
+    if (currentStep === 1) {
+      analytics.track('create_started');
+    } else if (currentStep === 2) {
+      analytics.track('occasion_selected', { occasion, tone });
+    } else if (currentStep === 3) {
+      analytics.track('recipient_added', {
+        recipientCount: recipients.length,
+        recipients: recipients.map(r => ({ name: r.name, country: r.country.code }))
+      });
+    } else if (currentStep === 4) {
+      analytics.track('review_opened', {
+        difficulty: pieceCount,
+        hasRevealAlert: selectedUpgrades.includes('insights'),
+        recipientsCount: recipients.length
+      });
+      analytics.track('checkout_blocked', {
+        reason: 'CHECKOUT_DISABLED_LAUNCH_LOCK'
+      });
+    }
+
     // Force reset browser viewport zoom on step transition
     const meta = document.querySelector('meta[name="viewport"]');
     if (meta) {
@@ -163,7 +186,7 @@ export default function CreatePage() {
         meta.setAttribute("content", orig || "width=device-width, initial-scale=1.0");
       }, 150);
     }
-  }, [currentStep, isProcessing, isSuccess]);
+  }, [currentStep, isProcessing, isSuccess, occasion, tone, pieceCount, selectedUpgrades, recipients]);
 
   // Sync recipient #1 name with primary recipient name
   const handlePrimaryRecipientNameChange = (val) => {
@@ -310,6 +333,7 @@ export default function CreatePage() {
       setZoom(1.2);
       setPan({ x: 0, y: 0 });
       setCropData(null);
+      analytics.track('photo_uploaded');
     };
     r.readAsDataURL(file);
   };
@@ -411,8 +435,8 @@ export default function CreatePage() {
       ctx.drawImage(imgEl, (OUT_W - cw) / 2, (OUT_H - ch) / 2, cw, ch);
       ctx.restore();
     } catch (e) {}
-    ctx.drawImage(imgEl, k * pf0x, k * pf0y, sEff * Wi, sEff * Hi);
     setCropData(canvas.toDataURL("image/jpeg", 0.92));
+    analytics.track('photo_cropped');
   }, [zoom, pan]);
 
   // Submit Handler integrating server-side API pricing and orders
@@ -426,6 +450,11 @@ export default function CreatePage() {
       }));
 
       // 1. Create Draft Puzzle
+      analytics.track('checkout_started', {
+        amount: grandTotal,
+        recipientsCount: recipients.length
+      });
+
       const puzzleRes = await api.createPuzzle({
         cropData,
         message,
@@ -450,8 +479,10 @@ export default function CreatePage() {
       // 3. Environment Fallback checking
       const isLocalTest = import.meta.env.VITE_ENABLE_LOCAL_TEST === 'true';
       if (isLocalTest && checkoutUrl.includes('mock-payment.com')) {
+        analytics.track('payment_started', { orderId, isLocalTest: true });
         // Automatically verify payment via simulated webhook
         await api.triggerMockPayment(orderId, publicId);
+        analytics.track('payment_succeeded', { orderId, puzzleId: publicId });
 
         // Standard delay for orbiting animation feel
         setTimeout(() => {
@@ -460,6 +491,7 @@ export default function CreatePage() {
           setTestLink(`/p/${publicId}?r=0`);
         }, 2600);
       } else {
+        analytics.track('payment_started', { orderId, isLocalTest: false });
         // Redirect to production payment gateway checkout session
         window.location.href = checkoutUrl;
       }
@@ -474,8 +506,17 @@ export default function CreatePage() {
     if (!interestEmail.trim()) return;
     setInterestRegistering(true);
     try {
-      await api.registerLaunchInterest(interestEmail);
+      await api.registerLaunchInterest(
+        interestEmail,
+        undefined,
+        'jigzo_launch',
+        window.location.href,
+        { name: primaryRecipientName, difficulty: pieceCount },
+        analytics.getAnonymousId(),
+        analytics.getSessionId()
+      );
       setInterestRegistered(true);
+      analytics.track('waitlist_joined', { email: interestEmail, interestType: 'jigzo_launch' });
     } catch (err) {
       console.error(err);
       alert('Failed to register interest: ' + (err.response?.data?.error || err.message));

@@ -11,6 +11,8 @@ const puzzlesRouter = require('./routes/puzzles');
 const ordersRouter = require('./routes/orders');
 const webhooksRouter = require('./routes/webhooks');
 const interestRouter = require('./routes/interest');
+const analyticsRouter = require('./routes/analytics');
+const adminRouter = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -50,6 +52,8 @@ app.use('/api/puzzles', puzzlesRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/interest', interestRouter);
+app.use('/api/analytics', analyticsRouter);
+app.use('/api/admin', adminRouter);
 
 // Base Check
 app.get('/health', (req, res) => {

@@ -5,6 +5,7 @@ import LandingPage from './pages/LandingPage';
 import CreatePage from './pages/CreatePage';
 import ReceivePage from './pages/ReceivePage';
 import TermsPage from './pages/TermsPage';
+import AdminPortal from './pages/AdminPortal';
 import './index.css';
 
 // Configure standard client-side routing routes
@@ -24,6 +25,10 @@ const router = createBrowserRouter([
   {
     path: '/terms',
     element: <TermsPage />
+  },
+  {
+    path: '/admin',
+    element: <AdminPortal />
   },
   // Keep receive.html mapping as fallback for local dev compatibility
   {

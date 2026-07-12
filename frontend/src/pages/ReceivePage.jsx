@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { buildEdgeMap, piecePath, mulberry32 } from '../puzzle/puzzle-shape';
 import RevealBeat from '../components/RevealBeat';
 import LoaderOrbit from '../components/LoaderOrbit';
+import { analytics } from '../services/analytics';
 
 const GRID_FOR = {
   6: { cols: 2, rows: 3 },
@@ -49,6 +50,7 @@ export default function ReceivePage() {
         
         // Log open event
         await api.recordOpen(publicId, rIndex);
+        analytics.track('puzzle_opened', { puzzleId: publicId, recipientIndex: rIndex });
       } catch (err) {
         console.error(err);
         setError(err.response?.data?.error || err.message || 'Failed to load JIGZO puzzle.');
@@ -136,6 +138,7 @@ function Receiver({ data, publicId, rIndex, startTimeRef }) {
       if (startTimeRef.current) {
         const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
         api.recordComplete(publicId, rIndex, elapsed).catch(console.error);
+        analytics.track('puzzle_completed', { puzzleId: publicId, recipientIndex: rIndex, durationSeconds: elapsed });
       }
 
       const t = setTimeout(() => setLoaderRunning(false), 3000);
