@@ -434,7 +434,13 @@ export default function CreatePage() {
       const cw = Wi * cover, ch = Hi * cover;
       ctx.drawImage(imgEl, (OUT_W - cw) / 2, (OUT_H - ch) / 2, cw, ch);
       ctx.restore();
-    } catch (e) {}
+      ctx.filter = "none";
+    } catch (e) {
+      ctx.filter = "none";
+    }
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(imgEl, k * pf0x, k * pf0y, sEff * Wi, sEff * Hi);
     setCropData(canvas.toDataURL("image/jpeg", 0.92));
     analytics.track('photo_cropped');
   }, [zoom, pan]);
