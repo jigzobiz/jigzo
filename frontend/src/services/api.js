@@ -4,7 +4,7 @@ const isLocalTest = import.meta.env.VITE_ENABLE_LOCAL_TEST === 'true';
 
 // Base API URL configuration
 const API = axios.create({
-  baseURL: '', // Proxied via vite config server.proxy
+  baseURL: import.meta.env.DEV ? '' : 'https://api.jigzo.biz',
   timeout: 10000,
 });
 

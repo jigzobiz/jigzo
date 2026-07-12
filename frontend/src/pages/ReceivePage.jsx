@@ -37,7 +37,14 @@ export default function ReceivePage() {
       try {
         setLoading(true);
         const res = await api.getPuzzle(publicId);
-        setPuzzleData(res.puzzle);
+        
+        const puzzle = res.puzzle;
+        if (puzzle && puzzle.cropImageUrl && puzzle.cropImageUrl.startsWith('/uploads')) {
+          const apiBase = import.meta.env.DEV ? '' : 'https://api.jigzo.biz';
+          puzzle.cropImageUrl = `${apiBase}${puzzle.cropImageUrl}`;
+        }
+        
+        setPuzzleData(puzzle);
         startTimeRef.current = Date.now();
         
         // Log open event
