@@ -1,0 +1,17 @@
+export const COUNTRIES = [
+  { code: "BH", flag: "🇧🇭", dial: "+973", name: "Bahrain" },
+  { code: "SA", flag: "🇸🇦", dial: "+966", name: "Saudi Arabia" },
+  { code: "AE", flag: "🇦🇪", dial: "+971", name: "UAE" },
+  { code: "KW", flag: "🇰🇼", dial: "+965", name: "Kuwait" },
+  { code: "QA", flag: "🇶🇦", dial: "+974", name: "Qatar" },
+  { code: "OM", flag: "🇴🇲", dial: "+968", name: "Oman" },
+  { code: "JO", flag: "🇯🇴", dial: "+962", name: "Jordan" },
+  { code: "EG", flag: "🇪🇬", dial: "+20",  name: "Egypt" },
+  { code: "GB", flag: "🇬🇧", dial: "+44",  name: "United Kingdom" },
+  { code: "US", flag: "🇺🇸", dial: "+1",   name: "United States" },
+  { code: "IN", flag: "🇮🇳", dial: "+91",  name: "India" },
+  { code: "PK", flag: "🇵🇰", dial: "+92",  name: "Pakistan" },
+  { code: "TR", flag: "🇹🇷", dial: "+90",  name: "Turkey" },
+  { code: "FR", flag: "🇫🇷", dial: "+33",  name: "France" },
+  { code: "DE", flag: "🇩🇪", dial: "+49",  name: "Germany" },
+];

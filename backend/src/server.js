@@ -1,0 +1,69 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const { rateLimit } = require('express-rate-limit');
+const path = require('path');
+const connectDB = require('./config/database');
+const errorHandler = require('./middleware/errorHandler');
+
+const puzzlesRouter = require('./routes/puzzles');
+const ordersRouter = require('./routes/orders');
+const webhooksRouter = require('./routes/webhooks');
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Connect to Database
+
+
+// Global Security Middlewares
+app.use(helmet({
+  crossOriginResourcePolicy: false // Allow loading upload assets in the browser
+}));
+
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true
+}));
+
+// Rate Limiter
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 100, // Limit each IP to 100 requests per window
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' }
+});
+app.use('/api/', limiter);
+
+// Increase body parser limit to support base64 image strings (15MB cap)
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ limit: '15mb', extended: true }));
+
+// Serve saved crop images statically
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Routes
+app.use('/api/puzzles', puzzlesRouter);
+app.use('/api/orders', ordersRouter);
+app.use('/api/webhooks', webhooksRouter);
+
+// Base Check
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', message: 'JIGZO full-stack foundation API is running.' });
+});
+
+// Centralized Error Handler
+app.use(errorHandler);
+
+// Start the API only after MongoDB connects successfully
+const startServer = async () => {
+  await connectDB();
+
+  app.listen(PORT, () => {
+    console.log(`[JIGZO Server] Running on port ${PORT}`);
+  });
+};
+
+startServer();

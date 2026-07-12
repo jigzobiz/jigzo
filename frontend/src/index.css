@@ -1,0 +1,1072 @@
+/* =========================================================
+   JIGZO — jigzo.biz landing site
+   Visual redesign imported from Claude Design "JIGZO.dc.html".
+   Palette: warm cream #F4EDDF / warm ink #1C1913 / golds.
+   Type: Archia (headings/body, self-hosted) · JetBrains Mono
+   (labels) · Playfair Display italic (reveal message).
+   ========================================================= */
+
+@font-face { font-family:"Archia"; src:url("/assets/fonts/Archia-Thin.otf") format("opentype"); font-weight:200; font-style:normal; font-display:swap; }
+@font-face { font-family:"Archia"; src:url("/assets/fonts/Archia-Light.otf") format("opentype"); font-weight:300; font-style:normal; font-display:swap; }
+@font-face { font-family:"Archia"; src:url("/assets/fonts/Archia-Regular.otf") format("opentype"); font-weight:400; font-style:normal; font-display:swap; }
+@font-face { font-family:"Archia"; src:url("/assets/fonts/Archia-Medium.otf") format("opentype"); font-weight:500; font-style:normal; font-display:swap; }
+@font-face { font-family:"Archia"; src:url("/assets/fonts/Archia-SemiBold.otf") format("opentype"); font-weight:600; font-style:normal; font-display:swap; }
+@font-face { font-family:"Archia"; src:url("/assets/fonts/Archia-Bold.otf") format("opentype"); font-weight:700; font-style:normal; font-display:swap; }
+
+:root {
+  --bg:#F4EDDF;
+  --card:#FBF7EE;
+  --ink:#1C1913;
+  --dark:#1C1913;
+  --dark-card:#241F16;
+  --gold:#B8935A;
+  --gold-deep:#8a6d3a;
+  --gold-c:#C6A15C;
+  --gold-warm:#E6C67F;
+  --gold-bright:#D0A036;
+  --ink-74:rgba(28,25,19,0.74);
+  --ink-70:rgba(28,25,19,0.70);
+  --ink-66:rgba(28,25,19,0.66);
+  --ink-60:rgba(28,25,19,0.60);
+  --ink-50:rgba(28,25,19,0.50);
+  --ink-28:rgba(28,25,19,0.28);
+  --ink-08:rgba(28,25,19,0.08);
+  --cream-72:rgba(244,237,223,0.72);
+  --cream-60:rgba(244,237,223,0.60);
+  --cream-42:rgba(244,237,223,0.42);
+  --maxw:1080px;
+  --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --serif:"Playfair Display", Georgia, serif;
+}
+
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Archia", sans-serif; font-weight:400;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+img { display:block; max-width:100%; }
+a { color:inherit; text-decoration:none; }
+.wrap { max-width:var(--maxw); margin:0 auto; padding:0 22px; }
+
+/* ---- shared type bits ---- */
+.eyebrow {
+  font-weight:600; font-size:11.5px; letter-spacing:0.16em;
+  text-transform:uppercase; color:var(--gold-deep);
+}
+.eyebrow--dot { display:inline-flex; align-items:center; gap:9px; }
+.eyebrow--dot span { width:6px; height:6px; border-radius:50%; background:var(--gold); }
+
+/* ---- buttons ---- */
+.btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  font-family:inherit; cursor:pointer; border-radius:100px; border:none;
+  transition:transform .18s ease, background .2s ease, box-shadow .2s ease, opacity .2s ease;
+  white-space:nowrap;
+}
+.btn-dark { font-weight:700; font-size:16px; color:var(--bg); background:var(--ink); padding:16px 28px; box-shadow:0 10px 28px rgba(28,25,19,0.22); }
+.btn-dark:hover { transform:translateY(-1px); }
+.btn-gold { font-weight:700; font-size:16px; color:var(--ink); background:var(--gold-warm); padding:15px 24px; }
+.btn-gold:hover { transform:translateY(-1px); }
+.btn-ghost { font-weight:600; font-size:14px; color:var(--ink); background:none; border:1px solid var(--ink-28); padding:9px 18px; }
+.btn-ghost:hover { background:rgba(28,25,19,0.06); }
+.btn-text { font-weight:500; font-size:16px; color:var(--ink); background:none; padding:16px 8px; }
+.btn-text .arrow { color:var(--gold); }
+
+/* ---- nav ---- */
+.nav {
+  position:sticky; top:0; z-index:50;
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  background:rgba(244,237,223,0.82); border-bottom:1px solid var(--ink-08);
+}
+.nav__inner { display:flex; align-items:center; justify-content:space-between; padding:15px 22px; }
+.nav__logo { height:25px; width:auto; }
+
+/* ---- hero ---- */
+.hero__grid {
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));
+  gap:54px; align-items:center; padding:60px 22px 24px;
+}
+.hero h1 {
+  font-weight:300; font-size:clamp(36px, 5.4vw, 60px); line-height:1.05;
+  letter-spacing:-0.02em; margin:0 0 22px;
+}
+.hero h1 .accent { color:var(--gold-deep); }
+.hero__lede { font-size:18px; line-height:1.6; color:var(--ink-74); margin:0 0 30px; max-width:32ch; }
+.hero__cta { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+.hero__fine {
+  font-weight:500; font-size:12.5px; letter-spacing:0.02em;
+  color:var(--ink-50); margin-top:22px;
+}
+.hero__cta-fine {
+  font-weight:500; font-size:13.5px; color:var(--gold-deep);
+  margin-top:10px;
+}
+.reveal-steps { margin-bottom:32px; display:flex; flex-direction:column; gap:20px; }
+.reveal-step h3 { font-size:18px; font-weight:500; color:var(--gold-warm); margin:0 0 6px; }
+.reveal-step p { font-size:14.5px; line-height:1.55; color:var(--cream-72); margin:0; max-width:38ch; }
+.min0 { min-width:0; }
+
+/* ---- section headers ---- */
+.sec { padding:56px 22px; }
+.sec__head { text-align:center; margin-bottom:34px; }
+.sec__head h2 {
+  font-weight:300; font-size:clamp(28px,3.6vw,40px); letter-spacing:-0.02em; margin:0;
+}
+.sec__head .eyebrow { display:block; margin-bottom:14px; }
+
+/* ---- how it works ---- */
+.steps { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px,1fr)); gap:18px; }
+.step { padding:22px 20px; border-radius:16px; background:var(--card); border:1px solid rgba(28,25,19,0.06); }
+.step__num { font-weight:600; font-size:12px; letter-spacing:0.1em; color:var(--gold); margin-bottom:14px; }
+.step__title { font-weight:500; font-size:19px; letter-spacing:-0.01em; margin-bottom:6px; }
+.step__body { font-size:14.5px; line-height:1.5; color:var(--ink-66); }
+
+/* ---- the reveal (dark climax) ---- */
+.reveal-band { background:var(--dark); color:var(--bg); margin:20px 0; }
+.reveal-band__grid {
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(300px,1fr));
+  gap:56px; align-items:center; padding:84px 22px;
+}
+.reveal-band .eyebrow { color:var(--gold-c); margin-bottom:20px; }
+.reveal-band h2 {
+  font-weight:300; font-size:clamp(30px,4vw,46px); line-height:1.08;
+  letter-spacing:-0.02em; margin:0 0 20px;
+}
+.reveal-band h2 .accent { color:var(--gold-warm); }
+.reveal-band p { font-size:17px; line-height:1.65; color:var(--cream-72); margin:0 0 28px; max-width:36ch; }
+.reveal-band__hint { font-weight:500; font-size:12.5px; color:var(--cream-42); margin-top:16px; }
+
+/* ---- use cases ---- */
+.cases { display:grid; grid-template-columns:repeat(auto-fill, minmax(215px,1fr)); gap:12px; }
+.case {
+  padding:18px 20px; border-radius:14px; background:var(--card);
+  border:1px solid rgba(28,25,19,0.07);
+  transition:transform .25s ease, box-shadow .25s ease;
+}
+.case:hover { transform:translateY(-3px); box-shadow:0 14px 30px rgba(28,25,19,0.1); }
+.case__title { font-weight:600; font-size:18px; letter-spacing:-0.01em; color:#4a3b1e; margin-bottom:6px; }
+.case__body { font-size:13.5px; line-height:1.5; color:var(--ink-70); }
+
+/* ---- tiers ---- */
+.tiers { display:grid; grid-template-columns:repeat(auto-fit, minmax(250px,1fr)); gap:18px; align-items:stretch; }
+.tier { position:relative; padding:30px 26px; border-radius:20px; display:flex; flex-direction:column; }
+.tier--active { padding:30px 28px; background:var(--ink); color:var(--bg); box-shadow:0 24px 60px rgba(28,25,19,0.28); }
+.tier--locked { background:var(--card); border:1px solid rgba(28,25,19,0.09); opacity:0.96; }
+.tier__flag {
+  display:inline-flex; align-self:flex-start; align-items:center; gap:7px;
+  font-weight:600; font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+  border-radius:100px; padding:5px 12px; margin-bottom:18px;
+}
+.tier__flag--now { color:var(--ink); background:var(--gold-warm); }
+.tier__flag--soon { color:var(--ink-50); border:1px solid rgba(28,25,19,0.16); }
+.tier__name { font-weight:500; font-size:26px; letter-spacing:-0.01em; margin-bottom:4px; }
+.tier--locked .tier__name { font-size:23px; margin-bottom:6px; color:rgba(28,25,19,0.85); }
+.tier__price { display:flex; align-items:baseline; gap:8px; margin-bottom:18px; }
+.tier__price .from { font-weight:500; font-size:15px; color:var(--cream-60); }
+.tier__price .amt { font-weight:300; font-size:46px; color:var(--gold-warm); }
+.tier__price .unit { font-size:14px; color:var(--cream-60); }
+.tier__feats { display:flex; flex-direction:column; gap:11px; margin-bottom:24px; }
+.tier__feat { display:flex; gap:11px; align-items:flex-start; font-size:15px; line-height:1.4; color:rgba(244,237,223,0.86); }
+.tier__feat .di { color:var(--gold-warm); margin-top:1px; }
+.tier__desc { font-size:15px; line-height:1.5; color:var(--ink-60); margin-bottom:22px; }
+.tier .btn {
+  margin-top:auto;
+  white-space:normal;
+  text-align:center;
+  font-size:14px;
+  padding:14px 18px;
+}
+.tier__notify {
+  margin-top:auto; font-family:inherit; font-weight:600; font-size:14px; color:var(--ink);
+  background:none; border:1px solid rgba(28,25,19,0.24); border-radius:100px; padding:12px 20px; cursor:pointer;
+}
+
+/* ---- buy / low friction ---- */
+.buy__inner {
+  border-radius:26px; background:var(--card); border:1px solid var(--ink-08);
+  padding:clamp(34px,6vw,66px); text-align:center; position:relative; overflow:hidden;
+}
+.buy__inner h2 {
+  font-weight:300; font-size:clamp(30px,5vw,52px); line-height:1.1;
+  letter-spacing:-0.02em; margin:0 0 12px;
+}
+.buy__inner h2 .accent { color:var(--gold); }
+.buy__inner p { font-size:17px; color:var(--ink-66); margin:0 auto 30px; max-width:44ch; }
+.buy__trust { display:flex; flex-wrap:wrap; justify-content:center; gap:10px 26px; margin-top:26px; }
+.buy__trust .t { display:inline-flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink-60); }
+.buy__trust .t .ck { color:var(--gold); }
+
+/* ---- footer ---- */
+.footer { border-top:1px solid var(--ink-08); }
+.footer__inner {
+  display:flex; flex-wrap:wrap; gap:14px; align-items:center; justify-content:space-between;
+  padding:34px 22px;
+}
+/* align-items:flex-start stops the column stretching the logo to the width of
+   the disclaimer text below it — the logo keeps its natural aspect ratio. */
+.footer__brand { display:flex; flex-direction:column; align-items:flex-start; gap:5px; }
+.footer__logo { height:20px; width:auto; flex:none; opacity:0.9; }
+.footer__by { font-weight:400; font-size:8px; letter-spacing:0.04em; color:var(--ink-30); opacity:0.4; }
+.footer__tag { font-weight:500; font-size:13px; color:var(--ink-50); }
+
+/* =========================================================
+   HERO MOCK CARD  (hero section, light shell) — STANDALONE.
+   namespace: .hero-mock-*  ·  keyframes: hmk-*
+   Shares no selectors, keyframes, or JS with the reveal card.
+   ========================================================= */
+/* Interactive hero demo: a phone frame (from The Receivers Journey) whose
+   screen toggles between State A (a nearly-solved jigsaw of demo-photo, one
+   piece floating) and State B (the demo-reveal.png card, shown as-is). */
+.hero-mock-card { width:100%; max-width:300px; margin:0 auto; position:relative; }
+.hero-mock-frame {
+  position:relative; width:100%; border-radius:54px; background:#050505; padding:11px;
+  box-shadow:0 44px 90px -26px rgba(28,25,19,0.5), 0 10px 26px rgba(28,25,19,0.14);
+}
+.hero-mock-screen {
+  position:relative; width:100%; aspect-ratio:9/16; border-radius:44px; overflow:hidden;
+  background:var(--card); cursor:pointer; touch-action:manipulation;
+  -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent;
+}
+.hero-mock-pill {
+  position:absolute; top:13px; left:50%; transform:translateX(-50%);
+  width:92px; height:27px; background:#050505; border-radius:100px; z-index:40; pointer-events:none;
+}
+/* "Tap to replay" hint — above the frame, State B only (reserves its space) */
+.hero-mock-hint { height:14px; margin-bottom:11px; text-align:center; opacity:0; transition:opacity .4s ease;
+  font-family:var(--mono); font-weight:500; font-size:10px; letter-spacing:0.16em; text-transform:uppercase;
+  color:var(--ink-50); }
+.hero-mock-card.is-b .hero-mock-hint { opacity:1; }
+/* the two states are stacked layers — cross-faded, never re-laid-out */
+.hero-mock-a, .hero-mock-b { position:absolute; inset:0; }
+.hero-mock-a { z-index:1; opacity:1; transition:opacity .5s ease; }
+.hero-mock-b { z-index:20; opacity:0; pointer-events:none; transition:opacity .5s ease; }
+.hero-mock-card.is-b .hero-mock-a { opacity:0; pointer-events:none; }
+.hero-mock-card.is-b .hero-mock-b { opacity:1; pointer-events:auto; }
+/* State A: assembled photo + jigsaw seams + one empty slot + floating piece */
+.hero-mock-photo { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+.hero-mock-seams { position:absolute; inset:0; width:100%; height:100%; z-index:2; pointer-events:none;
+  transition:opacity .4s ease .5s; }
+.hero-mock-card.is-solving .hero-mock-seams, .hero-mock-card.is-b .hero-mock-seams { opacity:0; }
+.hero-mock-piece {
+  position:absolute; z-index:3; will-change:transform;
+  transform:translate3d(35%,55%,0);
+  transition:transform .6s cubic-bezier(.34,1.26,.42,1);
+  filter:drop-shadow(0 8px 14px rgba(5,5,5,0.45));
+}
+.hero-mock-card.is-solving .hero-mock-piece, .hero-mock-card.is-b .hero-mock-piece { transform:translate3d(0,0,0); }
+.hero-mock-piece-bob { width:100%; height:100%; animation:hmk-bob 3.2s ease-in-out infinite; }
+.hero-mock-card.is-solving .hero-mock-piece-bob, .hero-mock-card.is-b .hero-mock-piece-bob { animation:none; }
+.hero-mock-piece-svg { display:block; width:100%; height:100%; overflow:visible; }
+/* "Tap Me" — handwritten label + hand-drawn arrow, floating at the frame's upper
+   right, overlapping and extending off the right edge (not inside the screen) */
+.hero-mock-tap { position:absolute; inset:0; z-index:30; pointer-events:none; transition:opacity .35s ease; }
+.hero-mock-card.is-solving .hero-mock-tap, .hero-mock-card.is-b .hero-mock-tap { opacity:0; }
+.hero-mock-tap-label { position:absolute; top:-6%; right:-12%; font-family:'Caveat', cursive; font-weight:600;
+  font-size:clamp(38px,11.25vw,52px); line-height:1; color:var(--gold-deep); letter-spacing:.5px;
+  transform:rotate(-7deg); white-space:nowrap;
+  /* thin white outline around the letterforms (no blur, no glow) */
+  text-shadow:-1px -1px 0 #FFFFFF, 1px -1px 0 #FFFFFF, -1px 1px 0 #FFFFFF, 1px 1px 0 #FFFFFF,
+    -1px 0 0 #FFFFFF, 1px 0 0 #FFFFFF, 0 -1px 0 #FFFFFF, 0 1px 0 #FFFFFF; }
+.hero-mock-arrow { position:absolute; top:2%; right:3%; width:48%; height:auto; }
+/* State B: the reveal card image, as-is */
+.hero-mock-reveal-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+@keyframes hmk-bob { 0%,100% { transform:translate3d(0,0,0); } 50% { transform:translate3d(0,-8%,0); } }
+@media (max-width:760px) {
+  /* sit closer to the frame on narrow screens so the label never clips the viewport */
+  .hero-mock-tap-label { top:-1%; right:-4%; font-size:clamp(32px,10vw,42px); }
+  .hero-mock-arrow { top:5%; right:5%; width:42%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-mock-a, .hero-mock-b, .hero-mock-seams, .hero-mock-piece, .hero-mock-tap, .hero-mock-hint { transition:none !important; }
+  .hero-mock-piece-bob { animation:none !important; }
+}
+
+/* =========================================================
+   REVEAL MOCK CARD  (the reveal section, dark shell) — STANDALONE.
+   namespace: .reveal-mock-*  ·  keyframes: rmk-*
+   A full duplicate of the hero card's rules with the dark shell
+   baked in. Shares nothing with the hero card.
+   ========================================================= */
+/* Same phone frame as the hero demo, wrapping a non-interactive 6-scene
+   "How it works" reel (auto-play, crossfade, loops forever). */
+.reveal-mock-card { width:100%; max-width:300px; margin:0 auto; }
+.reveal-mock-frame {
+  position:relative; width:100%; border-radius:54px; background:#050505; padding:11px;
+  box-shadow:0 44px 90px -26px rgba(0,0,0,0.55), 0 10px 26px rgba(0,0,0,0.4);
+}
+.reveal-mock-screen {
+  position:relative; width:100%; aspect-ratio:9/16; border-radius:44px; overflow:hidden;
+  background:#0b0a08; pointer-events:none;
+}
+.reveal-mock-pill {
+  position:absolute; top:13px; left:50%; transform:translateX(-50%);
+  width:92px; height:27px; background:#050505; border-radius:100px; z-index:40; pointer-events:none;
+}
+/* scenes cross-fade, one visible at a time — no layout shift */
+.reveal-mock-scene { position:absolute; inset:0; opacity:0; overflow:hidden; transition:opacity .55s ease; }
+.reveal-mock-scene.is-active { opacity:1; }
+/* numbered step indicators + captions, ABOVE the phone, in sync with the loop */
+.reveal-mock-steps { display:flex; justify-content:center; align-items:center; gap:8px; margin-bottom:11px; }
+.reveal-mock-step { display:flex; align-items:center; justify-content:center; width:20px; height:20px;
+  border-radius:50%; font-family:var(--mono); font-size:10px; font-weight:500; line-height:1;
+  color:rgba(244,237,223,0.42); border:1px solid rgba(244,237,223,0.18);
+  transition:color .3s ease, background .3s ease, border-color .3s ease; }
+.reveal-mock-step.is-active { color:#1C1913; background:var(--gold-warm); border-color:var(--gold-warm); font-weight:700; }
+.reveal-mock-captions { position:relative; height:22px; margin-bottom:14px; }
+.reveal-mock-caption {
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  text-align:center; opacity:0; transition:opacity .5s ease;
+  font-family:Archia,-apple-system,sans-serif; font-size:13.5px; font-weight:500;
+  letter-spacing:0.01em; color:rgba(244,237,223,0.6); white-space:nowrap;
+}
+.reveal-mock-caption.is-active { opacity:1; }
+
+/* Scene 1 — photo / crop step */
+.reveal-mock-s1 { background:#0b0a08; display:flex; align-items:center; justify-content:center; padding:7% 8%; }
+.reveal-mock-crop { position:relative; width:100%; height:100%; border-radius:16px; overflow:hidden;
+  box-shadow:0 0 0 2px rgba(244,237,223,0.14), 0 18px 40px rgba(0,0,0,0.5); }
+.reveal-mock-crop img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+.reveal-mock-scene.is-active .reveal-mock-crop img { animation:rmk-appear 1.3s ease both; }
+.reveal-mock-corner { position:absolute; width:16px; height:16px; border:2px solid var(--gold-bright); }
+
+/* Scene 2 — message step */
+.reveal-mock-s2 { background:#0b0a08; display:flex; align-items:center; justify-content:center; padding:0 9%; }
+.reveal-mock-msgcard { width:100%; background:var(--card); border:1.5px solid rgba(28,25,19,0.15);
+  border-radius:14px; padding:16px 15px; box-shadow:0 18px 40px rgba(0,0,0,0.45); }
+.reveal-mock-msglabel { font-family:var(--mono); font-size:9.5px; font-weight:500; letter-spacing:0.14em;
+  text-transform:uppercase; color:rgba(28,25,19,0.45); margin-bottom:9px; }
+.reveal-mock-msgtext { font-family:Archia,sans-serif; font-size:14.5px; line-height:1.5; color:#1C1913; }
+.reveal-mock-scene.is-active .reveal-mock-msgtext { animation:rmk-appear 1.2s ease both; }
+
+/* Scene 3 — WhatsApp notification (styled exactly like create.html's preview) */
+.reveal-mock-s3 { background:#0b0a08; display:flex; align-items:center; justify-content:center; padding:0 7%;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif; }
+.reveal-mock-wa { width:100%; border-radius:16px; overflow:hidden; border:1px solid rgba(28,25,19,0.08);
+  background:#E4DDD3; box-shadow:0 18px 40px rgba(0,0,0,0.45); }
+.reveal-mock-wa-head { display:flex; align-items:center; gap:8px; padding:9px 12px; background:#F6F6F6;
+  border-bottom:1px solid rgba(0,0,0,0.08); color:#0A0A0A; }
+.reveal-mock-wa-back { display:flex; align-items:center; gap:2px; flex:none; }
+.reveal-mock-wa-back .chev { font-size:22px; line-height:1; margin-top:-2px; }
+.reveal-mock-wa-back .n { font-size:14px; font-weight:600; }
+.reveal-mock-wa-av { width:38px; height:38px; border-radius:50%; flex:none; display:block; border:1px solid rgba(0,0,0,0.1); }
+.reveal-mock-wa-name { display:flex; align-items:center; gap:5px; min-width:0; flex:1; }
+.reveal-mock-wa-name .nm { font-weight:600; font-size:15px; color:#111B21; white-space:nowrap; }
+.reveal-mock-wa-badge { width:16px; height:16px; border-radius:50%; background:#25D366; flex:none;
+  display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:700; line-height:1; }
+.reveal-mock-wa-body { padding:16px 12px 18px; background-color:#E4DDD3; }
+.reveal-mock-wa-bubble { position:relative; max-width:88%; background:#FFFFFF; border-radius:0 8px 8px 8px;
+  padding:7px 9px 6px 11px; box-shadow:0 1px 0.5px rgba(0,0,0,0.13); font-size:12.5px; line-height:1.4; color:#111B21; }
+.reveal-mock-wa-tail { position:absolute; top:0; left:-7px; width:0; height:0; border-style:solid;
+  border-width:0 8px 8px 0; border-color:transparent #FFFFFF transparent transparent; }
+.reveal-mock-wa-time { float:right; font-size:11px; color:#667781; margin:6px 0 0 8px; }
+
+/* Scene 4 — puzzle mid-solve, last pieces snapping in */
+.reveal-mock-s4 { background:#0b0a08; }
+.reveal-mock-s4 .bg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+.reveal-mock-s4 .seams { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.reveal-mock-solvepiece { position:absolute; will-change:transform; filter:drop-shadow(0 6px 12px rgba(0,0,0,0.5)); }
+.reveal-mock-scene.is-active .reveal-mock-solve1 { animation:rmk-snap1 1.4s cubic-bezier(.5,1.3,.4,1) both; }
+.reveal-mock-scene.is-active .reveal-mock-solve2 { animation:rmk-snap2 1.9s cubic-bezier(.5,1.3,.4,1) both; }
+
+/* Scene 5 — the shared pre-reveal loader (css/loader.css + js/loader.js) on its
+   product background (cream), scaled to fit the phone frame. The loader's own
+   markup/CSS/keyframes are the shared source, so this can never drift again. */
+.reveal-mock-s5 { background:#F4EDDF; display:flex; align-items:center; justify-content:center; }
+.reveal-mock-loaderfit { transform:scale(0.8); transform-origin:center; }
+
+/* Scene 6 — the reveal card image, as-is (held) */
+.reveal-mock-s6 img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+
+/* Scene 7 — the reveal card on the product screen with the Save button; the
+   button gets a subtle tap, then a small "Saved" confirmation appears. */
+.reveal-mock-s7 { background:#F4EDDF; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:9px; padding:6% 8%; }
+.reveal-mock-s7-card { height:50%; aspect-ratio:9/16; border-radius:14px; overflow:hidden; flex:none;
+  box-shadow:0 16px 34px rgba(0,0,0,0.28); }
+.reveal-mock-s7-card img { width:100%; height:100%; object-fit:cover; display:block; }
+.reveal-mock-s7-madeA { font-size:15px; font-weight:500; letter-spacing:-0.01em; color:#1C1913; margin-top:2px; }
+.reveal-mock-s7-madeB { font-size:11px; font-weight:500; letter-spacing:0.04em; color:rgba(28,25,19,0.45); }
+/* the product's Save/Download button, exact styling */
+.reveal-mock-s7-btn { margin-top:4px; background:#050505; color:#FAF8EC; border:none; border-radius:999px;
+  padding:12px 24px; font-size:14px; font-weight:600; font-family:Archia,sans-serif; cursor:default; }
+.reveal-mock-s7-saved { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600;
+  color:#1C1913; opacity:0; }
+.reveal-mock-s7-check { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px;
+  border-radius:50%; background:var(--gold-bright); color:#FAF8EC; font-size:10px; line-height:1; }
+.reveal-mock-s7.is-active .reveal-mock-s7-btn { animation:rmk-tap 2.5s ease both; }
+.reveal-mock-s7.is-active .reveal-mock-s7-saved { animation:rmk-saved 2.5s ease both; }
+
+/* dark-adapted hero CTA (no gold) */
+.reveal-band__cta { background:var(--bg); color:var(--ink); font-weight:700; font-size:16px;
+  padding:16px 28px; box-shadow:0 10px 28px rgba(0,0,0,0.35); }
+.reveal-band__cta:hover { transform:translateY(-1px); }
+
+@keyframes rmk-appear { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes rmk-snap1 { 0% { transform:translate3d(-32%,-52%,0); } 55%,100% { transform:translate3d(0,0,0); } }
+@keyframes rmk-snap2 { 0%,22% { transform:translate3d(44%,60%,0); } 88%,100% { transform:translate3d(0,0,0); } }
+@keyframes rmk-tap {
+  0% { transform:scale(1); box-shadow:0 0 0 0 rgba(5,5,5,0); }
+  30% { transform:scale(1); box-shadow:0 0 0 0 rgba(5,5,5,0.28); }
+  38% { transform:scale(0.94); }
+  52% { transform:scale(1); }
+  58% { box-shadow:0 0 0 12px rgba(5,5,5,0); }
+  100% { transform:scale(1); box-shadow:0 0 0 12px rgba(5,5,5,0); }
+}
+@keyframes rmk-saved {
+  0%,50% { opacity:0; transform:translateY(6px) scale(0.9); }
+  62% { opacity:1; transform:translateY(0) scale(1); }
+  100% { opacity:1; transform:translateY(0) scale(1); }
+}
+
+/* reduced motion: hold Scene 6, list the captions as plain text steps */
+@media (prefers-reduced-motion: reduce) {
+  .reveal-mock-scene, .reveal-mock-caption { transition:none !important; }
+  .reveal-mock-scene.is-active .reveal-mock-crop img,
+  .reveal-mock-scene.is-active .reveal-mock-msgtext,
+  .reveal-mock-s7.is-active .reveal-mock-s7-btn,
+  .reveal-mock-s7.is-active .reveal-mock-s7-saved { animation:none !important; }
+}
+.reveal-mock-card.is-reduced .reveal-mock-steps { display:none; }
+.reveal-mock-card.is-reduced .reveal-mock-captions { position:static; height:auto; margin:0 0 16px; }
+.reveal-mock-card.is-reduced .reveal-mock-caption { position:static; inset:auto; opacity:1; display:block;
+  text-align:left; padding:4px 0 4px 22px; color:rgba(244,237,223,0.72); white-space:normal; }
+.reveal-mock-card.is-reduced .reveal-mock-caption:empty { display:none; }
+.reveal-mock-card.is-reduced .reveal-mock-caption::before { content:""; position:absolute; left:2px; top:11px;
+  width:6px; height:6px; border-radius:50%; background:var(--gold-warm); }
+.reveal-mock-card.is-reduced .reveal-mock-caption { position:relative; }
+
+@keyframes jigzoRise { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+/* ---- responsive ---- */
+@media (max-width:760px) {
+  .reveal-band__grid { padding:60px 22px; }
+  .hero__grid { padding:44px 22px 16px; }
+}
+
+/* =========================================================
+   LANDING PAGE SPECIFIC OVERRIDES AND STYLES
+   ========================================================= */
+.landing-page {
+  --bg: #FAF8EC;
+  --ink: #050505;
+}
+
+/* Mobile responsive padding reduction (25-35%) */
+@media (max-width: 760px) {
+  .landing-page .sec {
+    padding: 40px 22px;
+  }
+  .landing-page .hero {
+    height: calc(100vh - 56px) !important;
+    height: calc(100svh - 56px) !important;
+    padding: 0 20px !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    background: var(--bg);
+  }
+  .landing-page .hero__grid {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    height: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .landing-page .hero__content {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    padding-top: 24px !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+    min-height: auto !important;
+  }
+  .landing-page .hero__content .eyebrow {
+    margin-bottom: 8px !important;
+  }
+  .landing-page .hero__headline {
+    font-size: clamp(33px, 9.3vw, 40px) !important;
+    line-height: 0.98 !important;
+    letter-spacing: -0.045em !important;
+    font-weight: 300 !important;
+    max-width: 11.6ch !important;
+    margin: 0 auto 12px !important;
+  }
+  .landing-page .hero__lede {
+    font-size: 14.5px !important;
+    line-height: 1.43 !important;
+    max-width: 34ch !important;
+    color: rgba(5,5,5,0.66) !important;
+    margin: 0 auto 14px !important;
+  }
+  .landing-page .hero__cta-wrap {
+    margin-bottom: 8px !important;
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+  }
+  .landing-page .hero__cta-wrap .btn-dark {
+    display: inline-flex !important;
+    min-height: 50px !important;
+    padding: 14px 25px !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    border-radius: 999px !important;
+    background: #050505 !important;
+    color: #FAF8EC !important;
+    box-shadow: none !important;
+    margin: 0 auto !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .landing-page .hero__whatsapp-wrap {
+    margin-bottom: 6px !important;
+  }
+  .landing-page .hero__whatsapp-link {
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    color: #8A6D3A !important;
+    text-decoration: none !important;
+    display: inline-block !important;
+  }
+  .landing-page .hero__trust-row {
+    font-size: 11.5px !important;
+    line-height: 1.35 !important;
+    color: rgba(5,5,5,0.50) !important;
+    margin: 0 auto 7px !important;
+    display: block !important;
+    text-align: center !important;
+  }
+  .landing-page .hero__secondary-line {
+    font-size: 11.8px !important;
+    font-style: italic !important;
+    line-height: 1.35 !important;
+    color: rgba(5,5,5,0.50) !important;
+    margin: 0 auto 8px !important;
+    display: block !important;
+  }
+  .landing-page .hero__mock-column {
+    box-sizing: border-box !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: flex-end !important;
+    flex-grow: 1 !important;
+    width: 100% !important;
+    margin-top: 10px !important; /* Phone mock top spacing: 8px to 12px */
+    padding: 0 0 10px !important;
+    background: radial-gradient(
+      circle at 50% 76%,
+      rgba(230,198,127,0.20),
+      rgba(250,248,236,0) 33%
+    ) !important;
+  }
+  
+  /* Reduced phone sizes for mobile */
+  .landing-page .hero-mock-card {
+    width: clamp(145px, 42vw, 184px) !important;
+    max-width: 184px !important;
+    margin: 0 auto !important;
+  }
+  .landing-page .hero-mock-frame {
+    border-radius: 36px !important;
+    padding: 7px !important;
+    box-shadow: 0 20px 40px rgba(5,5,5,0.12) !important;
+  }
+  .landing-page .hero-mock-screen {
+    border-radius: 30px !important;
+  }
+  .landing-page .hero-mock-pill {
+    width: 62px !important;
+    height: 18px !important;
+    top: 7px !important;
+    border-radius: 100px !important;
+  }
+  .landing-page .hero-mock-tap-label {
+    top: -4% !important;
+    right: -8% !important;
+    font-size: clamp(24px, 8vw, 32px) !important;
+  }
+  .landing-page .reveal-band__grid {
+    padding: 40px 22px;
+  }
+}
+
+/* Short mobile screens height adjustments */
+@media (max-width: 760px) and (max-height: 700px) {
+  .landing-page .hero {
+    padding: 0 17px !important;
+  }
+  .landing-page .hero__content {
+    padding-top: 14px !important;
+  }
+  .landing-page .hero__headline {
+    font-size: clamp(28px, 8.8vw, 33px) !important;
+    margin-bottom: 8px !important;
+  }
+  .landing-page .hero__lede {
+    font-size: 12.7px !important;
+    line-height: 1.35 !important;
+    margin-bottom: 10px !important;
+  }
+  .landing-page .hero__cta-wrap {
+    margin-bottom: 6px !important;
+  }
+  .landing-page .hero__cta-wrap .btn-dark {
+    min-height: 44px !important;
+    padding: 10px 20px !important;
+    font-size: 14px !important;
+  }
+  .landing-page .hero__whatsapp-wrap {
+    margin-bottom: 4px !important;
+  }
+  .landing-page .hero__whatsapp-link {
+    font-size: 11px !important;
+  }
+  .landing-page .hero__trust-row {
+    font-size: 10px !important;
+    margin-bottom: 4px !important;
+  }
+  .landing-page .hero__secondary-line {
+    font-size: 10.5px !important;
+    margin-bottom: 6px !important;
+  }
+  .landing-page .hero-mock-card {
+    width: clamp(108px, 36vw, 128px) !important;
+    max-width: 128px !important;
+  }
+  .landing-page .hero__mock-column {
+    margin-top: 6px !important;
+  }
+}
+
+/* Header button override */
+.landing-page .nav__btn {
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 100px;
+  border: 1px solid var(--ink);
+  font-weight: 600;
+}
+
+/* Hero elements styling */
+.landing-page .hero__headline {
+  font-weight: 300;
+  font-size: clamp(32px, 5.4vw, 56px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0 0 16px;
+}
+.landing-page .hero__lede {
+  font-size: 16.5px;
+  line-height: 1.55;
+  color: var(--ink-74);
+  margin: 0 0 24px;
+  max-width: 44ch;
+}
+.landing-page .hero__cta-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.landing-page .hero__whatsapp-line {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--gold-deep);
+}
+.landing-page .hero__trust-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-60);
+  margin-top: 24px;
+  margin-bottom: 16px;
+}
+.landing-page .hero__secondary-line {
+  font-size: 13.5px;
+  font-style: italic;
+  color: var(--ink-50);
+  margin: 16px 0 0;
+}
+
+/* Keyboard accessibility focus style for Hero card */
+.landing-page .hero-mock-card:focus-visible {
+  outline: 3px solid var(--gold-deep);
+  outline-offset: 4px;
+  border-radius: 54px;
+}
+
+/* Desktop layout split */
+@media (min-width: 761px) {
+  .landing-page .hero__grid {
+    grid-template-columns: 1.2fr 1.0fr;
+    gap: 64px;
+    padding: 80px 22px 40px;
+  }
+}
+
+/* Occasions Chips style */
+.landing-page .sec__sub {
+  font-size: 16px;
+  color: var(--ink-74);
+  margin-top: 8px;
+  margin-bottom: 0;
+}
+.landing-page .occasions-wrapper {
+  overflow-x: auto;
+  margin: 0 -22px;
+  padding: 0 22px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.landing-page .occasions-wrapper::-webkit-scrollbar {
+  display: none;
+}
+.landing-page .occasions-chips {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0 24px;
+  width: max-content;
+}
+.landing-page .chip {
+  padding: 12px 20px;
+  border-radius: 100px;
+  background: var(--card);
+  border: 1px solid rgba(28,25,19,0.08);
+  font-weight: 500;
+  font-size: 14.5px;
+  color: var(--ink);
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(28,25,19,0.03);
+}
+
+@media (min-width: 768px) {
+  .landing-page .occasions-wrapper {
+    overflow-x: visible;
+    margin: 0;
+    padding: 0;
+  }
+  .landing-page .occasions-chips {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    padding: 0;
+  }
+  .landing-page .chip {
+    text-align: center;
+  }
+}
+
+/* Section 5 - Reveal Band adjustments */
+.landing-page .reveal-band__lede {
+  font-size: 17px;
+  line-height: 1.65;
+  color: var(--cream-72);
+  margin: 0 0 28px;
+  max-width: 36ch;
+}
+.landing-page .reveal-band__cta-wrap {
+  margin-top: 24px;
+}
+
+/* Section 6 - Pricing Single Card layout */
+.landing-page .tiers {
+  display: block;
+  max-width: 440px;
+  margin: 0 auto;
+}
+.landing-page .pricing-future-note {
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-50);
+  margin-top: 32px;
+}
+
+/* Final CTA tweaks */
+.landing-page .buy__cta-fine {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink-50);
+  margin-top: 12px;
+  margin-bottom: 24px;
+}
+
+/* Footer link styling */
+.landing-page .footer__links {
+  font-size: 13px;
+  color: var(--ink-50);
+  margin-top: 8px;
+}
+.landing-page .footer__link {
+  color: var(--ink);
+  font-weight: 500;
+}
+.landing-page .footer__link:hover {
+  text-decoration: underline;
+}
+
+/* Sticky CTA (Mobile Only) */
+.landing-page .sticky-cta {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .landing-page .sticky-cta {
+    display: block;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--ink);
+    color: var(--bg);
+    z-index: 100;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.15);
+    
+    /* Hidden state */
+    visibility: hidden;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(100%);
+    transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.3s ease;
+  }
+  .landing-page .sticky-cta.is-visible {
+    visibility: visible;
+    pointer-events: auto;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .landing-page .sticky-cta__link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .landing-page .sticky-cta__text-wrap {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+  }
+  .landing-page .sticky-cta__title {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .landing-page .sticky-cta__price {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+  .landing-page .sticky-cta__btn {
+    background: var(--gold-warm);
+    color: var(--ink);
+    font-weight: 700;
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: 100px;
+    text-align: center;
+  }
+  body.landing-page {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-page .sticky-cta {
+    transition: none !important;
+  }
+}
+
+/* =========================================================
+   CREATE PAGE SPECIFIC OVERRIDES AND STYLES
+   ========================================================= */
+.create-page {
+  --bg: #FAF8EC;
+  --ink: #050505;
+}
+
+.create-page .progress-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.create-page .progress-bar__seg {
+  flex: 1;
+  height: 6px;
+  background: rgba(5, 5, 5, 0.08);
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+.create-page .progress-bar__seg--active {
+  background: #B8935A;
+}
+
+.create-page .difficulty-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-radius: 12px;
+  background: #FBF7EE;
+  border: 1px solid rgba(5, 5, 5, 0.08);
+  margin-top: 14px;
+}
+.create-page .btn-change {
+  background: none;
+  border: none;
+  color: #8a6d3a;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.create-page .difficulty-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(28, 25, 19, 0.15);
+  background: #FBF7EE;
+  cursor: pointer;
+  text-align: left;
+}
+.create-page .difficulty-option.active {
+  border-color: #050505;
+  background: rgba(28, 25, 19, 0.04);
+}
+
+.create-page .disclosure-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: none;
+  border: none;
+  color: #050505;
+  font-weight: 600;
+  font-size: 14.5px;
+  padding: 12px 0;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(5, 5, 5, 0.08);
+  margin-bottom: 12px;
+}
+
+.create-page .disclosure-content {
+  padding: 12px 0;
+  margin-bottom: 12px;
+}
+
+.create-page .edit-btn {
+  background: none;
+  border: none;
+  color: #8a6d3a;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.create-page .price-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: rgba(28, 25, 19, 0.66);
+}
+.create-page .price-row.total {
+  font-weight: 700;
+  color: #050505;
+  border-top: 1px solid rgba(5, 5, 5, 0.08);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+.create-page .notice-banner {
+  background: #fdf6e2;
+  border: 1px solid #f5e2b3;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #8a6d3a;
+  margin-bottom: 14px;
+  animation: fadeUp 0.3s ease;
+}
+
+@media (max-width: 760px) {
+  .create-page .footer-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #FAF8EC;
+    border-top: 1px solid rgba(5, 5, 5, 0.08);
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+    display: flex;
+    gap: 12px;
+    z-index: 100;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.05);
+  }
+  .create-page #root {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+}
+@media (min-width: 761px) {
+  .create-page .footer-nav {
+    display: flex;
+    gap: 12px;
+    margin-top: 32px;
+  }
+}
+
+/* =========================================================
+   RECEIVE PAGE SPECIFIC OVERRIDES AND STYLES
+   ========================================================= */
+.receive-page {
+  --bg: #FAF8EC;
+  --ink: #050505;
+  background: var(--bg) !important;
+  min-height: 100vh;
+  padding-top: max(10px, env(safe-area-inset-top));
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   Shared pre-reveal loader — single source of truth.
+   Extracted verbatim from receive.html so receive.html and
+   index.html can never differ again. Pairs with js/loader.js.
+   Puzzle Reveal Transition — orbiting-badge loader (brand-reconciled)
+   ========================================================= */
+.jz-orbit { display:flex; flex-direction:column; align-items:center; gap:22px; }
+.jz-orbit__ring { position:relative; width:120px; height:120px; animation:jzOrbitSpin 2.8s linear infinite; }
+.jz-orbit__arm  { position:absolute; left:50%; top:50%; width:0; height:0; }
+.jz-orbit__arm:nth-child(1){ transform:rotate(0deg); }
+.jz-orbit__arm:nth-child(2){ transform:rotate(120deg); }
+.jz-orbit__arm:nth-child(3){ transform:rotate(240deg); }
+.jz-orbit__badge { position:absolute; left:8px; top:-23px; width:46px; height:46px;
+  filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5)); animation:jzBadgeSpin 2.2s ease-in-out infinite; }
+.jz-orbit__badge svg { display:block; width:100%; height:100%; overflow:visible; }
+.jz-orbit__label { font-size:12.5px; font-weight:500; letter-spacing:0.16em; text-transform:uppercase; color:rgba(5,5,5,0.45); }
+@keyframes jzOrbitSpin { to { transform:rotate(360deg); } }
+@keyframes jzBadgeSpin { 0%{ transform:rotate(0deg) scale(0.9); } 50%{ transform:rotate(180deg) scale(1.1); } 100%{ transform:rotate(360deg) scale(0.9); } }
+@media (prefers-reduced-motion: reduce){ .jz-orbit__ring,.jz-orbit__badge{ animation:none; } }
