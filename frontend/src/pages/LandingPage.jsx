@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import RevealMock from '../components/RevealMock';
 import { analytics } from '../services/analytics';
-import { getLocalizedPrice } from '../services/jigzoPricing';
+import { getLocalizedPrice, resolveVisitorCurrency } from '../services/jigzoPricing';
 
 const CHECK = (
   <svg className="di" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--gold-warm)', marginTop: 2, flexShrink: 0 }}>
@@ -34,7 +34,19 @@ const STEPS = [
 ];
 
 export default function LandingPage() {
-  const price = useMemo(() => getLocalizedPrice('digital'), []); // e.g. "USD 5"
+  const [currency, setCurrency] = useState(resolveVisitorCurrency());
+
+  useEffect(() => {
+    const handlePricingUpdate = () => {
+      setCurrency(resolveVisitorCurrency());
+    };
+    window.addEventListener('jigzo-pricing-updated', handlePricingUpdate);
+    return () => {
+      window.removeEventListener('jigzo-pricing-updated', handlePricingUpdate);
+    };
+  }, []);
+
+  const price = useMemo(() => getLocalizedPrice('digital', currency), [currency]); // e.g. "USD 5"
   const shortPrice = `From ${price}`;
   const startingPrice = `Starting from ${price}`;
 

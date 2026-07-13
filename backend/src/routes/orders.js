@@ -1,9 +1,10 @@
 const express = require('express');
-const router = express.Router();
+const router = Router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const Order = require('../models/Order');
 const Puzzle = require('../models/Puzzle');
 const paymentService = require('../services/paymentService');
+const { getExchangeRates, SUPPORTED_CURRENCIES } = require('./pricing');
 
 // Helper to determine package rules by count
 function getPackageDetails(count) {
@@ -31,7 +32,7 @@ router.post('/', async (req, res, next) => {
       });
     }
 
-    const { puzzleId, recipientCount, hasRevealAlert } = req.body;
+    const { puzzleId, recipientCount, hasRevealAlert, currency: clientCurrency } = req.body;
 
     if (!puzzleId) {
       return res.status(400).json({ error: 'puzzleId is required.' });
@@ -47,7 +48,36 @@ router.post('/', async (req, res, next) => {
     const { packageId, basePrice, addOnPrice } = getPackageDetails(count);
     
     const addOns = hasRevealAlert ? addOnPrice : 0;
-    const total = basePrice + addOns;
+    const usdTotal = basePrice + addOns;
+
+    // Resolve and validate currency
+    const rates = await getExchangeRates();
+    let currency = 'USD';
+    if (clientCurrency) {
+      const cleanCur = clientCurrency.toUpperCase();
+      if (SUPPORTED_CURRENCIES.has(cleanCur) && rates[cleanCur]) {
+        currency = cleanCur;
+      }
+    }
+
+    // Convert total to localized amount
+    const rate = rates[currency] || 1.0;
+    let convertedTotal = usdTotal * rate;
+
+    // Apply currency rounding based on minor units
+    let decimals = 2;
+    const threeDecimalCurrencies = ['BHD', 'KWD', 'OMR', 'LYD', 'IQD', 'TND'];
+    const zeroDecimalCurrencies = ['JPY', 'KRW', 'VND', 'CLP', 'HUF'];
+    if (threeDecimalCurrencies.includes(currency)) {
+      decimals = 3;
+    } else if (zeroDecimalCurrencies.includes(currency)) {
+      decimals = 0;
+    }
+    
+    // Round to correct decimal places
+    const factor = Math.pow(10, decimals);
+    convertedTotal = Math.round(convertedTotal * factor) / factor;
+
     const orderId = `ord_${uuidv4().replace(/-/g, '').substring(0, 12)}`;
 
     // Create the order in the database
@@ -58,7 +88,8 @@ router.post('/', async (req, res, next) => {
       recipientCount: count,
       basePrice,
       addOns,
-      total,
+      total: convertedTotal,
+      currency,
       paymentStatus: 'pending'
     });
 
@@ -69,7 +100,7 @@ router.post('/', async (req, res, next) => {
     await puzzle.save();
 
     // Request mock checkout URL
-    const checkoutData = await paymentService.createCheckout(orderId, total);
+    const checkoutData = await paymentService.createCheckout(orderId, convertedTotal, currency);
     
     // Save reference ID on the order
     order.paymentReference = checkoutData.reference;
@@ -85,6 +116,7 @@ router.post('/', async (req, res, next) => {
         basePrice: order.basePrice,
         addOns: order.addOns,
         total: order.total,
+        currency: order.currency,
         paymentStatus: order.paymentStatus,
         checkoutUrl: checkoutData.checkoutUrl
       }

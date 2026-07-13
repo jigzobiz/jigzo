@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { packageForRecipientCount } from '../services/pricing';
 import { COUNTRIES } from '../config/countries';
+import { formatMoney, resolveVisitorCurrency } from '../services/jigzoPricing';
 import { PACK_OPTIONS, UPGRADES } from '../config/packages';
 import { PIECE_OPTIONS, OCCASIONS, TONES, suggestedMessage } from '../config/difficulties';
 import WhatsAppPreview from '../components/WhatsAppPreview';
@@ -114,6 +115,18 @@ function phoneValid(v) { const d = phoneDigits(v); return d.length >= 7 && d.len
 
 export default function CreatePage() {
   const navigate = useNavigate();
+
+  const [currency, setCurrency] = useState(resolveVisitorCurrency());
+
+  useEffect(() => {
+    const handlePricingUpdate = () => {
+      setCurrency(resolveVisitorCurrency());
+    };
+    window.addEventListener('jigzo-pricing-updated', handlePricingUpdate);
+    return () => {
+      window.removeEventListener('jigzo-pricing-updated', handlePricingUpdate);
+    };
+  }, []);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [imgSrc, setImgSrc] = useState(null);
@@ -466,7 +479,8 @@ export default function CreatePage() {
       const orderRes = await api.createOrder({
         puzzleId: publicId,
         recipientCount: recipients.length,
-        hasRevealAlert: selectedUpgrades.includes("insights")
+        hasRevealAlert: selectedUpgrades.includes("insights"),
+        currency: resolveVisitorCurrency()
       });
 
       const { checkoutUrl, orderId } = orderRes.order;
@@ -632,7 +646,7 @@ export default function CreatePage() {
         {/* ============ STEP 1 — CREATE ============ */}
         {currentStep === 1 && (
           <div style={{ animation: "fadeUp 0.4s ease" }}>
-            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>Create your puzzle</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>Create your surprise</h1>
             <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 0 20px", lineHeight: 1.5 }}>
               Choose the photo they’ll uncover. We’ll turn it into the puzzle that hides your message.
             </p>
@@ -819,7 +833,7 @@ export default function CreatePage() {
               style={{ padding: 18, borderRadius: 16, background: T.card, border: "1.5px solid " + T.ink15, marginBottom: 16, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 2 }}>Current Package</div>
-                <div style={{ fontSize: 16, fontWeight: 600 }}>{currentPack.label} · Up to {currentPack.limit} {currentPack.limit === 1 ? "recipient" : "recipients"} · ${currentPack.price}</div>
+                <div style={{ fontSize: 16, fontWeight: 600 }}>{currentPack.label} · Up to {currentPack.limit} {currentPack.limit === 1 ? "recipient" : "recipients"} · {formatPrice(currentPack.price)}</div>
               </div>
               <span style={{ fontSize: 12 }}>{packageAccordionOpen ? "▲" : "▼"}</span>
             </div>
@@ -846,7 +860,7 @@ export default function CreatePage() {
                           </div>
                           <div style={{ fontSize: 12, color: T.ink66, marginTop: 4 }}>Up to {pack.limit} {pack.limit === 1 ? "recipient" : "recipients"}</div>
                         </div>
-                        <span style={{ fontFamily: T.mono, fontWeight: 600, fontSize: 15, color: T.ink }}>${pack.price}</span>
+                        <span style={{ fontFamily: T.mono, fontWeight: 600, fontSize: 15, color: T.ink }}>{formatPrice(pack.price)}</span>
                       </div>
                     );
                   })}
@@ -1216,5 +1230,5 @@ export default function CreatePage() {
 }
 
 function formatPrice(num) {
-  return `$${num}`;
+  return formatMoney(num);
 }
