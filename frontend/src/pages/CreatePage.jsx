@@ -153,22 +153,21 @@ export default function CreatePage() {
   const cropFrameRef = useRef(null);
   const imgElRef = useRef(null);
 
+  // Scroll-to-top ONLY on major step/view transitions
   useEffect(() => {
     window.scrollTo(0, 0);
     setRevealSimSolved(false);
     setRevealSimLoading(false);
+  }, [currentStep]);
 
-    // Track funnel journey steps dynamically
-    if (currentStep === 1) {
-      analytics.track('create_started');
-    } else if (currentStep === 2) {
-      analytics.track('occasion_selected', { occasion, tone });
-    } else if (currentStep === 3) {
-      analytics.track('recipient_added', {
-        recipientCount: recipients.length,
-        recipients: recipients.map(r => ({ name: r.name, country: r.country.code }))
-      });
-    } else if (currentStep === 4) {
+  // Track create_started once on mount
+  useEffect(() => {
+    analytics.track('create_started');
+  }, []);
+
+  // Track review opened and checkout blocked when entering Step 4
+  useEffect(() => {
+    if (currentStep === 4) {
       analytics.track('review_opened', {
         difficulty: pieceCount,
         hasRevealAlert: selectedUpgrades.includes('insights'),
@@ -178,17 +177,7 @@ export default function CreatePage() {
         reason: 'CHECKOUT_DISABLED_LAUNCH_LOCK'
       });
     }
-
-    // Force reset browser viewport zoom on step transition
-    const meta = document.querySelector('meta[name="viewport"]');
-    if (meta) {
-      const orig = meta.getAttribute("content");
-      meta.setAttribute("content", "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0");
-      setTimeout(() => {
-        meta.setAttribute("content", orig || "width=device-width, initial-scale=1.0");
-      }, 150);
-    }
-  }, [currentStep, isProcessing, isSuccess, occasion, tone, pieceCount, selectedUpgrades, recipients]);
+  }, [currentStep]);
 
   // Sync recipient #1 name with primary recipient name
   const handlePrimaryRecipientNameChange = (val) => {
@@ -196,7 +185,7 @@ export default function CreatePage() {
     setRecipients(prev => {
       const next = [...prev];
       if (next[0]) {
-        next[0].name = val;
+        next[0] = { ...next[0], name: val };
       } else {
         next[0] = { name: val, phone: "", country: COUNTRIES[0] };
       }
@@ -548,6 +537,7 @@ export default function CreatePage() {
 
   const handleStep2Continue = () => {
     if (primaryRecipientName.trim() && message.trim()) {
+      analytics.track('occasion_selected', { occasion, tone });
       setCurrentStep(3);
     }
   };
@@ -773,7 +763,8 @@ export default function CreatePage() {
             <div style={{ marginBottom: 18 }}>
               <label style={{ display: "block", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50, marginBottom: 6 }}>Recipient’s Name</label>
               <input type="text" placeholder="e.g. Sofia, Mom, Alex" value={primaryRecipientName}
-                onChange={(e) => handlePrimaryRecipientNameChange(e.target.value)} style={inputStyle} />
+                onChange={(e) => handlePrimaryRecipientNameChange(e.target.value)} style={inputStyle}
+                autoComplete="off" />
             </div>
 
             <div style={{ marginBottom: 18 }}>
@@ -883,11 +874,12 @@ export default function CreatePage() {
                       if (idx === 0) setPrimaryRecipientName(val);
                       setRecipients(prev => {
                         const next = [...prev];
-                        next[idx].name = val;
+                        next[idx] = { ...next[idx], name: val };
                         return next;
                       });
                     }}
                     style={{ ...inputStyle, marginBottom: 14 }}
+                    autoComplete="off"
                   />
                   <div style={{ display: "flex", gap: 10 }}>
                     <select
@@ -897,7 +889,7 @@ export default function CreatePage() {
                         const country = COUNTRIES.find(c => c.code === code);
                         setRecipients(prev => {
                           const next = [...prev];
-                          next[idx].country = country;
+                          next[idx] = { ...next[idx], country: country };
                           return next;
                         });
                       }}
@@ -910,11 +902,13 @@ export default function CreatePage() {
                         const val = e.target.value;
                         setRecipients(prev => {
                           const next = [...prev];
-                          next[idx].phone = val;
+                          next[idx] = { ...next[idx], phone: val };
                           return next;
                         });
                       }}
                       aria-invalid={recTouched && rec.phone && !recValid ? "true" : "false"}
+                      inputMode="tel"
+                      autoComplete="off"
                       style={{ ...inputStyle, flex: 1 }}
                     />
                   </div>
@@ -935,7 +929,18 @@ export default function CreatePage() {
             })}
 
             {recipients.length < 50 && (
-              <button type="button" onClick={() => setRecipients(prev => [...prev, { name: "", phone: "", country: COUNTRIES[0] }])} className="add-recipient-btn">
+              <button
+                type="button"
+                onClick={() => {
+                  const nextRecipients = [...recipients, { name: "", phone: "", country: COUNTRIES[0] }];
+                  setRecipients(nextRecipients);
+                  analytics.track('recipient_added', {
+                    recipientCount: nextRecipients.length,
+                    recipients: nextRecipients.map(r => ({ name: r.name, country: r.country.code }))
+                  });
+                }}
+                className="add-recipient-btn"
+              >
                 + Add another recipient
               </button>
             )}
@@ -944,13 +949,16 @@ export default function CreatePage() {
             <div style={{ padding: 18, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, margin: "16px 0" }}>
               <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 12 }}>Sender details</div>
               <input type="text" placeholder="Your name (as you want it shown)" value={senderName} onChange={(e) => setSenderName(e.target.value)}
-                style={{ ...inputStyle, marginBottom: 14 }} />
+                style={{ ...inputStyle, marginBottom: 14 }}
+                autoComplete="name" />
               <div style={{ display: "flex", gap: 10 }}>
                 <select value={senderCountry.code} onChange={(e) => setSenderCountry(COUNTRIES.find(c => c.code === e.target.value))}
                   style={{ ...inputStyle, width: "auto", flex: "none", padding: "13px 8px" }}>
                   {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.dial}</option>)}
                 </select>
                 <input type="tel" placeholder="Your phone number" value={senderPhone} onChange={(e) => setSenderPhone(e.target.value)}
+                  inputMode="tel"
+                  autoComplete="tel"
                   style={{ ...inputStyle, flex: 1 }} />
               </div>
 
