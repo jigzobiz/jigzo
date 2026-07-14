@@ -21,6 +21,13 @@ let EXCHANGE_RATES = {
   SAR: 3.75,
 };
 
+// Country to Currency Mapping
+const COUNTRY_CURRENCY_MAP = {
+  US: 'USD', BH: 'BHD', GB: 'GBP', UK: 'GBP',
+  DE: 'EUR', FR: 'EUR', IT: 'EUR', ES: 'EUR', NL: 'EUR',
+  AE: 'AED', SA: 'SAR',
+};
+
 // Check if cached rates/currency are in sessionStorage to allow synchronous first-render
 try {
   const cachedRates = sessionStorage.getItem(CACHE_KEY_RATES);
@@ -121,6 +128,9 @@ export function initializePricing() {
 
       const url = `/api/pricing/locale` + (queryCur ? `?currency=${queryCur}` : '');
       const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`HTTP error ${res.status}`);
+      }
       const data = await res.json();
 
       if (data && data.currency) {
@@ -133,7 +143,51 @@ export function initializePricing() {
         return data.currency;
       }
     } catch (err) {
-      console.error('Failed to load pricing locale from API:', err);
+      console.warn('Failed to load pricing locale from API, running client-side fallback:', err.message);
+      
+      // Client-side fallback detection using ipapi.co
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const queryCur = urlParams.get('currency');
+        
+        let currency = 'USD';
+        if (queryCur) {
+          const cleanCur = queryCur.toUpperCase();
+          if (EXCHANGE_RATES[cleanCur]) {
+            currency = cleanCur;
+          }
+        } else {
+          // Direct JSON geolocation lookup
+          const geoRes = await fetch('https://ipapi.co/json/');
+          const geoData = await geoRes.json();
+          if (geoData) {
+            if (geoData.currency && EXCHANGE_RATES[geoData.currency.toUpperCase()]) {
+              currency = geoData.currency.toUpperCase();
+            } else if (geoData.country_code) {
+              const country = geoData.country_code.toUpperCase();
+              currency = COUNTRY_CURRENCY_MAP[country] || 'USD';
+            }
+          }
+        }
+        
+        // Try to fetch latest exchange rates client-side, fallback to hardcoded if it fails
+        try {
+          const ratesRes = await fetch('https://open.er-api.com/v6/latest/USD');
+          const ratesData = await ratesRes.json();
+          if (ratesData && ratesData.rates) {
+            EXCHANGE_RATES = ratesData.rates;
+            sessionStorage.setItem(CACHE_KEY_RATES, JSON.stringify(ratesData.rates));
+          }
+        } catch (ratesErr) {
+          console.warn('Client-side exchange rates fetch failed, using local fallback rates:', ratesErr.message);
+        }
+
+        sessionStorage.setItem(CACHE_KEY_CURRENCY, currency);
+        window.dispatchEvent(new CustomEvent('jigzo-pricing-updated', { detail: { currency } }));
+        return currency;
+      } catch (fallbackErr) {
+        console.error('Client-side fallback geolocation also failed:', fallbackErr.message);
+      }
     }
     return resolveVisitorCurrency();
   })();
