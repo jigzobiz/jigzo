@@ -149,8 +149,9 @@ export default function CreatePage() {
   const [revealSimSolved, setRevealSimSolved] = useState(false);
   const [revealSimLoading, setRevealSimLoading] = useState(false);
 
+  const [defaultDialCode, setDefaultDialCode] = useState("+973");
   const [recipients, setRecipients] = useState([
-    { name: "", phone: "", country: COUNTRIES[0] }
+    { name: "", phone: "", dial: "+973", dialEdited: false }
   ]);
 
   const [primaryRecipientName, setPrimaryRecipientName] = useState("");
@@ -158,6 +159,7 @@ export default function CreatePage() {
   // Crop Zoom & Pan States
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [rotation, setRotation] = useState(0);
   const pointersRef = useRef(new Map());
   const dragRef = useRef(null);
   const pinchRef = useRef(null);
@@ -165,6 +167,53 @@ export default function CreatePage() {
   const fileInputRef = useRef(null);
   const cropFrameRef = useRef(null);
   const imgElRef = useRef(null);
+
+  const senderPhoneRef = useRef("");
+  const senderDialEditedRef = useRef(false);
+
+  useEffect(() => {
+    senderPhoneRef.current = senderPhone;
+  }, [senderPhone]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadGeoLocale = async () => {
+      try {
+        const res = await fetch('/api/pricing/locale');
+        if (!res.ok) throw new Error('Locale request failed');
+        const data = await res.json();
+        if (data && data.success && data.country) {
+          const countryMatch = COUNTRIES.find(c => c.code === data.country.toUpperCase());
+          if (countryMatch && countryMatch.dial) {
+            const resolvedDial = countryMatch.dial;
+            if (isMounted) {
+              setDefaultDialCode(resolvedDial);
+              setSenderDial(prev => {
+                if (senderPhoneRef.current === "" && !senderDialEditedRef.current) {
+                  return resolvedDial;
+                }
+                return prev;
+              });
+              setRecipients(prevRecs => {
+                return prevRecs.map(r => {
+                  if (r.phone === "" && !r.dialEdited) {
+                    return { ...r, dial: resolvedDial };
+                  }
+                  return r;
+                });
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching pricing locale:', err);
+      }
+    };
+    loadGeoLocale();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Scroll-to-top ONLY on major step/view transitions
   useEffect(() => {
@@ -200,7 +249,7 @@ export default function CreatePage() {
       if (next[0]) {
         next[0] = { ...next[0], name: val };
       } else {
-        next[0] = { name: val, phone: "", country: COUNTRIES[0] };
+        next[0] = { name: val, phone: "", dial: defaultDialCode, dialEdited: false };
       }
       return next;
     });
@@ -276,18 +325,35 @@ export default function CreatePage() {
   }, [pieceCount]);
 
   // Country Dial Selectors
-  const [senderCountry, setSenderCountry] = useState(COUNTRIES[0]);
-  const senderValid = phoneValid(senderCountry.dial + senderPhone);
+  const [senderDial, setSenderDial] = useState("+973");
+  const senderValid = phoneValid(senderDial + senderPhone);
+
+  const getCountryCodeFromDial = (dialVal) => {
+    const match = COUNTRIES.find(c => c.dial === dialVal);
+    return match ? match.code : "UNKNOWN";
+  };
+
+  const sanitizeDialCode = (val) => {
+    let sanitized = val.replace(/[^\d+]/g, '');
+    if (sanitized.includes('+')) {
+      const hasLeadingPlus = val.startsWith('+');
+      sanitized = sanitized.replace(/\+/g, '');
+      if (hasLeadingPlus) {
+        sanitized = '+' + sanitized;
+      }
+    }
+    return sanitized;
+  };
 
   const recipientNumbers = useMemo(() => {
-    return recipients.map(r => r.country.dial + r.phone);
+    return recipients.map(r => r.dial + r.phone);
   }, [recipients]);
 
   const recipientsValid = useMemo(() => {
     const phoneSet = new Set();
     for (const r of recipients) {
       if (!r.name.trim()) return false;
-      const fullPhone = r.country.dial + r.phone;
+      const fullPhone = r.dial + r.phone;
       if (!phoneValid(fullPhone)) return false;
       if (phoneSet.has(fullPhone)) return false;
       phoneSet.add(fullPhone);
@@ -334,6 +400,7 @@ export default function CreatePage() {
       setImgSrc(e.target.result);
       setZoom(1.2);
       setPan({ x: 0, y: 0 });
+      setRotation(0);
       setCropData(null);
       analytics.track('photo_uploaded');
     };
@@ -352,10 +419,12 @@ export default function CreatePage() {
       const pts = [...pointersRef.current.values()];
       const a = pts[0], b = pts[1];
       const r = frame.getBoundingClientRect();
+      const curAngle = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
       pinchRef.current = {
         startDist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
         startZoom: zoom,
         startPan: { ...pan },
+        lastAngle: curAngle,
         startMid: { x: (a.x + b.x) / 2 - r.left, y: (a.y + b.y) / 2 - r.top },
         C: { x: r.width / 2, y: r.height / 2 },
       };
@@ -379,7 +448,15 @@ export default function CreatePage() {
       const ratio = z1 / g.startZoom;
       const px = (curMid.x - g.C.x) - ratio * (g.startMid.x - g.C.x - g.startPan.x);
       const py = (curMid.y - g.C.y) - ratio * (g.startMid.y - g.C.y - g.startPan.y);
+
+      const curAngle = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+      let angleDiff = curAngle - g.lastAngle;
+      if (angleDiff > 180) angleDiff -= 360;
+      if (angleDiff < -180) angleDiff += 360;
+      g.lastAngle = curAngle;
+
       setZoom(z1);
+      setRotation(prev => prev + angleDiff);
       setPan(clampPan(px, py, z1));
       return;
     }
@@ -418,12 +495,6 @@ export default function CreatePage() {
     const OUT_W = 540, OUT_H = 960;
     const k = OUT_W / Wf;
     const containScale = Math.min(Wf / Wi, Hf / Hi);
-    const containDw = Wi * containScale, containDh = Hi * containScale;
-    const cx = Wf / 2, cy = Hf / 2;
-    const p0x = (Wf - containDw) / 2, p0y = (Hf - containDh) / 2;
-    const pf0x = cx + (p0x - cx) * zoom + pan.x;
-    const pf0y = cy + (p0y - cy) * zoom + pan.y;
-    const sEff = k * containScale * zoom;
     const canvas = document.createElement("canvas");
     canvas.width = OUT_W; canvas.height = OUT_H;
     const ctx = canvas.getContext("2d");
@@ -442,10 +513,24 @@ export default function CreatePage() {
     }
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(imgEl, k * pf0x, k * pf0y, sEff * Wi, sEff * Hi);
+
+    ctx.save();
+    // 1. Translate to crop center
+    ctx.translate(OUT_W / 2, OUT_H / 2);
+    // 2. Apply scaled pan offset
+    ctx.translate(pan.x * k, pan.y * k);
+    // 3. Rotate
+    ctx.rotate(rotation * Math.PI / 180);
+    // 4. Scale using same contain scale and zoom as preview
+    const sEff = containScale * zoom * k;
+    ctx.scale(sEff, sEff);
+    // 5. Draw image centered
+    ctx.drawImage(imgEl, -Wi / 2, -Hi / 2, Wi, Hi);
+    ctx.restore();
+
     setCropData(canvas.toDataURL("image/jpeg", 0.92));
     analytics.track('photo_cropped');
-  }, [zoom, pan]);
+  }, [zoom, pan, rotation]);
 
   // Submit Handler integrating server-side API pricing and orders
   const handlePayAndSend = async () => {
@@ -453,7 +538,7 @@ export default function CreatePage() {
     try {
       const formattedRecipients = recipients.map(r => ({
         name: r.name,
-        countryCode: r.country.dial,
+        countryCode: r.dial,
         phone: r.phone
       }));
 
@@ -467,7 +552,7 @@ export default function CreatePage() {
         cropData,
         message,
         senderName,
-        senderPhone: senderCountry.dial + senderPhone,
+        senderPhone: senderDial + senderPhone,
         revealIdentity,
         pieceCount,
         recipients: formattedRecipients
@@ -628,6 +713,21 @@ export default function CreatePage() {
           <Link to="/" aria-label="Jigzo home">
             <img className="nav__logo" src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" />
           </Link>
+          <Link to="/" style={{
+            background: T.ink,
+            color: T.bg,
+            border: "none",
+            borderRadius: 999,
+            padding: "8px 18px",
+            fontSize: 14,
+            fontWeight: 700,
+            textDecoration: "none",
+            display: "inline-flex",
+            alignItems: "center",
+            fontFamily: "Archia, sans-serif"
+          }}>
+            Home
+          </Link>
         </div>
       </header>
 
@@ -686,7 +786,7 @@ export default function CreatePage() {
                         filter: "blur(18px) brightness(0.5)", transform: "scale(1.15)", userSelect: "none", pointerEvents: "none" }} />
                     <img ref={imgElRef} src={imgSrc} alt="" draggable={false}
                       style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "contain",
-                        transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "center",
+                        transform: `translate(${pan.x}px, ${pan.y}px) rotate(${rotation}deg) scale(${zoom})`, transformOrigin: "center",
                         userSelect: "none", pointerEvents: "none" }} />
                     {[{ top: 10, left: 10 }, { top: 10, right: 10 }, { bottom: 10, left: 10 }, { bottom: 10, right: 10 }].map((pos, i) => (
                       <div key={i} style={{ position: "absolute", width: 16, height: 16, border: "2px solid " + T.goldBright, pointerEvents: "none",
@@ -695,15 +795,57 @@ export default function CreatePage() {
                     ))}
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "10px 0 20px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "10px 0 10px" }}>
                   <span style={{ fontSize: 18 }}>−</span>
                   <input type="range" min="1" max="3" step="0.01" value={zoom}
                     onChange={(e) => { const z = parseFloat(e.target.value); setZoom(z); setPan((p) => clampPan(p.x, p.y, z)); }}
                     style={{ flex: 1, accentColor: T.gold }} />
                   <span style={{ fontSize: 18 }}>+</span>
                 </div>
+                <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 20 }}>
+                  <button
+                    type="button"
+                    onClick={() => setRotation(r => r - 90)}
+                    style={{
+                      background: "transparent",
+                      color: T.ink,
+                      border: "1.5px solid " + T.ink15,
+                      borderRadius: 999,
+                      padding: "8px 16px",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontFamily: "Archia, sans-serif"
+                    }}
+                  >
+                    <span style={{ fontSize: 16 }}>↺</span> Rotate Left
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRotation(r => r + 90)}
+                    style={{
+                      background: "transparent",
+                      color: T.ink,
+                      border: "1.5px solid " + T.ink15,
+                      borderRadius: 999,
+                      padding: "8px 16px",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontFamily: "Archia, sans-serif"
+                    }}
+                  >
+                    Rotate Right <span style={{ fontSize: 16 }}>↻</span>
+                  </button>
+                </div>
                 <div className="footer-nav">
-                  <GhostButton onClick={() => setImgSrc(null)}>Cancel</GhostButton>
+                  <GhostButton onClick={() => { setImgSrc(null); setRotation(0); }}>Cancel</GhostButton>
                   <PrimaryButton onClick={captureCrop} style={{ flex: 1 }}>Crop Photo</PrimaryButton>
                 </div>
               </div>
@@ -715,7 +857,7 @@ export default function CreatePage() {
                   <div style={{ position: "relative", width: "100%", maxWidth: 170, aspectRatio: "9 / 16", borderRadius: 14,
                     overflow: "hidden", boxShadow: T.shadowRest, border: "1px solid " + T.ink08 }}>
                     <img src={cropData} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    <button type="button" onClick={() => { setCropData(null); setZoom(1.2); setPan({ x: 0, y: 0 }); }} className="edit-btn"
+                    <button type="button" onClick={() => { setCropData(null); setZoom(1.2); setPan({ x: 0, y: 0 }); setRotation(0); }} className="edit-btn"
                       style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)" }}>Change</button>
                   </div>
                 </div>
@@ -871,9 +1013,9 @@ export default function CreatePage() {
             {/* Recipient Details List */}
             {recipients.map((rec, idx) => {
               const recTouched = rec.name || rec.phone;
-              const recValid = phoneValid(rec.country.dial + rec.phone);
-              const fullPhone = rec.country.dial + rec.phone;
-              const isDuplicate = rec.phone && recipients.some((r, i) => i !== idx && (r.country.dial + r.phone) === fullPhone);
+              const recValid = phoneValid(rec.dial + rec.phone);
+              const fullPhone = rec.dial + rec.phone;
+              const isDuplicate = rec.phone && recipients.some((r, i) => i !== idx && (r.dial + r.phone) === fullPhone);
               return (
                 <div key={idx} style={{ padding: 18, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, marginBottom: 16, position: "relative" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -896,21 +1038,20 @@ export default function CreatePage() {
                     autoComplete="off"
                   />
                   <div style={{ display: "flex", gap: 10 }}>
-                    <select
-                      value={rec.country.code}
+                    <input
+                      type="text"
+                      value={rec.dial}
                       onChange={(e) => {
-                        const code = e.target.value;
-                        const country = COUNTRIES.find(c => c.code === code);
+                        const val = sanitizeDialCode(e.target.value);
                         setRecipients(prev => {
                           const next = [...prev];
-                          next[idx] = { ...next[idx], country: country };
+                          next[idx] = { ...next[idx], dial: val, dialEdited: true };
                           return next;
                         });
                       }}
-                      style={{ ...inputStyle, width: "auto", flex: "none", padding: "13px 8px" }}
-                    >
-                      {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.dial}</option>)}
-                    </select>
+                      style={{ ...inputStyle, width: "80px", flex: "none", padding: "13px 8px", textAlign: "center" }}
+                      placeholder="+973"
+                    />
                     <input type="tel" placeholder="Phone number" value={rec.phone}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -946,11 +1087,11 @@ export default function CreatePage() {
               <button
                 type="button"
                 onClick={() => {
-                  const nextRecipients = [...recipients, { name: "", phone: "", country: COUNTRIES[0] }];
+                  const nextRecipients = [...recipients, { name: "", phone: "", dial: defaultDialCode, dialEdited: false }];
                   setRecipients(nextRecipients);
                   analytics.track('recipient_added', {
                     recipientCount: nextRecipients.length,
-                    recipients: nextRecipients.map(r => ({ name: r.name, country: r.country.code }))
+                    recipients: nextRecipients.map(r => ({ name: r.name, country: getCountryCodeFromDial(r.dial) }))
                   });
                 }}
                 className="add-recipient-btn"
@@ -966,10 +1107,17 @@ export default function CreatePage() {
                 style={{ ...inputStyle, marginBottom: 14 }}
                 autoComplete="name" />
               <div style={{ display: "flex", gap: 10 }}>
-                <select value={senderCountry.code} onChange={(e) => setSenderCountry(COUNTRIES.find(c => c.code === e.target.value))}
-                  style={{ ...inputStyle, width: "auto", flex: "none", padding: "13px 8px" }}>
-                  {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.dial}</option>)}
-                </select>
+                <input
+                  type="text"
+                  value={senderDial}
+                  onChange={(e) => {
+                    const val = sanitizeDialCode(e.target.value);
+                    setSenderDial(val);
+                    senderDialEditedRef.current = true;
+                  }}
+                  style={{ ...inputStyle, width: "80px", flex: "none", padding: "13px 8px", textAlign: "center" }}
+                  placeholder="+973"
+                />
                 <input type="tel" placeholder="Your phone number" value={senderPhone} onChange={(e) => setSenderPhone(e.target.value)}
                   inputMode="tel"
                   autoComplete="tel"
