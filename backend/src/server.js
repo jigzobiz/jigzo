@@ -48,6 +48,16 @@ app.use(express.urlencoded({ limit: '15mb', extended: true }));
 // Serve saved crop images statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Database connection middleware for Vercel Serverless
+app.use('/api', async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    res.status(500).json({ error: "Database connection failed" });
+  }
+});
+
 // Routes
 app.use('/api/puzzles', puzzlesRouter);
 app.use('/api/orders', ordersRouter);
@@ -76,8 +86,6 @@ const startServer = async () => {
 
 if (require.main === module) {
   startServer();
-} else {
-  connectDB();
 }
 
 module.exports = app;
