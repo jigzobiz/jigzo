@@ -55,8 +55,10 @@ export default function AdminPortal() {
   // Unmask values state cache
   const [unmaskedValues, setUnmaskedValues] = useState({});
 
-  const API_BASE = import.meta.env.VITE_API_URL || 'https://api.jigzo.biz';
-  const getBaseUrl = () => import.meta.env.VITE_ENABLE_LOCAL_TEST === 'true' ? 'http://localhost:5000' : API_BASE;
+  const getBaseUrl = () =>
+    import.meta.env.VITE_ENABLE_LOCAL_TEST === 'true'
+      ? 'http://localhost:5000'
+      : '';
 
   const getAxiosConfig = () => ({
     headers: { Authorization: `Bearer ${token}` }
