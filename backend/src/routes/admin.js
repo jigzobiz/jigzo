@@ -20,23 +20,6 @@ const Puzzle = require('../models/Puzzle');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'jigzo_secure_jwt_secret_key_2026';
 
-// Helper to seed a default admin user if none exist
-const seedAdmin = async () => {
-  const adminCount = await AdminUser.countDocuments();
-  if (adminCount === 0) {
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash('jigzo_admin_2026', salt);
-    const defaultAdmin = new AdminUser({
-      username: 'admin',
-      passwordHash,
-      role: 'superadmin'
-    });
-    await defaultAdmin.save();
-    console.log('[JIGZO Admin] Default admin seeded successfully.');
-  }
-};
-seedAdmin().catch(err => console.error('[JIGZO Admin] Seed error:', err));
-
 // Auth Middleware
 const authenticateAdmin = (req, res, next) => {
   const authHeader = req.headers['authorization'];
