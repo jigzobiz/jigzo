@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { Resend } = require('resend');
 
 const Customer = require('../models/Customer');
 const AnonymousSession = require('../models/AnonymousSession');
@@ -19,6 +20,54 @@ const AuditLog = require('../models/AuditLog');
 const Puzzle = require('../models/Puzzle');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'jigzo_secure_jwt_secret_key_2026';
+
+// --- WAITLIST EMAIL SUPPORT ---
+const EMAIL_FROM = process.env.EMAIL_FROM || 'JIGZO <info@jigzo.biz>';
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
+
+const escapeHtml = (value = '') =>
+  String(value).replace(/[&<>"']/g, character => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  })[character]);
+
+const inferCountry = record => {
+  const context = record.context || {};
+  const directCountry =
+    record.country ||
+    context.country ||
+    context.countryName ||
+    context.localeCountry;
+
+  if (directCountry) return String(directCountry);
+
+  const digits = String(record.phone || '').replace(/\D/g, '');
+  const countryPrefixes = [
+    ['973', 'Bahrain'],
+    ['966', 'Saudi Arabia'],
+    ['971', 'United Arab Emirates'],
+    ['965', 'Kuwait'],
+    ['974', 'Qatar'],
+    ['968', 'Oman'],
+    ['962', 'Jordan'],
+    ['20', 'Egypt'],
+    ['44', 'United Kingdom'],
+    ['91', 'India'],
+    ['92', 'Pakistan'],
+    ['90', 'Turkey'],
+    ['33', 'France'],
+    ['49', 'Germany'],
+    ['1', 'United States / Canada']
+  ];
+
+  const match = countryPrefixes.find(([prefix]) => digits.startsWith(prefix));
+  return match ? match[1] : 'Unknown';
+};
 
 // Auth Middleware
 const authenticateAdmin = (req, res, next) => {
@@ -327,14 +376,243 @@ router.get('/whatsapp', authenticateAdmin, async (req, res, next) => {
 router.get('/notifications', authenticateAdmin, async (req, res, next) => {
   try {
     const list = await NotificationRequest.find().sort({ createdAt: -1 });
-    const masked = list.map(n => ({
-      ...n.toObject(),
-      email: maskEmail(n.email),
-      phone: maskPhone(n.phone)
+
+    const fullList = list.map(notification => ({
+      ...notification.toObject(),
+      country: inferCountry(notification)
     }));
-    res.json({ success: true, list: masked });
+
+    // Record full-list access without blocking the response.
+    new AuditLog({
+      adminUserId: req.admin.id,
+      action: 'WAITLIST_LIST_VIEWED',
+      targetModel: 'NotificationRequest',
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || '',
+      userAgent: req.headers['user-agent'] || ''
+    }).save().catch(auditError => {
+      console.error(
+        'Failed to record WAITLIST_LIST_VIEWED audit log:',
+        auditError.message
+      );
+    });
+
+    res.json({ success: true, list: fullList });
   } catch (err) {
     next(err);
+  }
+});
+
+router.post('/notifications/:id/send', authenticateAdmin, async (req, res) => {
+  let notification = null;
+  let providerAccepted = false;
+  let providerMessageId = '';
+
+  try {
+    if (!resend) {
+      return res.status(503).json({
+        error: 'Email sending is not configured on this environment.'
+      });
+    }
+
+    const subject = String(req.body.subject || '').trim();
+    const message = String(req.body.message || '').trim();
+
+    if (!subject || !message) {
+      return res.status(400).json({
+        error: 'Email subject and message are required.'
+      });
+    }
+
+    if (subject.length > 200 || message.length > 5000) {
+      return res.status(400).json({
+        error: 'The subject or message exceeds the allowed length.'
+      });
+    }
+
+    // A failed record may only be retried with its exact original payload so
+    // the stable Resend idempotency key stays consistent with the sent content.
+    const priorRecord = await NotificationRequest.findById(req.params.id);
+    if (priorRecord && priorRecord.sendStatus === 'failed') {
+      const originalSubject = String(priorRecord.emailSubject || '');
+      const originalMessage = String(priorRecord.emailBody || '');
+
+      if (subject !== originalSubject || message !== originalMessage) {
+        return res.status(409).json({
+          error: 'A failed email can only be retried with its original subject and message.'
+        });
+      }
+    }
+
+    notification = await NotificationRequest.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        email: { $exists: true, $nin: ['', null] },
+        notified: { $ne: true },
+        sendStatus: { $nin: ['sending', 'sent', 'review_required'] }
+      },
+      {
+        $set: {
+          sendStatus: 'sending',
+          sendAttemptedAt: new Date(),
+          emailSubject: subject,
+          emailBody: message,
+          lastSendError: ''
+        }
+      },
+      { new: true }
+    );
+
+    if (!notification) {
+      const existing = await NotificationRequest.findById(req.params.id);
+
+      if (!existing) {
+        return res.status(404).json({ error: 'Waitlist record not found.' });
+      }
+
+      if (!existing.email) {
+        return res.status(400).json({
+          error: 'This waitlist record does not contain an email address.'
+        });
+      }
+
+      return res.status(409).json({
+        error: 'This email has already been sent or is currently being sent.'
+      });
+    }
+
+    // Record the send attempt without blocking the actual email delivery.
+    new AuditLog({
+      adminUserId: req.admin.id,
+      action: 'WAITLIST_EMAIL_SEND_ATTEMPT',
+      targetModel: 'NotificationRequest',
+      targetId: notification._id,
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || '',
+      userAgent: req.headers['user-agent'] || ''
+    }).save().catch(auditError => {
+      console.error(
+        'Failed to record WAITLIST_EMAIL_SEND_ATTEMPT audit log:',
+        auditError.message
+      );
+    });
+
+    const safeMessage = escapeHtml(message).replace(/\r?\n/g, '<br>');
+
+    const html = [
+      '<div style="margin:0;padding:32px 20px;background:#faf8ec;">',
+      '<div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid rgba(28,25,19,0.08);border-radius:16px;padding:32px;font-family:Arial,sans-serif;color:#1c1913;line-height:1.65;">',
+      '<div style="font-size:22px;font-weight:700;letter-spacing:0.04em;margin-bottom:24px;">JIGZO</div>',
+      '<div style="font-size:16px;">' + safeMessage + '</div>',
+      '<div style="margin-top:28px;padding-top:18px;border-top:1px solid rgba(28,25,19,0.10);font-size:12px;color:rgba(28,25,19,0.55);">',
+      'Sent by JIGZO &middot; Every surprise deserves a memorable reveal.',
+      '</div></div></div>'
+    ].join('');
+
+    const result = await resend.emails.send(
+      {
+        from: EMAIL_FROM,
+        to: [notification.email],
+        subject,
+        text: message,
+        html
+      },
+      {
+        idempotencyKey: 'waitlist-email/' + notification._id
+      }
+    );
+
+    if (result.error) {
+      const providerError = new Error(
+        result.error.message || 'The email provider rejected the message.'
+      );
+      providerError.statusCode = 502;
+      throw providerError;
+    }
+
+    providerAccepted = true;
+    providerMessageId = result.data?.id || '';
+
+    const sentAt = new Date();
+
+    const updatedNotification = await NotificationRequest.findByIdAndUpdate(
+      notification._id,
+      {
+        $set: {
+          notified: true,
+          notifiedAt: sentAt,
+          sendStatus: 'sent',
+          sentAt,
+          sentBy: req.admin.id,
+          sentByUsername: req.admin.username,
+          providerMessageId,
+          lastSendError: ''
+        }
+      },
+      { new: true }
+    );
+
+    try {
+      await new AuditLog({
+        adminUserId: req.admin.id,
+        action: 'WAITLIST_EMAIL_SENT',
+        targetModel: 'NotificationRequest',
+        targetId: notification._id,
+        ipAddress: req.ip || req.headers['x-forwarded-for'] || '',
+        userAgent: req.headers['user-agent'] || ''
+      }).save();
+    } catch (auditError) {
+      console.error(
+        'Failed to record WAITLIST_EMAIL_SENT audit log:',
+        auditError.message
+      );
+    }
+
+    return res.json({
+      success: true,
+      notification: {
+        ...updatedNotification.toObject(),
+        country: inferCountry(updatedNotification)
+      }
+    });
+  } catch (error) {
+    if (notification?._id) {
+      const failureState = providerAccepted
+        ? {
+            sendStatus: 'review_required',
+            providerMessageId,
+            lastSendError:
+              'The provider accepted the email, but database confirmation failed. Manual review is required.'
+          }
+        : {
+            sendStatus: 'failed',
+            lastSendError: String(
+              error.message || 'Email send failed'
+            ).slice(0, 500)
+          };
+
+      await NotificationRequest.findByIdAndUpdate(
+        notification._id,
+        { $set: failureState }
+      ).catch(() => {});
+
+      await new AuditLog({
+        adminUserId: req.admin.id,
+        action: providerAccepted
+          ? 'WAITLIST_EMAIL_CONFIRMATION_FAILED'
+          : 'WAITLIST_EMAIL_FAILED',
+        targetModel: 'NotificationRequest',
+        targetId: notification._id,
+        ipAddress: req.ip || req.headers['x-forwarded-for'] || '',
+        userAgent: req.headers['user-agent'] || ''
+      }).save().catch(() => {});
+    }
+
+    console.error('Waitlist email send failed:', error.message);
+
+    return res.status(error.statusCode || 500).json({
+      error: error.statusCode
+        ? error.message
+        : 'Unable to send the email.'
+    });
   }
 });
 

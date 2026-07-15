@@ -5,7 +5,7 @@ const JourneyEvent = require('../models/JourneyEvent');
 
 router.post('/', async (req, res, next) => {
   try {
-    const { email, phone, interestType = 'jigzo_launch', sourceUrl = '', context = {}, anonymousId, sessionId } = req.body;
+    const { email, phone, country = '', interestType = 'jigzo_launch', sourceUrl = '', context = {}, anonymousId, sessionId } = req.body;
     
     if (!email && !phone) {
       return res.status(400).json({ error: 'Email or phone number is required.' });
@@ -15,6 +15,7 @@ router.post('/', async (req, res, next) => {
     const request = new NotificationRequest({
       email,
       phone,
+      country,
       interestType,
       sourceUrl,
       context
@@ -28,7 +29,7 @@ router.post('/', async (req, res, next) => {
         sessionId,
         eventType: 'waitlist_joined',
         pageUrl: sourceUrl,
-        metadata: { email, phone, interestType }
+        metadata: { email, phone, country, interestType }
       });
       await event.save();
     }

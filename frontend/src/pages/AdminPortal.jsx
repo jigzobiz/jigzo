@@ -40,6 +40,14 @@ export default function AdminPortal() {
   const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Waitlist email composer
+  const [emailComposer, setEmailComposer] = useState(null);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailLocked, setEmailLocked] = useState(false);
+
   // New WorkItem form state
   const [showItemForm, setShowItemForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -158,6 +166,116 @@ export default function AdminPortal() {
       }
     } catch (err) {
       alert('Unmasking failed: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const formatBahrainDateTime = (value) => {
+    if (!value) return '--';
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '--';
+
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Bahrain',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }).format(date);
+  };
+
+  const openWaitlistEmailComposer = (notification) => {
+    const status = notification.sendStatus ||
+      (notification.notified ? 'sent' : 'pending');
+
+    if (!notification.email) {
+      window.alert('This waitlist entry does not contain an email address.');
+      return;
+    }
+
+    if (status === 'sent' || status === 'sending' || status === 'review_required') return;
+
+    setEmailComposer(notification);
+
+    if (status === 'failed') {
+      // Retry must reuse the exact stored payload so the idempotency key holds.
+      setEmailSubject(notification.emailSubject || '');
+      setEmailMessage(notification.emailBody || '');
+      setEmailLocked(true);
+    } else {
+      setEmailSubject('JIGZO is ready');
+      setEmailMessage(
+        'Hi,\n\n' +
+        'Thank you for joining the JIGZO waitlist. JIGZO is now ready for you.\n\n' +
+        'Create your reveal at https://jigzo.biz\n\n' +
+        'JIGZO'
+      );
+      setEmailLocked(false);
+    }
+
+    setEmailError('');
+  };
+
+  const closeWaitlistEmailComposer = () => {
+    if (emailSending) return;
+    setEmailComposer(null);
+    setEmailSubject('');
+    setEmailMessage('');
+    setEmailError('');
+    setEmailLocked(false);
+  };
+
+  const handleWaitlistEmailSend = async () => {
+    if (!emailComposer || emailSending) return;
+
+    const subject = emailSubject.trim();
+    const message = emailMessage.trim();
+
+    if (!subject || !message) {
+      setEmailError('Enter both a subject and a message.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Send this email from info@jigzo.biz to ${emailComposer.email}? This cannot be sent twice.`
+    );
+
+    if (!confirmed) return;
+
+    setEmailSending(true);
+    setEmailError('');
+
+    try {
+      const res = await axios.post(
+        `${getBaseUrl()}/api/admin/notifications/${emailComposer._id}/send`,
+        { subject, message },
+        getAxiosConfig()
+      );
+
+      if (res.data.success) {
+        setNotifications(previous =>
+          previous.map(notification =>
+            notification._id === emailComposer._id
+              ? res.data.notification
+              : notification
+          )
+        );
+
+        setEmailComposer(null);
+        setEmailSubject('');
+        setEmailMessage('');
+        setEmailError('');
+        setEmailLocked(false);
+      }
+    } catch (err) {
+      setEmailError(
+        err.response?.data?.error ||
+        'The email could not be sent. No sent status was recorded.'
+      );
+    } finally {
+      setEmailSending(false);
     }
   };
 
@@ -621,44 +739,422 @@ export default function AdminPortal() {
 
             {/* WAITLIST INTERESTS VIEW */}
             {activeTab === 'notifications' && (
-              <div style={{ background: T.card, border: T.border, borderRadius: 16, overflow: "hidden", boxShadow: T.shadow }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, textAlign: "left" }}>
-                  <thead style={{ background: "rgba(28,25,19,0.04)" }}>
-                    <tr>
-                      <th style={{ padding: 14 }}>Email</th>
-                      <th style={{ padding: 14 }}>Phone</th>
-                      <th style={{ padding: 14 }}>Interest Type</th>
-                      <th style={{ padding: 14 }}>Notified</th>
-                      <th style={{ padding: 14 }}>Registered At</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {notifications.map(n => {
-                      const emailKey = `NotificationRequest-${n._id}-email`;
-                      const phoneKey = `NotificationRequest-${n._id}-phone`;
-                      return (
-                        <tr key={n._id} style={{ borderBottom: T.border }}>
-                          <td style={{ padding: 14 }}>
-                            {unmaskedValues[emailKey] || n.email || '−'}
-                            {!unmaskedValues[emailKey] && n.email && (
-                              <button onClick={() => handleUnmask('NotificationRequest', n._id, 'email')} style={{ marginLeft: 8, fontSize: 11, padding: "2px 6px", cursor: "pointer" }}>Show</button>
-                            )}
-                          </td>
-                          <td style={{ padding: 14 }}>
-                            {unmaskedValues[phoneKey] || n.phone || '−'}
-                            {!unmaskedValues[phoneKey] && n.phone && (
-                              <button onClick={() => handleUnmask('NotificationRequest', n._id, 'phone')} style={{ marginLeft: 8, fontSize: 11, padding: "2px 6px", cursor: "pointer" }}>Show</button>
-                            )}
-                          </td>
-                          <td style={{ padding: 14, fontFamily: "monospace" }}>{n.interestType}</td>
-                          <td style={{ padding: 14 }}>{n.notified ? '✅ Yes' : '⏳ Pending'}</td>
-                          <td style={{ padding: 14 }}>{new Date(n.createdAt).toLocaleDateString()}</td>
+              <>
+                <div style={{
+                  background: T.card,
+                  border: T.border,
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  boxShadow: T.shadow
+                }}>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{
+                      width: "100%",
+                      minWidth: 1050,
+                      borderCollapse: "collapse",
+                      fontSize: 14,
+                      textAlign: "left"
+                    }}>
+                      <thead style={{ background: "rgba(28,25,19,0.04)" }}>
+                        <tr>
+                          <th style={{ padding: 14 }}>Email</th>
+                          <th style={{ padding: 14 }}>Phone</th>
+                          <th style={{ padding: 14 }}>Country</th>
+                          <th style={{ padding: 14 }}>Interest Type</th>
+                          <th style={{ padding: 14 }}>Status</th>
+                          <th style={{ padding: 14 }}>Registered At</th>
+                          <th style={{ padding: 14 }}>Sent At</th>
+                          <th style={{ padding: 14 }}>Sent By</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+
+                      <tbody>
+                        {notifications.map(notification => {
+                          const sendStatus =
+                            notification.sendStatus ||
+                            (notification.notified ? 'sent' : 'pending');
+
+                          const canSend =
+                            Boolean(notification.email) &&
+                            sendStatus !== 'sent' &&
+                            sendStatus !== 'sending' &&
+                            sendStatus !== 'review_required';
+
+                          return (
+                            <tr
+                              key={notification._id}
+                              style={{ borderBottom: T.border }}
+                            >
+                              <td style={{
+                                padding: 14,
+                                fontWeight: 600,
+                                whiteSpace: "nowrap"
+                              }}>
+                                {notification.email || '--'}
+                              </td>
+
+                              <td style={{ padding: 14, whiteSpace: "nowrap" }}>
+                                {notification.phone || '--'}
+                              </td>
+
+                              <td style={{ padding: 14, whiteSpace: "nowrap" }}>
+                                {notification.country || 'Unknown'}
+                              </td>
+
+                              <td style={{
+                                padding: 14,
+                                fontFamily: "monospace",
+                                whiteSpace: "nowrap"
+                              }}>
+                                {notification.interestType}
+                              </td>
+
+                              <td style={{ padding: 14 }}>
+                                {sendStatus === 'sent' ? (
+                                  <span style={{
+                                    display: "inline-block",
+                                    padding: "6px 10px",
+                                    background: "#e8f5e9",
+                                    color: "#2e7d32",
+                                    borderRadius: 7,
+                                    fontWeight: 700
+                                  }}>
+                                    Sent
+                                  </span>
+                                ) : sendStatus === 'sending' ? (
+                                  <button
+                                    type="button"
+                                    disabled
+                                    style={{
+                                      padding: "7px 12px",
+                                      border: "none",
+                                      borderRadius: 7,
+                                      background: T.ink15,
+                                      color: T.ink50,
+                                      fontWeight: 700
+                                    }}
+                                  >
+                                    Sending...
+                                  </button>
+                                ) : sendStatus === 'review_required' ? (
+                                  <button
+                                    type="button"
+                                    disabled
+                                    title={
+                                      notification.lastSendError ||
+                                      'The provider accepted the email, but database confirmation failed. Manual review is required.'
+                                    }
+                                    style={{
+                                      padding: "7px 12px",
+                                      border: "none",
+                                      borderRadius: 7,
+                                      background: "#fff3e0",
+                                      color: "#b45309",
+                                      fontWeight: 700,
+                                      cursor: "not-allowed"
+                                    }}
+                                  >
+                                    Review required
+                                  </button>
+                                ) : canSend ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      openWaitlistEmailComposer(notification)
+                                    }
+                                    title={
+                                      sendStatus === 'failed'
+                                        ? notification.lastSendError ||
+                                          'Previous attempt failed'
+                                        : 'Compose and send email'
+                                    }
+                                    style={{
+                                      padding: "7px 12px",
+                                      border: "none",
+                                      borderRadius: 7,
+                                      background:
+                                        sendStatus === 'failed'
+                                          ? "#fff3e0"
+                                          : T.gold,
+                                      color:
+                                        sendStatus === 'failed'
+                                          ? "#b45309"
+                                          : "#fff",
+                                      fontWeight: 700,
+                                      cursor: "pointer"
+                                    }}
+                                  >
+                                    {sendStatus === 'failed'
+                                      ? 'Retry'
+                                      : 'Pending'}
+                                  </button>
+                                ) : (
+                                  <span style={{
+                                    color: T.ink50,
+                                    fontSize: 12.5
+                                  }}>
+                                    No email
+                                  </span>
+                                )}
+                              </td>
+
+                              <td style={{ padding: 14, whiteSpace: "nowrap" }}>
+                                {formatBahrainDateTime(notification.createdAt)}
+                              </td>
+
+                              <td style={{ padding: 14, whiteSpace: "nowrap" }}>
+                                {formatBahrainDateTime(
+                                  notification.sentAt ||
+                                  notification.notifiedAt
+                                )}
+                              </td>
+
+                              <td style={{ padding: 14, whiteSpace: "nowrap" }}>
+                                {notification.sentByUsername || '--'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+
+                        {!notifications.length && (
+                          <tr>
+                            <td
+                              colSpan="8"
+                              style={{
+                                padding: 30,
+                                textAlign: "center",
+                                color: T.ink50
+                              }}
+                            >
+                              No waitlist entries yet.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {emailComposer && (
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="waitlist-email-title"
+                    style={{
+                      position: "fixed",
+                      inset: 0,
+                      zIndex: 1000,
+                      background: "rgba(28,25,19,0.52)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 20
+                    }}
+                  >
+                    <div style={{
+                      width: "100%",
+                      maxWidth: 620,
+                      maxHeight: "90vh",
+                      overflowY: "auto",
+                      background: T.card,
+                      borderRadius: 18,
+                      padding: 26,
+                      boxShadow: "0 24px 70px rgba(28,25,19,0.25)"
+                    }}>
+                      <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 16,
+                        alignItems: "flex-start",
+                        marginBottom: 20
+                      }}>
+                        <div>
+                          <h2
+                            id="waitlist-email-title"
+                            style={{
+                              margin: "0 0 6px",
+                              fontSize: 20
+                            }}
+                          >
+                            Send waitlist email
+                          </h2>
+                          <div style={{
+                            fontSize: 13,
+                            color: T.ink66,
+                            lineHeight: 1.5
+                          }}>
+                            From: <strong>JIGZO &lt;info@jigzo.biz&gt;</strong>
+                            <br />
+                            To: <strong>{emailComposer.email}</strong>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={closeWaitlistEmailComposer}
+                          disabled={emailSending}
+                          aria-label="Close"
+                          style={{
+                            border: "none",
+                            background: "transparent",
+                            fontSize: 24,
+                            cursor: emailSending ? "not-allowed" : "pointer",
+                            color: T.ink50
+                          }}
+                        >
+                          X
+                        </button>
+                      </div>
+
+                      <label style={{
+                        display: "block",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        marginBottom: 6
+                      }}>
+                        Subject
+                      </label>
+
+                      <input
+                        type="text"
+                        value={emailSubject}
+                        maxLength={200}
+                        onChange={event =>
+                          setEmailSubject(event.target.value)
+                        }
+                        disabled={emailSending || emailLocked}
+                        style={{
+                          width: "100%",
+                          padding: 12,
+                          borderRadius: 9,
+                          border: T.border,
+                          fontSize: 14,
+                          marginBottom: 16
+                        }}
+                      />
+
+                      <label style={{
+                        display: "block",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        marginBottom: 6
+                      }}>
+                        Message
+                      </label>
+
+                      <textarea
+                        value={emailMessage}
+                        maxLength={5000}
+                        rows={10}
+                        onChange={event =>
+                          setEmailMessage(event.target.value)
+                        }
+                        disabled={emailSending || emailLocked}
+                        style={{
+                          width: "100%",
+                          padding: 12,
+                          borderRadius: 9,
+                          border: T.border,
+                          fontSize: 14,
+                          lineHeight: 1.55,
+                          resize: "vertical"
+                        }}
+                      />
+
+                      <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        marginTop: 6,
+                        fontSize: 11.5,
+                        color: T.ink50
+                      }}>
+                        <span>
+                          {emailLocked
+                            ? 'Retry uses the original subject and message (locked).'
+                            : 'A confirmation is required before sending.'}
+                        </span>
+                        <span>{emailMessage.length}/5000</span>
+                      </div>
+
+                      {emailError && (
+                        <div style={{
+                          marginTop: 14,
+                          padding: 11,
+                          borderRadius: 8,
+                          background: "#ffebee",
+                          color: "#b42318",
+                          fontSize: 13,
+                          fontWeight: 600
+                        }}>
+                          {emailError}
+                        </div>
+                      )}
+
+                      <div style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: 10,
+                        marginTop: 22
+                      }}>
+                        <button
+                          type="button"
+                          onClick={closeWaitlistEmailComposer}
+                          disabled={emailSending}
+                          style={{
+                            padding: "10px 17px",
+                            borderRadius: 9,
+                            border: T.border,
+                            background: "transparent",
+                            fontWeight: 700,
+                            cursor: emailSending
+                              ? "not-allowed"
+                              : "pointer"
+                          }}
+                        >
+                          Cancel
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleWaitlistEmailSend}
+                          disabled={
+                            emailSending ||
+                            !emailSubject.trim() ||
+                            !emailMessage.trim()
+                          }
+                          style={{
+                            padding: "10px 18px",
+                            borderRadius: 9,
+                            border: "none",
+                            background:
+                              emailSending ||
+                              !emailSubject.trim() ||
+                              !emailMessage.trim()
+                                ? T.ink15
+                                : T.gold,
+                            color:
+                              emailSending ||
+                              !emailSubject.trim() ||
+                              !emailMessage.trim()
+                                ? T.ink50
+                                : "#fff",
+                            fontWeight: 700,
+                            cursor:
+                              emailSending ||
+                              !emailSubject.trim() ||
+                              !emailMessage.trim()
+                                ? "not-allowed"
+                                : "pointer"
+                          }}
+                        >
+                          {emailSending ? 'Sending...' : 'Send Email'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* ANALYTICS CHARTS PANEL */}
