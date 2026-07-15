@@ -12,6 +12,7 @@ import LoaderOrbit from '../components/LoaderOrbit';
 import RevealBeat from '../components/RevealBeat';
 import { buildEdgeMap, piecePath, mulberry32 } from '../puzzle/puzzle-shape';
 import { analytics } from '../services/analytics';
+import { isValidPhoneNumber } from 'libphonenumber-js';
 
 const T = {
   bg: "#FAF8EC",
@@ -111,7 +112,22 @@ function StepProgressBar({ step }) {
 }
 
 function phoneDigits(v) { return (v || "").replace(/\D/g, ""); }
-function phoneValid(v) { const d = phoneDigits(v); return d.length >= 7 && d.length <= 12; }
+// Strong format validation via libphonenumber-js. Accepts any structurally
+// valid number regardless of line type (we do not require it to classify as
+// mobile, and we never claim a number is "WhatsApp verified").
+function phoneValid(dial, phone) {
+  const full = `${dial || ""}${phone || ""}`.trim();
+  if (!full) return false;
+  try {
+    return isValidPhoneNumber(full.startsWith("+") ? full : `+${full}`);
+  } catch (e) {
+    return false;
+  }
+}
+function emailValid(v) {
+  const e = String(v || "").trim().toLowerCase();
+  return e.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
 
 export default function CreatePage() {
   const navigate = useNavigate();
@@ -151,7 +167,7 @@ export default function CreatePage() {
 
   const [defaultDialCode, setDefaultDialCode] = useState("+973");
   const [recipients, setRecipients] = useState([
-    { name: "", phone: "", dial: "+973", dialEdited: false }
+    { name: "", phone: "", dial: "+973", dialEdited: false, deliveryMethod: "whatsapp", email: "" }
   ]);
 
   const [primaryRecipientName, setPrimaryRecipientName] = useState("");
@@ -249,7 +265,7 @@ export default function CreatePage() {
       if (next[0]) {
         next[0] = { ...next[0], name: val };
       } else {
-        next[0] = { name: val, phone: "", dial: defaultDialCode, dialEdited: false };
+        next[0] = { name: val, phone: "", dial: defaultDialCode, dialEdited: false, deliveryMethod: "whatsapp", email: "" };
       }
       return next;
     });
@@ -326,7 +342,7 @@ export default function CreatePage() {
 
   // Country Dial Selectors
   const [senderDial, setSenderDial] = useState("+973");
-  const senderValid = phoneValid(senderDial + senderPhone);
+  const senderValid = phoneValid(senderDial, senderPhone);
 
   const getCountryCodeFromDial = (dialVal) => {
     const match = COUNTRIES.find(c => c.dial === dialVal);
@@ -350,13 +366,21 @@ export default function CreatePage() {
   }, [recipients]);
 
   const recipientsValid = useMemo(() => {
-    const phoneSet = new Set();
+    const identitySet = new Set();
     for (const r of recipients) {
       if (!r.name.trim()) return false;
-      const fullPhone = r.dial + r.phone;
-      if (!phoneValid(fullPhone)) return false;
-      if (phoneSet.has(fullPhone)) return false;
-      phoneSet.add(fullPhone);
+      const method = r.deliveryMethod === "email" ? "email" : "whatsapp";
+      if (method === "email") {
+        if (!emailValid(r.email)) return false;
+        const id = "email:" + String(r.email || "").trim().toLowerCase();
+        if (identitySet.has(id)) return false;
+        identitySet.add(id);
+      } else {
+        if (!phoneValid(r.dial, r.phone)) return false;
+        const id = "phone:" + (r.dial + r.phone);
+        if (identitySet.has(id)) return false;
+        identitySet.add(id);
+      }
     }
     return true;
   }, [recipients]);
@@ -536,11 +560,22 @@ export default function CreatePage() {
   const handlePayAndSend = async () => {
     setIsProcessing(true);
     try {
-      const formattedRecipients = recipients.map(r => ({
-        name: r.name,
-        countryCode: r.dial,
-        phone: r.phone
-      }));
+      const formattedRecipients = recipients.map(r => {
+        const method = r.deliveryMethod === "email" ? "email" : "whatsapp";
+        if (method === "email") {
+          return {
+            name: r.name,
+            deliveryMethod: "email",
+            email: String(r.email || "").trim().toLowerCase()
+          };
+        }
+        return {
+          name: r.name,
+          deliveryMethod: "whatsapp",
+          countryCode: r.dial,
+          phone: r.phone
+        };
+      });
 
       // 1. Create Draft Puzzle
       analytics.track('checkout_started', {
@@ -1012,10 +1047,13 @@ export default function CreatePage() {
 
             {/* Recipient Details List */}
             {recipients.map((rec, idx) => {
-              const recTouched = rec.name || rec.phone;
-              const recValid = phoneValid(rec.dial + rec.phone);
+              const method = rec.deliveryMethod === "email" ? "email" : "whatsapp";
+              const recValid = phoneValid(rec.dial, rec.phone);
               const fullPhone = rec.dial + rec.phone;
-              const isDuplicate = rec.phone && recipients.some((r, i) => i !== idx && (r.dial + r.phone) === fullPhone);
+              const isDuplicatePhone = rec.phone && recipients.some((r, i) => i !== idx && (r.deliveryMethod !== "email") && (r.dial + r.phone) === fullPhone);
+              const normalizedEmail = String(rec.email || "").trim().toLowerCase();
+              const recEmailValid = emailValid(rec.email);
+              const isDuplicateEmail = normalizedEmail && recipients.some((r, i) => i !== idx && r.deliveryMethod === "email" && String(r.email || "").trim().toLowerCase() === normalizedEmail);
               return (
                 <div key={idx} style={{ padding: 18, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, marginBottom: 16, position: "relative" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -1037,47 +1075,101 @@ export default function CreatePage() {
                     style={{ ...inputStyle, marginBottom: 14 }}
                     autoComplete="off"
                   />
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <input
-                      type="text"
-                      value={rec.dial}
-                      onChange={(e) => {
-                        const val = sanitizeDialCode(e.target.value);
-                        setRecipients(prev => {
-                          const next = [...prev];
-                          next[idx] = { ...next[idx], dial: val, dialEdited: true };
-                          return next;
-                        });
-                      }}
-                      style={{ ...inputStyle, width: "80px", flex: "none", padding: "13px 8px", textAlign: "center" }}
-                      placeholder="+973"
-                    />
-                    <input type="tel" placeholder="Phone number" value={rec.phone}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setRecipients(prev => {
-                          const next = [...prev];
-                          next[idx] = { ...next[idx], phone: val };
-                          return next;
-                        });
-                      }}
-                      aria-invalid={recTouched && rec.phone && !recValid ? "true" : "false"}
-                      inputMode="tel"
-                      autoComplete="off"
-                      style={{ ...inputStyle, flex: 1 }}
-                    />
-                  </div>
 
-                  {rec.phone && (!recValid || isDuplicate) && (
-                    <div style={{ marginTop: 8, fontSize: 12.5, color: T.goldDeep, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 4 }}>
-                      <span>⚠️</span>
-                      <span>
-                        {!recValid 
-                          ? "Please enter a valid phone number (7 to 12 digits)." 
-                          : "Duplicate phone number. Each recipient must be unique."
-                        }
-                      </span>
-                    </div>
+                  {/* Delivery method */}
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.ink50, marginBottom: 6 }}>Deliver via</label>
+                  <select
+                    value={method}
+                    onChange={(e) => {
+                      const val = e.target.value === "email" ? "email" : "whatsapp";
+                      setRecipients(prev => {
+                        const next = [...prev];
+                        next[idx] = { ...next[idx], deliveryMethod: val };
+                        return next;
+                      });
+                    }}
+                    style={{ ...inputStyle, marginBottom: 14 }}
+                  >
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="email">Email</option>
+                  </select>
+
+                  {method === "email" ? (
+                    <>
+                      <input
+                        type="email"
+                        placeholder="Recipient email"
+                        value={rec.email}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setRecipients(prev => {
+                            const next = [...prev];
+                            next[idx] = { ...next[idx], email: val };
+                            return next;
+                          });
+                        }}
+                        aria-invalid={rec.email && !recEmailValid ? "true" : "false"}
+                        inputMode="email"
+                        autoComplete="off"
+                        style={{ ...inputStyle }}
+                      />
+                      {rec.email && (!recEmailValid || isDuplicateEmail) && (
+                        <div style={{ marginTop: 8, fontSize: 12.5, color: T.goldDeep, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 4 }}>
+                          <span>⚠️</span>
+                          <span>
+                            {!recEmailValid
+                              ? "Enter a valid email address."
+                              : "Duplicate email. Each recipient must be unique."
+                            }
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <input
+                          type="text"
+                          value={rec.dial}
+                          onChange={(e) => {
+                            const val = sanitizeDialCode(e.target.value);
+                            setRecipients(prev => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], dial: val, dialEdited: true };
+                              return next;
+                            });
+                          }}
+                          style={{ ...inputStyle, width: "80px", flex: "none", padding: "13px 8px", textAlign: "center" }}
+                          placeholder="+973"
+                        />
+                        <input type="tel" placeholder="Phone number" value={rec.phone}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRecipients(prev => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], phone: val };
+                              return next;
+                            });
+                          }}
+                          aria-invalid={rec.phone && !recValid ? "true" : "false"}
+                          inputMode="tel"
+                          autoComplete="off"
+                          style={{ ...inputStyle, flex: 1 }}
+                        />
+                      </div>
+
+                      {rec.phone && (!recValid || isDuplicatePhone) && (
+                        <div style={{ marginTop: 8, fontSize: 12.5, color: T.goldDeep, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 4 }}>
+                          <span>⚠️</span>
+                          <span>
+                            {!recValid
+                              ? "Enter a valid phone number."
+                              : "Duplicate phone number. Each recipient must be unique."
+                            }
+                          </span>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               );
@@ -1087,7 +1179,7 @@ export default function CreatePage() {
               <button
                 type="button"
                 onClick={() => {
-                  const nextRecipients = [...recipients, { name: "", phone: "", dial: defaultDialCode, dialEdited: false }];
+                  const nextRecipients = [...recipients, { name: "", phone: "", dial: defaultDialCode, dialEdited: false, deliveryMethod: "whatsapp", email: "" }];
                   setRecipients(nextRecipients);
                   analytics.track('recipient_added', {
                     recipientCount: nextRecipients.length,
@@ -1127,7 +1219,12 @@ export default function CreatePage() {
               {senderPhone && !senderValid && (
                 <div style={{ marginTop: 8, fontSize: 12.5, color: T.goldDeep, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 4 }}>
                   <span>⚠️</span>
-                  <span>Please enter a valid phone number (7 to 12 digits).</span>
+                  <span>Enter a valid phone number.</span>
+                </div>
+              )}
+              {senderPhone && senderValid && (
+                <div style={{ marginTop: 8, fontSize: 12.5, color: T.ink50, fontWeight: 500, textAlign: "left" }}>
+                  Phone number format is valid
                 </div>
               )}
 

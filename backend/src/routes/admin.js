@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Resend } = require('resend');
@@ -344,6 +345,170 @@ router.get('/puzzles', authenticateAdmin, async (req, res, next) => {
     res.json({ success: true, list });
   } catch (err) {
     next(err);
+  }
+});
+
+// --- ADMIN REVEAL LINKS (source of truth: Puzzle.recipients) ---
+
+// Flattened, one row per puzzle recipient. Full sender/receiver contact details
+// are intentionally visible to authenticated admins for customer support.
+// The secure reveal link is NOT included here — it is fetched on demand via /copy.
+router.get('/reveal-links', authenticateAdmin, async (req, res, next) => {
+  try {
+    const puzzles = await Puzzle.find().sort({ createdAt: -1 });
+
+    const rows = [];
+    for (const puzzle of puzzles) {
+      const recipients = puzzle.recipients || [];
+      recipients.forEach((rec, index) => {
+        // Legacy recipients without deliveryMethod display as WhatsApp.
+        const deliveryMethod = rec.deliveryMethod === 'email' ? 'email' : 'whatsapp';
+        const receiverContact = deliveryMethod === 'email'
+          ? (rec.email || '')
+          : (rec.phoneE164 || `${rec.countryCode || ''}${rec.phone || ''}`);
+
+        rows.push({
+          puzzleId: puzzle._id,
+          publicId: puzzle.publicId,
+          recipientIndex: index,
+          senderName: puzzle.senderName || '',
+          senderPhone: puzzle.senderPhone || '',
+          recipientName: rec.name || '',
+          deliveryMethod,
+          receiverContact,
+          deliveryStatus: rec.deliveryStatus || 'pending',
+          createdAt: puzzle.createdAt,
+          sentAt: rec.sentAt || null,
+          openedAt: rec.openedAt || null,
+          completedAt: rec.completedAt || null,
+          lastError: rec.lastError || '',
+          manualLinkProvidedAt: rec.manualLinkProvidedAt || null,
+          manualLinkProvidedByUsername: rec.manualLinkProvidedByUsername || ''
+        });
+      });
+    }
+
+    // Record access without blocking the response.
+    new AuditLog({
+      adminUserId: req.admin.id,
+      action: 'REVEAL_LINKS_VIEWED',
+      targetModel: 'Puzzle',
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || '',
+      userAgent: req.headers['user-agent'] || ''
+    }).save().catch(auditError => {
+      console.error('Failed to record REVEAL_LINKS_VIEWED audit log:', auditError.message);
+    });
+
+    res.json({ success: true, list: rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Returns the secure reveal link for a single recipient. The raw URL is never
+// written to the audit log.
+router.post('/reveal-links/:puzzleId/:recipientIndex/copy', authenticateAdmin, async (req, res) => {
+  try {
+    const { puzzleId, recipientIndex } = req.params;
+    const index = parseInt(recipientIndex, 10);
+
+    if (!mongoose.isValidObjectId(puzzleId) || Number.isNaN(index) || index < 0) {
+      return res.status(400).json({ error: 'Invalid puzzle or recipient reference.' });
+    }
+
+    const puzzle = await Puzzle.findById(puzzleId);
+    if (!puzzle) {
+      return res.status(404).json({ error: 'Puzzle not found.' });
+    }
+    if (!puzzle.recipients || !puzzle.recipients[index]) {
+      return res.status(404).json({ error: 'Recipient not found.' });
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const link = `${frontendUrl}/p/${puzzle.publicId}?r=${index}`;
+
+    // Audit the action but never store the raw reveal URL.
+    new AuditLog({
+      adminUserId: req.admin.id,
+      action: 'REVEAL_LINK_COPIED',
+      targetModel: 'Puzzle',
+      targetId: `${puzzle._id}#r${index}`,
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || '',
+      userAgent: req.headers['user-agent'] || ''
+    }).save().catch(auditError => {
+      console.error('Failed to record REVEAL_LINK_COPIED audit log:', auditError.message);
+    });
+
+    res.json({ success: true, link });
+  } catch (err) {
+    console.error('Reveal link copy failed:', err.message);
+    return res.status(500).json({ error: 'Unable to generate reveal link.' });
+  }
+});
+
+// Atomically marks that an admin manually delivered the reveal link to a
+// recipient. Delivery history (deliveryStatus/sentAt/etc.) is preserved.
+router.post('/reveal-links/:puzzleId/:recipientIndex/manual-provided', authenticateAdmin, async (req, res) => {
+  try {
+    const { puzzleId, recipientIndex } = req.params;
+    const index = parseInt(recipientIndex, 10);
+
+    if (!mongoose.isValidObjectId(puzzleId) || Number.isNaN(index) || index < 0) {
+      return res.status(400).json({ error: 'Invalid puzzle or recipient reference.' });
+    }
+
+    const now = new Date();
+
+    // Only transitions when not already marked (prevents duplicate state changes).
+    const updated = await Puzzle.findOneAndUpdate(
+      {
+        _id: puzzleId,
+        [`recipients.${index}`]: { $exists: true },
+        [`recipients.${index}.manualLinkProvidedAt`]: null
+      },
+      {
+        $set: {
+          [`recipients.${index}.manualLinkProvidedAt`]: now,
+          [`recipients.${index}.manualLinkProvidedBy`]: req.admin.id,
+          [`recipients.${index}.manualLinkProvidedByUsername`]: req.admin.username || ''
+        }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      const existing = await Puzzle.findById(puzzleId);
+      if (!existing || !existing.recipients || !existing.recipients[index]) {
+        return res.status(404).json({ error: 'Recipient not found.' });
+      }
+      return res.status(409).json({
+        error: 'This recipient is already marked as manually provided.'
+      });
+    }
+
+    new AuditLog({
+      adminUserId: req.admin.id,
+      action: 'REVEAL_LINK_MANUALLY_PROVIDED',
+      targetModel: 'Puzzle',
+      targetId: `${updated._id}#r${index}`,
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || '',
+      userAgent: req.headers['user-agent'] || ''
+    }).save().catch(auditError => {
+      console.error('Failed to record REVEAL_LINK_MANUALLY_PROVIDED audit log:', auditError.message);
+    });
+
+    const rec = updated.recipients[index];
+    res.json({
+      success: true,
+      recipient: {
+        recipientIndex: index,
+        manualLinkProvidedAt: rec.manualLinkProvidedAt,
+        manualLinkProvidedByUsername: rec.manualLinkProvidedByUsername || ''
+      }
+    });
+  } catch (err) {
+    console.error('Mark manual provided failed:', err.message);
+    return res.status(500).json({ error: 'Unable to update recipient.' });
   }
 });
 

@@ -63,6 +63,12 @@ export default function AdminPortal() {
   // Unmask values state cache
   const [unmaskedValues, setUnmaskedValues] = useState({});
 
+  // Reveal Links tracker
+  const [revealLinks, setRevealLinks] = useState([]);
+  const [revealSearch, setRevealSearch] = useState('');
+  const [revealCopiedKey, setRevealCopiedKey] = useState('');
+  const [revealBusyKey, setRevealBusyKey] = useState('');
+
   const getBaseUrl = () =>
     import.meta.env.VITE_ENABLE_LOCAL_TEST === 'true'
       ? 'http://localhost:5000'
@@ -106,6 +112,7 @@ export default function AdminPortal() {
         recipients: '/api/admin/recipients',
         whatsapp: '/api/admin/whatsapp',
         notifications: '/api/admin/notifications',
+        'reveal-links': '/api/admin/reveal-links',
         recommendations: '/api/admin/recommendations',
         'work-progress': '/api/admin/work-items',
         settings: '/api/admin/settings',
@@ -125,6 +132,7 @@ export default function AdminPortal() {
         else if (tab === 'recipients') setRecipients(res.data.list);
         else if (tab === 'whatsapp') setWhatsapp(res.data.list);
         else if (tab === 'notifications') setNotifications(res.data.list);
+        else if (tab === 'reveal-links') setRevealLinks(res.data.list);
         else if (tab === 'recommendations') setRecommendations(res.data.list);
         else if (tab === 'work-progress') setWorkItems(res.data.list);
         else if (tab === 'settings') setSettings(res.data);
@@ -279,6 +287,93 @@ export default function AdminPortal() {
     }
   };
 
+  const revealRowKey = (row) => `${row.puzzleId}-${row.recipientIndex}`;
+
+  const deriveRevealStatus = (row) => {
+    if (row.completedAt) return 'Solved';
+    if (row.openedAt) return 'Opened';
+    if (row.manualLinkProvidedAt) return 'Manual link provided';
+    const s = row.deliveryStatus || 'pending';
+    if (s === 'delivered') return 'Delivered';
+    if (s === 'sent') return 'Sent';
+    if (s === 'failed') return 'Failed';
+    return 'Pending';
+  };
+
+  const revealStatusColors = {
+    Solved: { bg: '#e8f5e9', fg: '#2e7d32' },
+    Opened: { bg: '#e3f2fd', fg: '#1565c0' },
+    Delivered: { bg: '#e8f5e9', fg: '#2e7d32' },
+    Sent: { bg: '#ede7f6', fg: '#5e35b1' },
+    Failed: { bg: '#ffebee', fg: '#b42318' },
+    'Manual link provided': { bg: '#fff3e0', fg: '#b45309' },
+    Pending: { bg: 'rgba(28,25,19,0.06)', fg: '#8a7f6a' }
+  };
+
+  const filteredRevealLinks = revealLinks.filter(row => {
+    const q = revealSearch.trim().toLowerCase();
+    if (!q) return true;
+    return [row.senderName, row.senderPhone, row.recipientName, row.receiverContact, row.publicId]
+      .some(v => String(v || '').toLowerCase().includes(q));
+  });
+
+  const handleCopyRevealLink = async (row) => {
+    const key = revealRowKey(row);
+    setRevealBusyKey(key);
+    try {
+      const res = await axios.post(
+        `${getBaseUrl()}/api/admin/reveal-links/${row.puzzleId}/${row.recipientIndex}/copy`,
+        {},
+        getAxiosConfig()
+      );
+      if (res.data.success && res.data.link) {
+        try {
+          await navigator.clipboard.writeText(res.data.link);
+        } catch (clipErr) {
+          window.prompt('Copy this reveal link:', res.data.link);
+        }
+        setRevealCopiedKey(key);
+        setTimeout(() => setRevealCopiedKey(prev => (prev === key ? '' : prev)), 2500);
+      }
+    } catch (err) {
+      window.alert(err.response?.data?.error || 'Could not fetch the reveal link.');
+    } finally {
+      setRevealBusyKey('');
+    }
+  };
+
+  const handleMarkProvided = async (row) => {
+    const key = revealRowKey(row);
+    const confirmed = window.confirm(
+      `Mark the reveal link for ${row.recipientName || 'this recipient'} as manually provided? This records that you delivered it by hand.`
+    );
+    if (!confirmed) return;
+
+    setRevealBusyKey(key);
+    try {
+      const res = await axios.post(
+        `${getBaseUrl()}/api/admin/reveal-links/${row.puzzleId}/${row.recipientIndex}/manual-provided`,
+        {},
+        getAxiosConfig()
+      );
+      if (res.data.success) {
+        setRevealLinks(prev => prev.map(r =>
+          revealRowKey(r) === key
+            ? {
+                ...r,
+                manualLinkProvidedAt: res.data.recipient.manualLinkProvidedAt,
+                manualLinkProvidedByUsername: res.data.recipient.manualLinkProvidedByUsername
+              }
+            : r
+        ));
+      }
+    } catch (err) {
+      window.alert(err.response?.data?.error || 'Could not update the recipient.');
+    } finally {
+      setRevealBusyKey('');
+    }
+  };
+
   const handleRecommendationStatus = async (id, status) => {
     try {
       const res = await axios.post(`${getBaseUrl()}/api/admin/recommendations/${id}/status`, { status }, getAxiosConfig());
@@ -363,6 +458,7 @@ export default function AdminPortal() {
     { id: 'recipients', label: 'Recipients' },
     { id: 'whatsapp', label: 'WhatsApp' },
     { id: 'notifications', label: 'Waitlist' },
+    { id: 'reveal-links', label: 'Reveal Links' },
     { id: 'analytics', label: 'Analytics' },
     { id: 'recommendations', label: 'Recommendations' },
     { id: 'work-progress', label: 'Roadmap' },
@@ -1154,6 +1250,155 @@ export default function AdminPortal() {
                     </div>
                   </div>
                 )}
+              </>
+            )}
+
+            {/* REVEAL LINKS TRACKER */}
+            {activeTab === 'reveal-links' && (
+              <>
+                <div style={{ marginBottom: 14 }}>
+                  <input
+                    type="text"
+                    value={revealSearch}
+                    onChange={e => setRevealSearch(e.target.value)}
+                    placeholder="Search sender, receiver, phone, email, or puzzle ID"
+                    style={{
+                      width: "100%",
+                      maxWidth: 460,
+                      padding: 11,
+                      borderRadius: 9,
+                      border: T.border,
+                      fontSize: 14
+                    }}
+                  />
+                </div>
+
+                <div style={{
+                  background: T.card,
+                  border: T.border,
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  boxShadow: T.shadow
+                }}>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{
+                      width: "100%",
+                      minWidth: 1500,
+                      borderCollapse: "collapse",
+                      fontSize: 13.5,
+                      textAlign: "left"
+                    }}>
+                      <thead style={{ background: "rgba(28,25,19,0.04)" }}>
+                        <tr>
+                          <th style={{ padding: 12 }}>Sender</th>
+                          <th style={{ padding: 12 }}>Sender phone</th>
+                          <th style={{ padding: 12 }}>Receiver</th>
+                          <th style={{ padding: 12 }}>Receiver phone/email</th>
+                          <th style={{ padding: 12 }}>Method</th>
+                          <th style={{ padding: 12 }}>Status</th>
+                          <th style={{ padding: 12 }}>Created At</th>
+                          <th style={{ padding: 12 }}>Sent At</th>
+                          <th style={{ padding: 12 }}>Opened At</th>
+                          <th style={{ padding: 12 }}>Solved At</th>
+                          <th style={{ padding: 12 }}>Manual Provided At</th>
+                          <th style={{ padding: 12 }}>Manual Provided By</th>
+                          <th style={{ padding: 12 }}>Last Error</th>
+                          <th style={{ padding: 12 }}>Actions</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {filteredRevealLinks.map(row => {
+                          const key = revealRowKey(row);
+                          const status = deriveRevealStatus(row);
+                          const colors = revealStatusColors[status] || revealStatusColors.Pending;
+                          const busy = revealBusyKey === key;
+                          const provided = Boolean(row.manualLinkProvidedAt);
+                          return (
+                            <tr key={key} style={{ borderBottom: T.border }}>
+                              <td style={{ padding: 12, whiteSpace: "nowrap", fontWeight: 600 }}>{row.senderName || '--'}</td>
+                              <td style={{ padding: 12, whiteSpace: "nowrap" }}>{row.senderPhone || '--'}</td>
+                              <td style={{ padding: 12, whiteSpace: "nowrap" }}>{row.recipientName || '--'}</td>
+                              <td style={{ padding: 12, whiteSpace: "nowrap" }}>{row.receiverContact || '--'}</td>
+                              <td style={{ padding: 12, whiteSpace: "nowrap", textTransform: "capitalize" }}>
+                                {row.deliveryMethod === 'email' ? 'Email' : 'WhatsApp'}
+                              </td>
+                              <td style={{ padding: 12, whiteSpace: "nowrap" }}>
+                                <span style={{
+                                  display: "inline-block",
+                                  padding: "5px 9px",
+                                  background: colors.bg,
+                                  color: colors.fg,
+                                  borderRadius: 7,
+                                  fontWeight: 700,
+                                  fontSize: 12
+                                }}>
+                                  {status}
+                                </span>
+                              </td>
+                              <td style={{ padding: 12, whiteSpace: "nowrap" }}>{formatBahrainDateTime(row.createdAt)}</td>
+                              <td style={{ padding: 12, whiteSpace: "nowrap" }}>{formatBahrainDateTime(row.sentAt)}</td>
+                              <td style={{ padding: 12, whiteSpace: "nowrap" }}>{formatBahrainDateTime(row.openedAt)}</td>
+                              <td style={{ padding: 12, whiteSpace: "nowrap" }}>{formatBahrainDateTime(row.completedAt)}</td>
+                              <td style={{ padding: 12, whiteSpace: "nowrap" }}>{formatBahrainDateTime(row.manualLinkProvidedAt)}</td>
+                              <td style={{ padding: 12, whiteSpace: "nowrap" }}>{row.manualLinkProvidedByUsername || '--'}</td>
+                              <td style={{ padding: 12, maxWidth: 220, color: T.ink66, fontSize: 12.5 }}>
+                                {row.lastError || '--'}
+                              </td>
+                              <td style={{ padding: 12, whiteSpace: "nowrap" }}>
+                                <div style={{ display: "flex", gap: 8 }}>
+                                  <button
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => handleCopyRevealLink(row)}
+                                    style={{
+                                      padding: "6px 11px",
+                                      border: "none",
+                                      borderRadius: 7,
+                                      background: revealCopiedKey === key ? "#e8f5e9" : T.gold,
+                                      color: revealCopiedKey === key ? "#2e7d32" : "#fff",
+                                      fontWeight: 700,
+                                      fontSize: 12.5,
+                                      cursor: busy ? "not-allowed" : "pointer"
+                                    }}
+                                  >
+                                    {revealCopiedKey === key ? 'Copied' : 'Copy Link'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={busy || provided}
+                                    onClick={() => handleMarkProvided(row)}
+                                    title={provided ? 'Already marked as manually provided' : 'Mark reveal link as manually provided'}
+                                    style={{
+                                      padding: "6px 11px",
+                                      border: T.border,
+                                      borderRadius: 7,
+                                      background: "transparent",
+                                      color: provided ? T.ink50 : T.ink66,
+                                      fontWeight: 700,
+                                      fontSize: 12.5,
+                                      cursor: (busy || provided) ? "not-allowed" : "pointer"
+                                    }}
+                                  >
+                                    {provided ? 'Provided' : 'Mark Provided'}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+
+                        {!filteredRevealLinks.length && (
+                          <tr>
+                            <td colSpan="14" style={{ padding: 30, textAlign: "center", color: T.ink50 }}>
+                              {revealLinks.length ? 'No matching reveal links.' : 'No reveal links yet.'}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </>
             )}
 

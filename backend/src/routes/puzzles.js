@@ -5,6 +5,7 @@ const Puzzle = require('../models/Puzzle');
 const Order = require('../models/Order');
 const imageService = require('../services/imageService');
 const whatsappService = require('../services/whatsappService');
+const { validatePhone, validateEmail } = require('../utils/contactValidation');
 
 /**
  * POST /api/puzzles
@@ -28,18 +29,101 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'cropData (base64 image) is required.' });
     }
 
+    // --- Sender phone validation + E.164 normalization ---
+    const senderCheck = validatePhone(senderPhone);
+    if (!senderCheck.valid) {
+      return res.status(400).json({
+        error: 'Enter a valid phone number for the sender.',
+        field: 'senderPhone'
+      });
+    }
+    const normalizedSenderPhone = senderCheck.e164;
+
+    // --- Recipient validation, normalization and de-duplication ---
+    const incomingRecipients = Array.isArray(recipients) ? recipients : [];
+    if (incomingRecipients.length === 0) {
+      return res.status(400).json({
+        error: 'At least one recipient is required.',
+        field: 'recipients'
+      });
+    }
+
+    const formattedRecipients = [];
+    const seenIdentities = new Set();
+
+    for (let i = 0; i < incomingRecipients.length; i++) {
+      const r = incomingRecipients[i] || {};
+      const name = String(r.name || '').trim();
+
+      if (!name) {
+        return res.status(400).json({
+          error: `Recipient #${i + 1} is missing a name.`,
+          field: `recipients[${i}].name`
+        });
+      }
+
+      // Legacy payloads without deliveryMethod are treated as WhatsApp.
+      const deliveryMethod = r.deliveryMethod === 'email' ? 'email' : 'whatsapp';
+
+      if (deliveryMethod === 'email') {
+        const emailCheck = validateEmail(r.email);
+        if (!emailCheck.valid) {
+          return res.status(400).json({
+            error: `Enter a valid email address for recipient #${i + 1}.`,
+            field: `recipients[${i}].email`
+          });
+        }
+
+        if (seenIdentities.has('email:' + emailCheck.email)) {
+          return res.status(400).json({
+            error: `Recipient #${i + 1} duplicates another recipient's email.`,
+            field: `recipients[${i}].email`
+          });
+        }
+        seenIdentities.add('email:' + emailCheck.email);
+
+        formattedRecipients.push({
+          name,
+          deliveryMethod: 'email',
+          email: emailCheck.email,
+          countryCode: '',
+          phone: '',
+          phoneE164: '',
+          deliveryStatus: 'pending'
+        });
+      } else {
+        const phoneCheck = validatePhone(r.phone, r.countryCode);
+        if (!phoneCheck.valid) {
+          return res.status(400).json({
+            error: `Enter a valid phone number for recipient #${i + 1}.`,
+            field: `recipients[${i}].phone`
+          });
+        }
+
+        if (seenIdentities.has('phone:' + phoneCheck.e164)) {
+          return res.status(400).json({
+            error: `Recipient #${i + 1} duplicates another recipient's phone number.`,
+            field: `recipients[${i}].phone`
+          });
+        }
+        seenIdentities.add('phone:' + phoneCheck.e164);
+
+        formattedRecipients.push({
+          name,
+          deliveryMethod: 'whatsapp',
+          email: '',
+          countryCode: r.countryCode || '',
+          phone: r.phone || '',
+          phoneE164: phoneCheck.e164,
+          deliveryStatus: 'pending'
+        });
+      }
+    }
+
     const publicId = uuidv4().replace(/-/g, '').substring(0, 16);
 
     // Save image to local disk
     const cropImageUrl = await imageService.saveCropImage(cropData, publicId);
-
-    // Format recipients array
-    const formattedRecipients = (recipients || []).map(r => ({
-      name: r.name,
-      countryCode: r.countryCode || '',
-      phone: r.phone || '',
-      deliveryStatus: 'pending'
-    }));
 
     const puzzle = new Puzzle({
       publicId,
@@ -47,7 +131,7 @@ router.post('/', async (req, res, next) => {
       cropImageUrl,
       message: message || '',
       senderName: senderName || '',
-      senderPhone: senderPhone || '',
+      senderPhone: normalizedSenderPhone,
       revealIdentity: revealIdentity !== false,
       occasion: occasion || '',
       tone: tone || '',
