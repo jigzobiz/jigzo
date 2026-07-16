@@ -2,6 +2,8 @@
  * Mock WhatsApp Service Interface for JIGZO.
  * Under production this will integrate with Meta's official WhatsApp Business Cloud API.
  */
+const { getFrontendOrigin } = require('../utils/runtimeConfig');
+
 class WhatsAppService {
   /**
    * Sends the unique puzzle completion link to a recipient.
@@ -12,13 +14,13 @@ class WhatsAppService {
    */
   async sendPuzzle(recipientPhone, publicId, senderName) {
     if (process.env.WHATSAPP_ENABLED !== 'true') {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const frontendUrl = getFrontendOrigin();
       const link = `${frontendUrl}/p/${publicId}`;
       console.log(`[WhatsAppService] Delivery disabled via environment flags. Mocking link for publicId: ${publicId} (URL: ${link})`);
       return { success: true, status: 'disabled' };
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getFrontendOrigin();
     const link = `${frontendUrl}/p/${publicId}`;
     console.log(`[WhatsAppService] Sending puzzle message to ${recipientPhone}:`);
     console.log(`----------------------------------------`);

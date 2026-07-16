@@ -6,6 +6,7 @@ const { rateLimit } = require('express-rate-limit');
 const path = require('path');
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
+const { getFrontendOrigin } = require('./utils/runtimeConfig');
 
 const puzzlesRouter = require('./routes/puzzles');
 const ordersRouter = require('./routes/orders');
@@ -27,7 +28,7 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: getFrontendOrigin(),
   credentials: true
 }));
 

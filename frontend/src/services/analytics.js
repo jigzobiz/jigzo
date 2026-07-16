@@ -21,7 +21,10 @@ const getSessionId = () => {
   return sessionId;
 };
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://api.jigzo.biz';
+// Default to same-origin (''), so every deployment — Production, Preview, and
+// local (via the Vite /api proxy) — talks to its OWN backend. Set VITE_API_URL
+// only when a different API origin is deliberately required.
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 export const analytics = {
   getAnonymousId,

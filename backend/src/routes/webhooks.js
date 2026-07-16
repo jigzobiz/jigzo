@@ -5,6 +5,7 @@ const Puzzle = require('../models/Puzzle');
 const paymentService = require('../services/paymentService');
 const whatsappService = require('../services/whatsappService');
 const emailService = require('../services/emailService');
+const { getFrontendOrigin } = require('../utils/runtimeConfig');
 
 /**
  * POST /api/webhooks/payment
@@ -44,7 +45,7 @@ router.post('/payment', async (req, res, next) => {
         puzzle.status = 'paid';
       }
 
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const frontendUrl = getFrontendOrigin();
       const whatsappEnabled = process.env.WHATSAPP_ENABLED === 'true';
 
       // Deliver per recipient. Idempotent across webhook retries: a recipient

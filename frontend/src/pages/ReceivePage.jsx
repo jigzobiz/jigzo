@@ -41,7 +41,10 @@ export default function ReceivePage() {
         
         const puzzle = res.puzzle;
         if (puzzle && puzzle.cropImageUrl && puzzle.cropImageUrl.startsWith('/uploads')) {
-          const apiBase = import.meta.env.DEV ? '' : 'https://api.jigzo.biz';
+          // Uploads are served same-origin via the /uploads route (see vercel.json)
+          // and the Vite dev proxy, so a relative URL is correct in every
+          // environment. VITE_API_URL overrides only when explicitly configured.
+          const apiBase = import.meta.env.VITE_API_URL || '';
           puzzle.cropImageUrl = `${apiBase}${puzzle.cropImageUrl}`;
         }
         

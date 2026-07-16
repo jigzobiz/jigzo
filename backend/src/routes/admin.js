@@ -19,8 +19,10 @@ const WorkItem = require('../models/WorkItem');
 const AdminUser = require('../models/AdminUser');
 const AuditLog = require('../models/AuditLog');
 const Puzzle = require('../models/Puzzle');
+const { getFrontendOrigin, resolveJwtSecret } = require('../utils/runtimeConfig');
+const { resolveEmailDelivery } = require('../utils/emailSafety');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'jigzo_secure_jwt_secret_key_2026';
+const JWT_SECRET = resolveJwtSecret();
 
 // --- WAITLIST EMAIL SUPPORT ---
 const EMAIL_FROM = process.env.EMAIL_FROM || 'JIGZO <info@jigzo.biz>';
@@ -424,7 +426,7 @@ router.post('/reveal-links/:puzzleId/:recipientIndex/copy', authenticateAdmin, a
       return res.status(404).json({ error: 'Recipient not found.' });
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getFrontendOrigin();
     const link = `${frontendUrl}/p/${puzzle.publicId}?r=${index}`;
 
     // Audit the action but never store the raw reveal URL.
@@ -594,6 +596,14 @@ router.post('/notifications/:id/send', authenticateAdmin, async (req, res) => {
       });
     }
 
+    // Non-production email guard. Decide before mutating any record state so a
+    // blocked staging send never leaves a record stuck mid-flight. The recipient
+    // is resolved again at send time; the block decision here is recipient-independent.
+    const stagingGuard = resolveEmailDelivery({ to: '', subject });
+    if (!stagingGuard.ok) {
+      return res.status(503).json({ error: stagingGuard.error });
+    }
+
     // A failed record may only be retried with its exact original payload so
     // the stable Resend idempotency key stays consistent with the sent content.
     const priorRecord = await NotificationRequest.findById(req.params.id);
@@ -672,11 +682,14 @@ router.post('/notifications/:id/send', authenticateAdmin, async (req, res) => {
       '</div></div></div>'
     ].join('');
 
+    // Resolve the real destination (redirected + subject-prefixed on staging).
+    const delivery = resolveEmailDelivery({ to: notification.email, subject });
+
     const result = await resend.emails.send(
       {
         from: EMAIL_FROM,
-        to: [notification.email],
-        subject,
+        to: [delivery.to],
+        subject: delivery.subject,
         text: message,
         html
       },

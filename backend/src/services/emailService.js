@@ -7,6 +7,7 @@
  * the caller keeps the recipient in a non-delivered state.
  */
 const { Resend } = require('resend');
+const { resolveEmailDelivery } = require('../utils/emailSafety');
 
 const EMAIL_FROM = process.env.EMAIL_FROM || 'JIGZO <info@jigzo.biz>';
 const resend = process.env.RESEND_API_KEY
@@ -48,11 +49,22 @@ async function sendRevealEmail({ to, recipientName, senderName, revealLink, idem
     };
   }
 
+  const subject = `${senderName ? senderName + ' sent' : 'You have'} a JIGZO puzzle`;
+
+  // Non-production guard: redirect to the staging inbox, or block when no valid
+  // STAGING_EMAIL_REDIRECT is configured. Production sends to `to` unchanged.
+  const delivery = resolveEmailDelivery({ to, subject });
+  if (!delivery.ok) {
+    return {
+      success: false,
+      providerMessageId: '',
+      error: delivery.error
+    };
+  }
+
   const safeSender = escapeHtml(senderName || 'Someone');
   const safeRecipient = escapeHtml(recipientName || 'there');
   const safeLink = escapeHtml(revealLink);
-
-  const subject = `${senderName ? senderName + ' sent' : 'You have'} a JIGZO puzzle`;
 
   const text = [
     `Hi ${recipientName || 'there'},`,
@@ -83,8 +95,8 @@ async function sendRevealEmail({ to, recipientName, senderName, revealLink, idem
     const result = await resend.emails.send(
       {
         from: EMAIL_FROM,
-        to: [to],
-        subject,
+        to: [delivery.to],
+        subject: delivery.subject,
         text,
         html
       },
