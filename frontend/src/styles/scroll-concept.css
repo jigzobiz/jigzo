@@ -1,0 +1,773 @@
+/* Scoped styles for the scroll concept page to prevent homepage pollution */
+
+.scroll-concept-page {
+  background-color: #FAF8F5; /* Warm cream */
+  color: #121212; /* Premium soft black */
+  font-family: 'Outfit', 'Archia', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+.scroll-concept-page *,
+.scroll-concept-page *::before,
+.scroll-concept-page *::after {
+  box-sizing: inherit;
+}
+
+/* Base Editorial Typography */
+.scroll-concept-page h1,
+.scroll-concept-page h2,
+.scroll-concept-page h3 {
+  font-weight: 300;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin: 0 0 1rem 0;
+}
+
+.scroll-concept-page .font-serif-italic {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  color: #8c7355; /* Antique gold accent */
+}
+
+/* Nav */
+.scroll-concept-page .concept-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 2rem 5%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 100;
+  mix-blend-mode: difference;
+}
+
+.scroll-concept-page .concept-nav__logo {
+  height: 24px;
+  filter: invert(0); /* Black logo */
+}
+
+.scroll-concept-page .concept-nav__btn {
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: #121212;
+  border-bottom: 1px solid #121212;
+  padding-bottom: 4px;
+  font-weight: 500;
+  transition: opacity 0.3s ease;
+}
+
+.scroll-concept-page .concept-nav__btn:hover {
+  opacity: 0.7;
+}
+
+/* Floating Elements Layer (Visual Guide) */
+.scroll-concept-page .floating-pieces-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.scroll-concept-page .main-guide-piece {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  will-change: transform, opacity;
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 20px 30px rgba(0, 0, 0, 0.15));
+}
+
+.scroll-concept-page .support-piece {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+/* Main Container and Scenes */
+.scroll-concept-page .scenes-container {
+  position: relative;
+  width: 100%;
+}
+
+.scroll-concept-page .scene {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 10%;
+  overflow: hidden;
+}
+
+/* Specific Scenes Styling */
+
+/* Scene 1 - The Hook */
+.scroll-concept-page .scene-hook {
+  padding-top: 120px;
+}
+
+.scroll-concept-page .hero-headline {
+  font-size: 5.5rem;
+  max-width: 800px;
+  margin-bottom: 2rem;
+}
+
+.scroll-concept-page .scene-hook__scroll-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  will-change: transform, opacity;
+}
+
+.scroll-concept-page .hero-sub {
+  font-size: 1.5rem;
+  font-weight: 300;
+  color: #666;
+  max-width: 500px;
+  margin-bottom: 3rem;
+  line-height: 1.4;
+}
+
+.scroll-concept-page .cta-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.scroll-concept-page .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #121212;
+  color: #FAF8F5;
+  text-decoration: none;
+  font-size: 1.1rem;
+  font-weight: 500;
+  padding: 1.2rem 2.5rem;
+  border-radius: 4px;
+  transition: transform 0.3s ease, background-color 0.3s ease;
+  max-width: fit-content;
+}
+
+.scroll-concept-page .btn-primary:hover {
+  background-color: #333;
+  transform: translateY(-2px);
+}
+
+.scroll-concept-page .trust-line {
+  font-size: 0.85rem;
+  color: #8c7355;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Scene 2 - Something to Uncover */
+.scroll-concept-page .scene-uncover {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5%;
+}
+
+.scroll-concept-page .scene-uncover__text {
+  flex: 1;
+  max-width: 450px;
+}
+
+.scroll-concept-page .editorial-title {
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+}
+
+.scroll-concept-page .editorial-sub {
+  font-size: 1.25rem;
+  color: #555;
+  line-height: 1.5;
+  font-weight: 300;
+}
+
+.scroll-concept-page .scene-uncover__visual {
+  flex: 1.2;
+  position: relative;
+  height: 60vh;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  will-change: transform;
+}
+
+.scroll-concept-page .uncover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.15);
+  will-change: transform;
+}
+
+/* Grid Overlay Seams */
+.scroll-concept-page .puzzle-seams-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  will-change: opacity;
+}
+
+.scroll-concept-page .puzzle-seam-cell {
+  border: 1px solid rgba(250, 248, 245, 0.4);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+/* Scene 3 - Message to Surprise */
+.scroll-concept-page .scene-surprise {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.scroll-concept-page .whatsapp-preview-container {
+  margin-top: 3rem;
+  width: 100%;
+  max-width: 450px;
+  perspective: 1000px;
+}
+
+.scroll-concept-page .whatsapp-bubble {
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  border-left: 4px solid #075e54; /* WhatsApp brand green styling */
+  opacity: 0;
+  transform: translateY(30px) rotateX(10deg);
+  will-change: transform, opacity;
+}
+
+.scroll-concept-page .whatsapp-bubble__icon {
+  width: 40px;
+  height: 40px;
+  background-color: #e5ddd5;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #075e54;
+  flex-shrink: 0;
+}
+
+.scroll-concept-page .whatsapp-bubble__content {
+  flex-grow: 1;
+}
+
+.scroll-concept-page .whatsapp-bubble__header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 0.25rem;
+}
+
+.scroll-concept-page .whatsapp-bubble__name {
+  font-weight: 600;
+  color: #121212;
+}
+
+.scroll-concept-page .whatsapp-bubble__text {
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: #444;
+}
+
+/* Scene 4 & 5 - Pin section for The Puzzle & The Reveal */
+.scroll-concept-page .reveal-pin-section {
+  position: relative;
+  width: 100%;
+  height: 200vh; /* Pinned scrolling workspace */
+}
+
+.scroll-concept-page .reveal-sticky-container {
+  position: sticky;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.scroll-concept-page .reveal-grid-container {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  align-items: center;
+  gap: 8%;
+  width: 80%;
+  max-width: 1200px;
+}
+
+.scroll-concept-page .puzzle-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  background-color: #e8e4dc;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.1);
+}
+
+.scroll-concept-page .puzzle-base-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(10px) grayscale(0.2);
+  transition: filter 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: filter;
+}
+
+.scroll-concept-page .puzzle-base-image.is-revealed {
+  filter: blur(0) grayscale(0);
+}
+
+/* Snapping target visual helper */
+.scroll-concept-page .puzzle-snap-target {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 120px;
+  height: 120px;
+  transform: translate(-50%, -50%);
+  border: 2px dashed rgba(140, 115, 85, 0.6);
+  border-radius: 8px;
+  background-color: rgba(140, 115, 85, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  color: #8c7355;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+.scroll-concept-page .puzzle-snap-target.is-snapped {
+  opacity: 0;
+}
+
+/* Hidden message card overlay */
+.scroll-concept-page .hidden-message-overlay {
+  position: absolute;
+  bottom: 10%;
+  left: 10%;
+  right: 10%;
+  background: rgba(250, 248, 245, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #8c7355;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.scroll-concept-page .hidden-message-overlay.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.scroll-concept-page .hidden-message-title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8c7355;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.scroll-concept-page .hidden-message-text {
+  font-size: 1.2rem;
+  line-height: 1.4;
+  font-weight: 300;
+  color: #121212;
+}
+
+/* Antique gold light pulse effect */
+.scroll-concept-page .gold-pulse {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(140, 115, 85, 0.2) 0%, rgba(250, 248, 245, 0) 70%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  opacity: 0;
+  will-change: opacity;
+}
+
+/* Scene 6 - How It Works */
+.scroll-concept-page .scene-how-works {
+  background-color: #FAF8F5;
+  padding: 8% 10%;
+  display: flex;
+  flex-direction: column;
+}
+
+.scroll-concept-page .works-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3rem;
+  width: 100%;
+  margin-top: 4rem;
+}
+
+.scroll-concept-page .works-step {
+  display: flex;
+  flex-direction: column;
+}
+
+.scroll-concept-page .works-step__num {
+  font-size: 2.5rem;
+  font-weight: 200;
+  color: #8c7355;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(140, 115, 85, 0.2);
+  padding-bottom: 0.5rem;
+  width: fit-content;
+}
+
+.scroll-concept-page .works-step__title {
+  font-size: 1.5rem;
+  font-weight: 400;
+  margin-bottom: 0.8rem;
+}
+
+.scroll-concept-page .works-step__body {
+  font-size: 1rem;
+  color: #666;
+  line-height: 1.5;
+}
+
+.scroll-concept-page .works-footer {
+  margin-top: 4rem;
+  font-size: 1.1rem;
+  color: #8c7355;
+}
+
+/* Scene 7 - Occasions Carousel / Cinematic Crossfade */
+.scroll-concept-page .scene-occasions {
+  padding: 8% 10%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-height: 120vh;
+}
+
+.scroll-concept-page .occasions-viewer {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 8%;
+  align-items: center;
+  margin-top: 3rem;
+  width: 100%;
+  height: 60vh;
+  position: relative;
+}
+
+.scroll-concept-page .occasions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.scroll-concept-page .occasion-item {
+  font-size: 1.8rem;
+  font-weight: 300;
+  color: rgba(18, 18, 18, 0.3);
+  cursor: pointer;
+  transition: color 0.4s ease, padding-left 0.4s ease;
+  border-left: 2px solid transparent;
+  padding-left: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  outline: none;
+}
+
+.scroll-concept-page .occasion-item.is-active {
+  color: #121212;
+  border-left: 2px solid #8c7355;
+  padding-left: 1.5rem;
+}
+
+.scroll-concept-page .occasions-display-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+}
+
+.scroll-concept-page .occasion-image-slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: scale(1.05);
+}
+
+.scroll-concept-page .occasion-image-slide.is-active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.scroll-concept-page .occasion-overlay-text {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 2.5rem;
+  background: linear-gradient(to top, rgba(18, 18, 18, 0.8) 0%, rgba(18, 18, 18, 0) 100%);
+  color: #FAF8F5;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.scroll-concept-page .occasion-overlay-text.is-active {
+  opacity: 1;
+}
+
+.scroll-concept-page .occasion-tagline {
+  font-size: 1.4rem;
+  font-weight: 300;
+  line-height: 1.4;
+}
+
+/* Scene 8 - Final CTA */
+.scroll-concept-page .scene-final-cta {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  min-height: 100vh;
+  background-color: #FAF8F5;
+}
+
+.scroll-concept-page .final-cta-container {
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.scroll-concept-page .cta-logo-wrap {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.scroll-concept-page .cta-symbol-jigzo {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+.scroll-concept-page .concept-footer {
+  width: 100%;
+  padding: 4rem 10% 2rem;
+  border-top: 1px solid rgba(18, 18, 18, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.scroll-concept-page .concept-footer__links a {
+  color: #666;
+  text-decoration: none;
+}
+
+.scroll-concept-page .concept-footer__links a:hover {
+  text-decoration: underline;
+}
+
+/* RESPONSIVE DESIGN (MOBILE ADAPTATION) */
+@media (max-width: 1023px) {
+  .scroll-concept-page .hero-headline {
+    font-size: 3.5rem;
+  }
+  .scroll-concept-page .editorial-title {
+    font-size: 2.8rem;
+  }
+  .scroll-concept-page .scenes-container {
+    padding-top: 60px;
+  }
+  .scroll-concept-page .scene {
+    padding: 0 6%;
+  }
+  .scroll-concept-page .scene-uncover {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2rem;
+  }
+  .scroll-concept-page .scene-uncover__text {
+    max-width: 100%;
+  }
+  .scroll-concept-page .scene-uncover__visual {
+    height: 40vh;
+  }
+  .scroll-concept-page .reveal-grid-container {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    width: 90%;
+  }
+  .scroll-concept-page .puzzle-stage {
+    order: 2;
+  }
+  .scroll-concept-page .reveal-grid-text {
+    order: 1;
+  }
+  .scroll-concept-page .works-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  .scroll-concept-page .occasions-viewer {
+    grid-template-columns: 1fr;
+    height: auto;
+    gap: 2rem;
+  }
+  .scroll-concept-page .occasions-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+  .scroll-concept-page .occasion-item {
+    font-size: 1.1rem;
+    border-left: none;
+    padding: 0.4rem 0.8rem;
+    background-color: rgba(18, 18, 18, 0.05);
+    border-radius: 20px;
+  }
+  .scroll-concept-page .occasion-item.is-active {
+    background-color: #8c7355;
+    color: #FAF8F5;
+    padding-left: 0.8rem;
+  }
+  .scroll-concept-page .occasions-display-wrapper {
+    height: 40vh;
+  }
+  .scroll-concept-page .concept-footer {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .scroll-concept-page .hero-headline {
+    font-size: 2.5rem;
+  }
+  .scroll-concept-page .editorial-title {
+    font-size: 2rem;
+  }
+  .scroll-concept-page .btn-primary {
+    font-size: 1rem;
+    padding: 1rem 2rem;
+  }
+  .scroll-concept-page .main-guide-piece {
+    width: 70px;
+    height: 70px;
+  }
+  .scroll-concept-page .support-piece {
+    width: 50px;
+    height: 50px;
+  }
+}
+
+/* REDUCED MOTION ACCESSIBILITY OVERRIDES */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-concept-page .main-guide-piece,
+  .scroll-concept-page .support-piece {
+    display: none !important;
+  }
+  .scroll-concept-page .scene-hook__scroll-reveal,
+  .scroll-concept-page .whatsapp-bubble {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .scroll-concept-page .reveal-pin-section {
+    height: auto !important;
+  }
+  .scroll-concept-page .reveal-sticky-container {
+    position: relative !important;
+    height: auto !important;
+    padding: 4rem 6% !important;
+  }
+  .scroll-concept-page .puzzle-base-image {
+    filter: none !important;
+  }
+  .scroll-concept-page .puzzle-snap-target {
+    display: none !important;
+  }
+  .scroll-concept-page .hidden-message-overlay {
+    position: relative !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+    margin-top: 1.5rem !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .scroll-concept-page .uncover-image {
+    transform: none !important;
+  }
+  .scroll-concept-page .puzzle-seams-overlay {
+    opacity: 0.2 !important;
+  }
+}

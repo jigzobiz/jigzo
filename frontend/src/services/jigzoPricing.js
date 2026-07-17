@@ -8,31 +8,32 @@ const BASE_PRICES = {
 };
 
 // Cache keys with version suffix for invalidation
-const CACHE_KEY_RATES = 'jigzo_exchange_rates_v2';
-const CACHE_KEY_CURRENCY = 'jigzo_visitor_currency_v2';
+const CACHE_KEY_QUOTE = 'jigzo_backend_quote_v3';
+const CACHE_KEY_CURRENCY = 'jigzo_visitor_currency_v3';
 
-// Supported currencies/rates (initially with fallback rates)
-let EXCHANGE_RATES = {
-  USD: 1.0,
-  BHD: 0.376,
-  GBP: 0.79,
-  EUR: 0.92,
-  AED: 3.67,
-  SAR: 3.75,
+let BACKEND_QUOTE = null;
+
+// USD 5 fallback quote
+const FALLBACK_QUOTE = {
+  basePriceUsd: 5,
+  currency: 'USD',
+  rate: 1.0,
+  rawConverted: 5.0,
+  roundedAmount: 5,
+  formatted: 'USD 5',
+  packages: {
+    single: { basePrice: 5, formattedBase: 'USD 5', insightsPrice: 1, formattedInsights: 'USD 1' },
+    small: { basePrice: 8, formattedBase: 'USD 8', insightsPrice: 1.5, formattedInsights: 'USD 1.5' },
+    friends: { basePrice: 15, formattedBase: 'USD 15', insightsPrice: 2, formattedInsights: 'USD 2' },
+    celebration: { basePrice: 25, formattedBase: 'USD 25', insightsPrice: 2.5, formattedInsights: 'USD 2.5' }
+  }
 };
 
-// Country to Currency Mapping
-const COUNTRY_CURRENCY_MAP = {
-  US: 'USD', BH: 'BHD', GB: 'GBP', UK: 'GBP',
-  DE: 'EUR', FR: 'EUR', IT: 'EUR', ES: 'EUR', NL: 'EUR',
-  AE: 'AED', SA: 'SAR',
-};
-
-// Check if cached rates/currency are in sessionStorage to allow synchronous first-render
+// Check if cached quote is in sessionStorage
 try {
-  const cachedRates = sessionStorage.getItem(CACHE_KEY_RATES);
-  if (cachedRates) {
-    EXCHANGE_RATES = JSON.parse(cachedRates);
+  const cachedQuote = sessionStorage.getItem(CACHE_KEY_QUOTE);
+  if (cachedQuote) {
+    BACKEND_QUOTE = JSON.parse(cachedQuote);
   }
 } catch (e) {}
 
@@ -57,63 +58,78 @@ function getDevCurrencyOverride() {
 export function resolveVisitorCurrency() {
   const devOverride = getDevCurrencyOverride();
   if (devOverride) return devOverride;
-
-  try {
-    const cached = sessionStorage.getItem(CACHE_KEY_CURRENCY);
-    if (cached) return cached;
-  } catch (e) {}
-
-  return 'USD';
+  const quote = BACKEND_QUOTE || FALLBACK_QUOTE;
+  return quote.currency;
 }
 
-function getExchangeRate(currencyCode) {
-  return EXCHANGE_RATES[currencyCode] || 1.0;
+export function roundPrice(amount, currency) {
+  const threeDecimalCurrencies = ['BHD', 'KWD', 'OMR', 'LYD', 'IQD', 'TND'];
+  if (threeDecimalCurrencies.includes(currency)) {
+    return Math.ceil(amount * 10) / 10;
+  }
+  return Math.ceil(amount);
 }
 
 export function formatMoney(amount, currencyCode) {
-  const cur = currencyCode || resolveVisitorCurrency();
-  const rate = getExchangeRate(cur);
-  const converted = amount * rate;
+  const quote = BACKEND_QUOTE || FALLBACK_QUOTE;
+  const cur = currencyCode || quote.currency;
+  
+  // Calculate based on the single backend FX rate source of truth
+  const rate = quote.rate || 1.0;
+  const rawConverted = amount * rate;
+  const rounded = roundPrice(rawConverted, cur);
 
-  let decimals = 2;
-  try {
-    decimals = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: cur,
-    }).resolvedOptions().minimumFractionDigits;
-  } catch (e) {
-    if (cur === 'BHD' || cur === 'KWD' || cur === 'OMR') decimals = 3;
-    else if (cur === 'JPY' || cur === 'KRW') decimals = 0;
+  const threeDecimalCurrencies = ['BHD', 'KWD', 'OMR', 'LYD', 'IQD', 'TND'];
+  if (threeDecimalCurrencies.includes(cur)) {
+    return cur + ' ' + rounded.toFixed(1);
   }
-
-  try {
-    const formatter = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: cur,
-      currencyDisplay: 'code',
-    });
-    let formatted = formatter.format(converted);
-    formatted = formatted.replace(/([A-Z]{3})\s*/, '$1 ');
-    
-    // Clean up trailing decimals for whole numbers
-    if (converted % 1 === 0) {
-      if (decimals === 2) formatted = formatted.replace(/\.00$/, '');
-      else if (decimals === 3) formatted = formatted.replace(/\.000$/, '');
-    }
-    return formatted;
-  } catch (e) {
-    let numStr = converted.toFixed(decimals);
-    if (converted % 1 === 0) {
-      numStr = converted.toFixed(0);
-    }
-    return cur + ' ' + numStr;
-  }
+  return cur + ' ' + rounded.toFixed(0);
 }
 
 export function getLocalizedPrice(tier, currencyCode) {
-  const cur = currencyCode || resolveVisitorCurrency();
+  const quote = BACKEND_QUOTE || FALLBACK_QUOTE;
+  let key = tier;
+  if (tier === 'digital') key = 'single';
+
+  // Return the direct pre-calculated backend rounded quote if possible
+  if (quote.packages && quote.packages[key]) {
+    return quote.packages[key].formattedBase;
+  }
+
+  // Fallback to manual format using the backend quote rate
   const base = BASE_PRICES[tier] ? BASE_PRICES[tier].price : 5;
-  return formatMoney(base, cur);
+  return formatMoney(base, currencyCode || quote.currency);
+}
+
+export function getPricingDetails(tier, currencyCode) {
+  const quote = BACKEND_QUOTE || FALLBACK_QUOTE;
+  const cur = currencyCode || quote.currency;
+  let key = tier;
+  if (tier === 'digital') key = 'single';
+
+  let formatted = '';
+  let roundedDisplayAmount = 5;
+  let rawConvertedAmount = 5;
+
+  if (quote.packages && quote.packages[key]) {
+    formatted = quote.packages[key].formattedBase;
+    roundedDisplayAmount = quote.packages[key].basePrice;
+    rawConvertedAmount = (BASE_PRICES[tier] ? BASE_PRICES[tier].price : 5) * (quote.rate || 1.0);
+  } else {
+    const base = BASE_PRICES[tier] ? BASE_PRICES[tier].price : 5;
+    rawConvertedAmount = base * (quote.rate || 1.0);
+    roundedDisplayAmount = roundPrice(rawConvertedAmount, cur);
+    formatted = formatMoney(base, cur);
+  }
+
+  return {
+    currencyCode: cur,
+    rawConvertedAmount,
+    roundedDisplayAmount,
+    formatted,
+    starting: `Starting from ${formatted}`,
+    short: `From ${formatted}`
+  };
 }
 
 // Kick off detection promise
@@ -133,63 +149,24 @@ export function initializePricing() {
       }
       const data = await res.json();
 
-      if (data && data.currency) {
-        if (data.rates) {
-          EXCHANGE_RATES = data.rates;
-          sessionStorage.setItem(CACHE_KEY_RATES, JSON.stringify(data.rates));
-        }
+      if (data && data.success && data.quote) {
+        BACKEND_QUOTE = data.quote;
+        sessionStorage.setItem(CACHE_KEY_QUOTE, JSON.stringify(data.quote));
         sessionStorage.setItem(CACHE_KEY_CURRENCY, data.currency);
         window.dispatchEvent(new CustomEvent('jigzo-pricing-updated', { detail: { currency: data.currency } }));
         return data.currency;
       }
+      throw new Error('Quote missing in response');
     } catch (err) {
-      console.warn('Failed to load pricing locale from API, running client-side fallback:', err.message);
+      console.warn('Failed to load pricing locale from API, falling back to USD 5:', err.message);
       
-      // Client-side fallback detection using ipapi.co
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const queryCur = urlParams.get('currency');
-        
-        let currency = 'USD';
-        if (queryCur) {
-          const cleanCur = queryCur.toUpperCase();
-          if (EXCHANGE_RATES[cleanCur]) {
-            currency = cleanCur;
-          }
-        } else {
-          // Direct JSON geolocation lookup
-          const geoRes = await fetch('https://ipapi.co/json/');
-          const geoData = await geoRes.json();
-          if (geoData) {
-            if (geoData.currency && EXCHANGE_RATES[geoData.currency.toUpperCase()]) {
-              currency = geoData.currency.toUpperCase();
-            } else if (geoData.country_code) {
-              const country = geoData.country_code.toUpperCase();
-              currency = COUNTRY_CURRENCY_MAP[country] || 'USD';
-            }
-          }
-        }
-        
-        // Try to fetch latest exchange rates client-side, fallback to hardcoded if it fails
-        try {
-          const ratesRes = await fetch('https://open.er-api.com/v6/latest/USD');
-          const ratesData = await ratesRes.json();
-          if (ratesData && ratesData.rates) {
-            EXCHANGE_RATES = ratesData.rates;
-            sessionStorage.setItem(CACHE_KEY_RATES, JSON.stringify(ratesData.rates));
-          }
-        } catch (ratesErr) {
-          console.warn('Client-side exchange rates fetch failed, using local fallback rates:', ratesErr.message);
-        }
-
-        sessionStorage.setItem(CACHE_KEY_CURRENCY, currency);
-        window.dispatchEvent(new CustomEvent('jigzo-pricing-updated', { detail: { currency } }));
-        return currency;
-      } catch (fallbackErr) {
-        console.error('Client-side fallback geolocation also failed:', fallbackErr.message);
-      }
+      // Fallback cleanly to USD 5
+      BACKEND_QUOTE = FALLBACK_QUOTE;
+      sessionStorage.setItem(CACHE_KEY_QUOTE, JSON.stringify(FALLBACK_QUOTE));
+      sessionStorage.setItem(CACHE_KEY_CURRENCY, 'USD');
+      window.dispatchEvent(new CustomEvent('jigzo-pricing-updated', { detail: { currency: 'USD' } }));
+      return 'USD';
     }
-    return resolveVisitorCurrency();
   })();
 
   return initPromise;

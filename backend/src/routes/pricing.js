@@ -111,18 +111,86 @@ router.get('/locale', async (req, res) => {
       }
     }
 
+    function roundPrice(amount, cur) {
+      const threeDecimalCurrencies = ['BHD', 'KWD', 'OMR', 'LYD', 'IQD', 'TND'];
+      if (threeDecimalCurrencies.includes(cur)) {
+        return Math.ceil(amount * 10) / 10;
+      }
+      return Math.ceil(amount);
+    }
+
+    function formatMoney(amount, currencyCode) {
+      const rounded = roundPrice(amount, currencyCode);
+      const threeDecimalCurrencies = ['BHD', 'KWD', 'OMR', 'LYD', 'IQD', 'TND'];
+      if (threeDecimalCurrencies.includes(currencyCode)) {
+        return currencyCode + ' ' + rounded.toFixed(1);
+      }
+      return currencyCode + ' ' + rounded.toFixed(0);
+    }
+
+    // Generate package and upgrade quotes
+    const PACK_OPTIONS = [
+      { id: "single", price: 5, insightsPrice: 1 },
+      { id: "small", price: 8, insightsPrice: 1.50 },
+      { id: "friends", price: 15, insightsPrice: 2 },
+      { id: "celebration", price: 25, insightsPrice: 2.50 }
+    ];
+
+    const rate = rates[currency] || 1.0;
+
+    const packagesQuote = {};
+    PACK_OPTIONS.forEach(pkg => {
+      const rawPrice = pkg.price * rate;
+      const roundedPrice = roundPrice(rawPrice, currency);
+      
+      const rawInsights = pkg.insightsPrice * rate;
+      const roundedInsights = roundPrice(rawInsights, currency);
+      
+      packagesQuote[pkg.id] = {
+        basePrice: roundedPrice,
+        formattedBase: formatMoney(rawPrice, currency),
+        insightsPrice: roundedInsights,
+        formattedInsights: formatMoney(rawInsights, currency)
+      };
+    });
+
     res.json({
       success: true,
       country: country || null,
       currency,
-      rates
+      rates,
+      quote: {
+        basePriceUsd: 5,
+        currency,
+        rate,
+        rawConverted: 5 * rate,
+        roundedAmount: roundPrice(5 * rate, currency),
+        formatted: formatMoney(5 * rate, currency),
+        packages: packagesQuote,
+        timestamp: Date.now()
+      }
     });
   } catch (error) {
     console.error('[Pricing Router Error]:', error);
     res.json({
       success: false,
       currency: 'USD',
-      rates: { USD: 1.0 }
+      rates: { USD: 1.0 },
+      quote: {
+        basePriceUsd: 5,
+        currency: 'USD',
+        rate: 1.0,
+        rawConverted: 5.0,
+        roundedAmount: 5,
+        formatted: 'USD 5',
+        packages: {
+          single: { basePrice: 5, formattedBase: 'USD 5', insightsPrice: 1, formattedInsights: 'USD 1' },
+          small: { basePrice: 8, formattedBase: 'USD 8', insightsPrice: 2, formattedInsights: 'USD 2' },
+          friends: { basePrice: 15, formattedBase: 'USD 15', insightsPrice: 2, formattedInsights: 'USD 2' },
+          celebration: { basePrice: 25, formattedBase: 'USD 25', insightsPrice: 3, formattedInsights: 'USD 3' }
+        },
+        timestamp: Date.now()
+      }
     });
   }
 });

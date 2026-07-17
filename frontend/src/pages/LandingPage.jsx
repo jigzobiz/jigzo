@@ -87,17 +87,12 @@ export default function LandingPage() {
             <div className="hero__content">
               <div className="eyebrow eyebrow--dot"><span></span>A surprise worth uncovering</div>
               <h1 className="hero__headline">
-                <span className="hero__headline-line">Don&rsquo;t just send</span>
-                <span className="hero__headline-line">the message.</span>
-                <span className="hero__headline-line">Let them<span className="hero__headline-desktop-inline"> discover it.</span></span>
-                <span className="hero__headline-line hero__headline-mobile-only">discover it.</span>
+                <span className="hero__headline-line">Don&rsquo;t just send it.</span>
+                <span className="hero__headline-line hero__headline-line--italic-gold">Let them discover it.</span>
               </h1>
-              <p className="hero__lede">Turn any photo and message into an unforgettable surprise delivered through WhatsApp.</p>
+              <p className="hero__lede">Turn any photo and message into a puzzle surprise delivered through WhatsApp.</p>
               <div className="hero__cta-wrap">
-                <Link className="btn btn-dark" id="hero-cta-btn" to="/create">Create Your Surprise</Link>
-                <div className="hero__price-disclosure">
-                  Starting from <span data-price-amt>{price}</span>
-                </div>
+                <Link className="btn btn-dark" id="hero-cta-btn" to="/create">Create Your Surprise &middot; {price}</Link>
               </div>
             </div>
           </div>

@@ -6,6 +6,7 @@ import CreatePage from './pages/CreatePage';
 import ReceivePage from './pages/ReceivePage';
 import TermsPage from './pages/TermsPage';
 import AdminPortal from './pages/AdminPortal';
+import ScrollConceptPage from './pages/ScrollConceptPage';
 import './index.css';
 
 // Configure standard client-side routing routes
@@ -17,6 +18,10 @@ const router = createBrowserRouter([
   {
     path: '/create',
     element: <CreatePage />
+  },
+  {
+    path: '/scroll-concept',
+    element: <ScrollConceptPage />
   },
   {
     path: '/p/:publicId',

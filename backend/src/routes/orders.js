@@ -62,21 +62,18 @@ router.post('/', async (req, res, next) => {
 
     // Convert total to localized amount
     const rate = rates[currency] || 1.0;
-    let convertedTotal = usdTotal * rate;
+    const rawConverted = usdTotal * rate;
 
-    // Apply currency rounding based on minor units
-    let decimals = 2;
+    // Apply currency-aware retail rounding rule matching frontend exactly (using Math.ceil)
+    let convertedTotal;
     const threeDecimalCurrencies = ['BHD', 'KWD', 'OMR', 'LYD', 'IQD', 'TND'];
-    const zeroDecimalCurrencies = ['JPY', 'KRW', 'VND', 'CLP', 'HUF'];
     if (threeDecimalCurrencies.includes(currency)) {
-      decimals = 3;
-    } else if (zeroDecimalCurrencies.includes(currency)) {
-      decimals = 0;
+      // Low-denomination 3-decimal currencies: round to 1 decimal place
+      convertedTotal = Math.ceil(rawConverted * 10) / 10;
+    } else {
+      // Standard 2-decimal and zero-decimal currencies: round to whole units
+      convertedTotal = Math.ceil(rawConverted);
     }
-    
-    // Round to correct decimal places
-    const factor = Math.pow(10, decimals);
-    convertedTotal = Math.round(convertedTotal * factor) / factor;
 
     const orderId = `ord_${uuidv4().replace(/-/g, '').substring(0, 12)}`;
 
