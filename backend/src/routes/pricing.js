@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const https = require('https');
 
 // Supported currencies by the payment gateway
 const SUPPORTED_CURRENCIES = new Set([
@@ -24,42 +25,55 @@ let ratesCache = {
   lastUpdated: 0
 };
 
-// Fetch exchange rates (cached for 1 hour)
+const FALLBACK_RATES = {
+  USD: 1.0,
+  BHD: 0.376,
+  GBP: 0.79,
+  EUR: 0.92,
+  AED: 3.67,
+  SAR: 3.75,
+  JPY: 155.0,
+  CAD: 1.37,
+  AUD: 1.50
+};
+
+// Fetch exchange rates (cached for 1 hour) using native https
 async function getExchangeRates() {
   const now = Date.now();
   if (ratesCache.rates && now - ratesCache.lastUpdated < 3600000) {
     return ratesCache.rates;
   }
 
-  try {
-    const res = await fetch('https://open.er-api.com/v6/latest/USD');
-    const data = await res.json();
-    if (data && data.rates) {
-      ratesCache.rates = data.rates;
-      ratesCache.lastUpdated = now;
-      return data.rates;
-    }
-  } catch (err) {
-    console.error('[Pricing] Failed to fetch exchange rates:', err.message);
-  }
-
-  // Fallback exchange rates if API is down
-  return ratesCache.rates || {
-    USD: 1.0,
-    BHD: 0.376,
-    GBP: 0.79,
-    EUR: 0.92,
-    AED: 3.67,
-    SAR: 3.75,
-    JPY: 155.0,
-    CAD: 1.37,
-    AUD: 1.50
-  };
+  return new Promise((resolve) => {
+    https.get('https://open.er-api.com/v6/latest/USD', (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed && parsed.rates) {
+            ratesCache.rates = parsed.rates;
+            ratesCache.lastUpdated = now;
+            resolve(parsed.rates);
+            return;
+          }
+        } catch (e) {
+          console.error('[Pricing] JSON parse error on exchange rates:', e.message);
+        }
+        resolve(ratesCache.rates || FALLBACK_RATES);
+      });
+    }).on('error', (err) => {
+      console.error('[Pricing] Failed to fetch exchange rates via HTTPS:', err.message);
+      resolve(ratesCache.rates || FALLBACK_RATES);
+    });
+  });
 }
 
 /**
  * GET /api/pricing/locale
- * Resolves visitor country, currency, and returns exchange rates.
+ * Resolves visitor country, currency, and returns exchange rates and commercial quote.
  */
 router.get('/locale', async (req, res) => {
   try {
@@ -87,20 +101,35 @@ router.get('/locale', async (req, res) => {
           if (ip.includes(',')) {
             ip = ip.split(',')[0].trim();
           }
-          try {
-            const geoRes = await fetch(`https://ipapi.co/${ip}/json/`);
-            const geoData = await geoRes.json();
-            if (geoData) {
-              if (geoData.currency) {
-                currency = geoData.currency;
-              } else if (geoData.country_code) {
-                country = geoData.country_code.toUpperCase();
-                currency = COUNTRY_CURRENCY_MAP[country] || 'USD';
-              }
-            }
-          } catch (e) {
-            console.warn('[Pricing] Geolocation fallback failed:', e.message);
-          }
+          
+          // Perform geolocation lookup via native HTTPS
+          await new Promise((resolveGeo) => {
+            https.get(`https://ipapi.co/${ip}/json/`, (geoRes) => {
+              let geoDataStr = '';
+              geoRes.on('data', (chunk) => {
+                geoDataStr += chunk;
+              });
+              geoRes.on('end', () => {
+                try {
+                  const geoData = JSON.parse(geoDataStr);
+                  if (geoData) {
+                    if (geoData.currency) {
+                      currency = geoData.currency;
+                    } else if (geoData.country_code) {
+                      country = geoData.country_code.toUpperCase();
+                      currency = COUNTRY_CURRENCY_MAP[country] || 'USD';
+                    }
+                  }
+                } catch (e) {
+                  console.warn('[Pricing] JSON parse error on IP geolocation:', e.message);
+                }
+                resolveGeo();
+              });
+            }).on('error', (err) => {
+              console.warn('[Pricing] Geolocation IP lookup failed:', err.message);
+              resolveGeo();
+            });
+          });
         }
       }
 
@@ -185,9 +214,9 @@ router.get('/locale', async (req, res) => {
         formatted: 'USD 5',
         packages: {
           single: { basePrice: 5, formattedBase: 'USD 5', insightsPrice: 1, formattedInsights: 'USD 1' },
-          small: { basePrice: 8, formattedBase: 'USD 8', insightsPrice: 2, formattedInsights: 'USD 2' },
+          small: { basePrice: 8, formattedBase: 'USD 8', insightsPrice: 1.5, formattedInsights: 'USD 1.5' },
           friends: { basePrice: 15, formattedBase: 'USD 15', insightsPrice: 2, formattedInsights: 'USD 2' },
-          celebration: { basePrice: 25, formattedBase: 'USD 25', insightsPrice: 3, formattedInsights: 'USD 3' }
+          celebration: { basePrice: 25, formattedBase: 'USD 25', insightsPrice: 2.5, formattedInsights: 'USD 2.5' }
         },
         timestamp: Date.now()
       }
