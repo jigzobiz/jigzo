@@ -88,8 +88,8 @@ function resolveJwtSecret() {
   }
 
   if (isDeployed()) {
-    console.warn(
-      'WARNING: JWT_SECRET is not configured in this deployed environment. Falling back to development secret.'
+    throw new Error(
+      'JWT_SECRET must be configured in deployed environments (Vercel Preview/Production).'
     );
   }
 
