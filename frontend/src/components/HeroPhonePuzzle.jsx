@@ -1,25 +1,10 @@
 import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 /*
- * HeroPhonePuzzle — Claude Design "Phone Puzzle Reveal" (project
- * "JIGZO Conversion Experience Redesign", file "Phone Puzzle Reveal.dc.html").
- *
- * The scene components below (geometry, Phone2D, PuzzleScreenBase, SettledPiece,
- * FloatingPieceOverlay, Flip/DriftAndDrop/Reveal/LoopOut) are ported VERBATIM
- * from the design's phone-reveal-scene.jsx — only the two asset URLs are pointed
- * at /assets/. The design's own runtime (support.js + animations-v2.jsx) renders
- * inside a dark, shadowed, playback-bar Stage that is unusable as a transparent
- * overlay, so the timeline engine is replaced with the minimal, transparent
- * scene runner at the bottom (same useScene()/Easing/clamp contract, same
- * scenes + looping playback declared in the .dc.html).
- *
- * Page-level adjustments layered on top of the import (not in the design):
- *   1. Scene durations multiplied by SLOWDOWN (1.3) — ~30% calmer.
- *   2. Warm glow matching the hero's floating pieces — in index.css on the layer.
- *   3. Gentle continuous vertical bob — in index.css on .hero-phone-anim__bob.
+ * HeroPhonePuzzle — Refactored with positive stacking context phone glow
+ * and SVG-masked single photo puzzle screen base.
  */
 
-/* ── geometry (verbatim) ─────────────────────────────────────────────────── */
 const COLS = 3, ROWS = 6;
 const CANVAS_W = 1080, CANVAS_H = 1920;
 const PHONE_W = 340, PHONE_H = 700;
@@ -27,10 +12,6 @@ const SIDE_BEZEL = 6;
 const TOP_BEZEL = 6;
 const SCREEN_W = PHONE_W - SIDE_BEZEL * 2, SCREEN_H = PHONE_H - TOP_BEZEL * 2;
 const CELL_W = SCREEN_W / COLS, CELL_H = SCREEN_H / ROWS;
-// Piece parks/drifts from this far to the right of the slot (canvas px). Reduced
-// from the design's 480 so that, at the larger mobile phone size (which scales
-// the canvas wider than the viewport), the parked piece still sits on-screen on
-// the right rather than being clipped off the edge.
 const FLOAT_DX = 300;
 const FLOAT_DY_HOLD = -30;
 const FLOAT_ROT = -10;
@@ -46,9 +27,6 @@ function ptAlong(p0, u, n, s, h, dir) {
   return { x: p0.x + u.x * s + n.x * h * dir, y: p0.y + u.y * s + n.y * h * dir };
 }
 
-// Mushroom-shaped jigsaw knob: pinched neck then a bulb WIDER than its base,
-// so the tab genuinely overhangs (reads as an interlocking knob, not a wave).
-// (u, v) are fractions of edge-length / protrusion-height.
 const TAB_PTS = [
   { u: 0.35, v: 0 },
   { u: 0.41, v: 0.32 },
@@ -79,7 +57,6 @@ function catmullPath(pts) {
   return d;
 }
 
-// One internal edge: straight 35%, mushroom knob across the middle 30%, straight final 35%.
 function buildEdgeCmd(p0, p1, dir, hasTab) {
   if (!hasTab) return ` L ${p1.x.toFixed(2)},${p1.y.toFixed(2)}`;
   const dx = p1.x - p0.x, dy = p1.y - p0.y;
@@ -112,7 +89,12 @@ function piecePath(r, c, dy) {
 const CAVITY_D = piecePath(FR, FC, 0);
 const STATIC_PIECES = (() => {
   const list = [];
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { if (r === FR && c === FC) continue; list.push({ r, c, d: piecePath(r, c, 0) }); }
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (r === FR && c === FC) continue;
+      list.push({ r, c, d: piecePath(r, c, 0) });
+    }
+  }
   return list;
 })();
 
@@ -120,36 +102,28 @@ const PHOTO = '/assets/demo-photo.png';
 const REVEAL = '/assets/demo-reveal.png';
 const imgStyle = { position: 'absolute', top: 0, left: 0, width: SCREEN_W, height: SCREEN_H, objectFit: 'cover' };
 
-/* ── scene components (verbatim, asset URLs swapped to /assets/) ──────────── */
-// Memoized: the assembled board is identical every frame, so it renders once
-// and is reused across the continuous loop instead of rebuilding 18 clip paths.
-const PuzzleScreenBase = React.memo(function PuzzleScreenBase() {
-  return (
-    <div style={{ position: 'absolute', inset: 0, background: '#141416' }}>
-      <div style={{ position: 'absolute', inset: 0, clipPath: `path('${CAVITY_D}')`, background: '#0e0e10' }}>
-        {/* recessed missing-slot look via opacity over the dark bg (no filter) */}
-        <img src={PHOTO} style={{ ...imgStyle, opacity: 0.3 }} />
-      </div>
-      {STATIC_PIECES.map((p) => (
-        <div key={`p-${p.r}-${p.c}`} style={{ position: 'absolute', inset: 0, clipPath: `path('${p.d}')` }}>
-          <img src={PHOTO} style={imgStyle} />
-        </div>
-      ))}
-      <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-        {STATIC_PIECES.map((p) => (<path key={`s-${p.r}-${p.c}`} d={p.d} fill="none" stroke="rgba(0,0,0,0.18)" strokeWidth="0.9" />))}
-      </svg>
-    </div>
-  );
-});
-
-const SettledPiece = React.memo(function SettledPiece() {
+const SettledPiece = React.memo(function SettledPiece({ glowOpacity = 0 }) {
   const d = piecePath(FR, FC, 0);
   return (
-    <div style={{ position: 'absolute', inset: 0 }}>
-      <div style={{ position: 'absolute', inset: 0, clipPath: `path('${d}')` }}>
+    <div style={{ position: 'absolute', inset: 0, overflow: 'visible' }}>
+      {/* Snap/Settle edge glows */}
+      {glowOpacity > 0.001 && (
+        <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible', opacity: glowOpacity, zIndex: 0 }}>
+          <path d={d} fill="none" stroke="rgba(211,158,69,0.22)" strokeWidth="16" strokeLinejoin="round" strokeLinecap="round" />
+          <path d={d} fill="none" stroke="rgba(244,211,142,0.48)" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" />
+          <path d={d} fill="none" stroke="rgba(255,250,231,0.95)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        </svg>
+      )}
+
+      {/* Minimal highlight border always active for the settled piece */}
+      <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible', zIndex: 1 }}>
+        <path d={d} fill="none" stroke="rgba(255,250,231,0.4)" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+
+      <div style={{ position: 'absolute', inset: 0, clipPath: `path('${d}')`, zIndex: 2 }}>
         <img src={PHOTO} style={imgStyle} />
       </div>
-      <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 3 }}>
         <path d={d} fill="none" stroke="rgba(0,0,0,0.18)" strokeWidth="0.9" />
       </svg>
     </div>
@@ -159,93 +133,92 @@ const SettledPiece = React.memo(function SettledPiece() {
 function FloatingPieceOverlay({ dx = 0, dy = 0, rot = 0, scale = 1, opacity, flashOpacity }) {
   const d = piecePath(FR, FC, 0);
   return (
-    <div style={{ position: 'absolute', left: SCREEN_LEFT, top: SCREEN_TOP, width: SCREEN_W, height: SCREEN_H, opacity, transform: `translate(${dx}px, ${dy}px) rotate(${rot}deg) scale(${scale})` }}>
-      <div style={{ position: 'absolute', inset: 0, clipPath: `path('${d}')` }}>
+    <div style={{ position: 'absolute', left: SCREEN_LEFT, top: SCREEN_TOP, width: SCREEN_W, height: SCREEN_H, opacity, transform: `translate(${dx}px, ${dy}px) rotate(${rot}deg) scale(${scale})`, overflow: 'visible', isolation: 'isolate' }}>
+      {/* SVG Shape-Following Glow behind the image piece */}
+      <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible', zIndex: 0 }}>
+        <path d={d} fill="none" stroke="rgba(211,158,69,0.22)" strokeWidth="16" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={d} fill="none" stroke="rgba(244,211,142,0.48)" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={d} fill="none" stroke="rgba(255,250,231,0.95)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+
+      <div style={{ position: 'absolute', inset: 0, clipPath: `path('${d}')`, zIndex: 1 }}>
         <img src={PHOTO} style={imgStyle} />
       </div>
-      <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2 }}>
         <path d={d} fill="none" stroke="rgba(0,0,0,0.2)" strokeWidth="0.9" />
       </svg>
       {flashOpacity > 0.001 && (
-        <div style={{ position: 'absolute', inset: 0, clipPath: `path('${d}')`, background: 'linear-gradient(135deg, #FFE3A0 0%, #E8B04B 45%, #8C5A2B 100%)', opacity: flashOpacity }} />
+        <div style={{ position: 'absolute', inset: 0, clipPath: `path('${d}')`, background: 'linear-gradient(135deg, #FFE3A0 0%, #E8B04B 45%, #8C5A2B 100%)', opacity: flashOpacity, zIndex: 3 }} />
       )}
     </div>
   );
 }
 
-// Flat 2D phone silhouette — matte silver back or bezeled front, no 3D box/side panels.
 function Phone2D({ scaleX = 1, scaleVal = 1, screenView = 'front', screen }) {
   const W = PHONE_W, H = PHONE_H;
-  // Warm champagne silver — matches the silver phone in the hero photo (warm
-  // light silver with a soft champagne tone), not a cool/pure grey and not dark.
   const bezelGrad = 'linear-gradient(158deg, #efe8d8 0%, #ded5c3 44%, #d1c7b4 72%, #e7dfcd 100%)';
   const lensGrad = 'radial-gradient(circle at 35% 30%, #4a4a50, #0d0d0f 70%)';
   return (
-    <div style={{ position: 'absolute', left: '50%', top: '50%', width: W, height: H, marginLeft: -W / 2, marginTop: -H / 2, transform: `scale(${scaleVal}) scaleX(${scaleX})`, transformOrigin: 'center' }}>
-      {/* Warm-white glow, BEHIND the phone body and INSIDE this transformed
-          wrapper — so it scales, flips (scaleX) and bobs with the phone for free,
-          and shrinks with it during the flip's opening. A radial-gradient
-          background (rgba(255,250,231) → transparent), NOT a filter, so iOS
-          Safari renders it reliably. Matches the floating pieces' warm light. */}
-      <div style={{ position: 'absolute', left: '50%', top: '50%', width: '176%', height: '140%', marginLeft: '-88%', marginTop: '-70%', background: 'radial-gradient(closest-side at 50% 50%, rgba(255,250,231,0.55) 0%, rgba(255,250,231,0.34) 46%, rgba(255,250,231,0.12) 68%, rgba(255,250,231,0) 82%)', pointerEvents: 'none' }} />
-      {screenView === 'front' ? (
-        <React.Fragment>
-          <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: '#050506', opacity: BODY_FADE, boxShadow: '0 30px 70px rgba(0,0,0,0.22), inset 0 0 0 1.5px rgba(255,255,255,0.12)' }} />
-          {/* iOS Safari fix: WebKit fails to clip descendants to `border-radius`
-              once they are promoted to their own compositing layer (by filter,
-              transform or animation) — the layer's straight rectangular edges
-              leak past the rounded corners as a frame/border over the puzzle.
-              `translateZ(0)` promotes THIS container to a compositing layer and
-              `isolation:isolate` gives it its own stacking context, so WebKit
-              applies the rounded clip at composite time to all children. Chrome/
-              Firefox already clip correctly, hence invisible in desktop preview. */}
-          <div style={{ position: 'absolute', left: SIDE_BEZEL, top: TOP_BEZEL, width: SCREEN_W, height: SCREEN_H, borderRadius: 34, overflow: 'hidden', background: '#000', isolation: 'isolate', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)', contain: 'paint' }}>
-            {screen}
+    <div style={{
+      position: 'absolute',
+      left: '50%',
+      top: '50%',
+      width: W,
+      height: H,
+      marginLeft: -W / 2,
+      marginTop: -H / 2,
+      transform: `scale(${scaleVal}) scaleX(${scaleX})`,
+      transformOrigin: 'center',
+      isolation: 'isolate',
+      overflow: 'visible',
+      backfaceVisibility: 'hidden',
+      WebkitBackfaceVisibility: 'hidden'
+    }}>
+      {/* Glow layer - zIndex: 0 */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: -2,
+          borderRadius: 54,
+          border: '2px solid rgba(255,250,231,0.92)',
+          boxShadow: [
+            '0 0 0 5px rgba(244,211,142,0.38)',
+            '0 0 0 12px rgba(211,158,69,0.16)',
+            '0 0 18px 7px rgba(244,211,142,0.30)',
+            '0 0 34px 12px rgba(211,158,69,0.14)'
+          ].join(', '),
+          pointerEvents: 'none',
+          zIndex: 0,
+          overflow: 'visible'
+        }}
+      />
+
+      {/* Phone content layer - zIndex: 1 */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+        {screenView === 'front' ? (
+          <React.Fragment>
+            <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: '#050506', opacity: BODY_FADE, boxShadow: '0 30px 70px rgba(0,0,0,0.22), inset 0 0 0 1.5px rgba(255,255,255,0.12)' }} />
+            <div style={{ position: 'absolute', left: SIDE_BEZEL, top: TOP_BEZEL, width: SCREEN_W, height: SCREEN_H, borderRadius: 34, overflow: 'hidden', background: '#000', isolation: 'isolate', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)', contain: 'paint' }}>
+              {screen}
+            </div>
+            <div style={{ position: 'absolute', left: '50%', top: TOP_BEZEL + 16, width: 84, height: 24, marginLeft: -42, borderRadius: 12, background: '#0a0a0c', opacity: BODY_FADE }} />
+          </React.Fragment>
+        ) : (
+          <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: bezelGrad, opacity: BODY_FADE, boxShadow: '0 24px 54px rgba(0,0,0,0.18)' }}>
+            <div style={{ position: 'absolute', left: 26, top: 30, width: 108, height: 108, borderRadius: 30, background: 'linear-gradient(145deg,#2c2c30,#111113)' }}>
+              <div style={{ position: 'absolute', left: 8, top: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
+              <div style={{ position: 'absolute', right: 8, top: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
+              <div style={{ position: 'absolute', left: 8, bottom: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
+              <div style={{ position: 'absolute', right: 16, bottom: 18, width: 14, height: 14, borderRadius: '50%', background: '#e8e2c8' }} />
+            </div>
           </div>
-          <div style={{ position: 'absolute', left: '50%', top: TOP_BEZEL + 16, width: 84, height: 24, marginLeft: -42, borderRadius: 12, background: '#0a0a0c', opacity: BODY_FADE }} />
-        </React.Fragment>
-      ) : (
-        <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: bezelGrad, opacity: BODY_FADE, boxShadow: '0 24px 54px rgba(0,0,0,0.18)' }}>
-          <div style={{ position: 'absolute', left: 26, top: 30, width: 108, height: 108, borderRadius: 30, background: 'linear-gradient(145deg,#2c2c30,#111113)' }}>
-            <div style={{ position: 'absolute', left: 8, top: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
-            <div style={{ position: 'absolute', right: 8, top: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
-            <div style={{ position: 'absolute', left: 8, bottom: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
-            <div style={{ position: 'absolute', right: 16, bottom: 18, width: 14, height: 14, borderRadius: '50%', background: '#e8e2c8' }} />
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
 
-// Flat 2D flip: back squashes (scaleX 1→0) while growing to full size, swaps to
-// front at the thin moment, then front expands (scaleX 0→1) at full size.
-function Flip() {
-  const { progress } = useScene();
-  const half = progress < 0.5;
-  const localP = clamp(half ? progress / 0.5 : (progress - 0.5) / 0.5, 0, 1);
-  const le = Easing.easeInOutCubic(localP);
-  const scaleX = half ? 1 - le : le;
-  const scaleVal = half ? 0.3 + 0.7 * le : 1;
-  return <Phone2D scaleX={scaleX} scaleVal={scaleVal} screenView={half ? 'back' : 'front'} screen={<PuzzleScreenBase />} />;
-}
-
-// The phone holds front-facing with the near-complete puzzle; the floating
-// piece (rendered persistently at the top level) glides into its slot here.
-function DriftAndDrop() {
-  return (
-    <div style={{ position: 'absolute', inset: 0 }}>
-      <Phone2D screenView="front" screen={<PuzzleScreenBase />} />
-    </div>
-  );
-}
-
-// Piece state for the persistent top-level overlay, by scene:
-//  - Flip: parked on the right, gently drifting (blends with the hero pieces).
-//  - DriftAndDrop: glides from the right into the slot (bob tapering to 0 so it
-//    seats exactly), with the gold snap flash near the end.
-// Continuous across the Flip→DriftAndDrop boundary because the bob is a function
-// of the shared clock. Null in Reveal/LoopOut (it is then the settled piece).
 function floatingPieceState(idx, progress, time) {
   const bobX = Math.sin(time * 0.9) * 12;
   const bobY = Math.sin(time * 1.25 + 1.1) * 26;
@@ -268,42 +241,13 @@ function floatingPieceState(idx, progress, time) {
   }
   return null;
 }
-function Reveal() {
-  const { progress } = useScene();
-  const fadeP = clamp(progress / 0.4, 0, 1);
-  const fe = Easing.easeInOutCubic(fadeP);
-  const screen = (
-    <div style={{ position: 'absolute', inset: 0 }}>
-      <div style={{ position: 'absolute', inset: 0, opacity: 1 - fe }}>
-        <PuzzleScreenBase />
-        <SettledPiece />
-      </div>
-      <img src={REVEAL} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: fe }} />
-    </div>
-  );
-  return <Phone2D screenView="front" screen={screen} />;
-}
-function LoopOut() {
-  const { progress } = useScene();
-  const fade = Easing.easeInOutCubic(progress);
-  const screen = <img src={REVEAL} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />;
-  return (
-    <div style={{ position: 'absolute', inset: 0, opacity: 1 - fade }}>
-      <Phone2D screenView="front" screen={screen} />
-    </div>
-  );
-}
 
-/* ── minimal transparent scene runner (replaces support.js Stage) ────────── */
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const Easing = {
   easeOutCubic: (t) => (--t) * t * t + 1,
   easeInOutCubic: (t) => (t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1),
 };
-const SceneContext = createContext(null);
-function useScene() { return useContext(SceneContext); }
 
-// Adjustment 1: multiply every authored scene duration by 1.3 (~30% slower).
 const SLOWDOWN = 1.3;
 const SCENES = [
   { name: 'Flip', dur: 1.8 },
@@ -311,8 +255,8 @@ const SCENES = [
   { name: 'Reveal', dur: 3.0 },
   { name: 'LoopOut', dur: 1.0 },
 ].map((s) => ({ name: s.name, dur: s.dur * SLOWDOWN }));
-const SCENE_MAP = { Flip, DriftAndDrop, Reveal, LoopOut };
-const LOOP = true; // design's OM_PLAYBACK is {mode:loop}
+
+const LOOP = true;
 const TOTAL = SCENES.reduce((s, x) => s + x.dur, 0);
 const STARTS = SCENES.reduce((acc, s) => { acc.push(acc[acc.length - 1] + s.dur); return acc; }, [0]);
 
@@ -320,13 +264,34 @@ export default function HeroPhonePuzzle() {
   const hostRef = useRef(null);
   const [scale, setScale] = useState(0);
   const [time, setTime] = useState(0);
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
 
-  // Responsive scaling of the fixed 1080×1920 canvas.
-  //  · Mobile: the box is anchored between the CTA and the trust line, so its
-  //    height IS the available gap. Scale the PHONE (not the whole tall canvas)
-  //    to fill ~90% of that gap — big and proportional, scaling with the gap at
-  //    every viewport height. Capped by width as a safety.
-  //  · Desktop: fit the canvas to the box width (unchanged).
+  // Preload and decode images before starting animation
+  useEffect(() => {
+    let active = true;
+    const preload = async () => {
+      try {
+        const p1 = new Image();
+        p1.src = PHOTO;
+        const p2 = new Image();
+        p2.src = REVEAL;
+
+        await Promise.all([
+          p1.decode ? p1.decode() : new Promise(r => p1.onload = r),
+          p2.decode ? p2.decode() : new Promise(r => p2.onload = r)
+        ]);
+
+        if (active) setAssetsLoaded(true);
+      } catch (err) {
+        console.error('Image pre-decoding failed, using fallback:', err);
+        if (active) setAssetsLoaded(true);
+      }
+    };
+    preload();
+    return () => { active = false; };
+  }, []);
+
+  // Responsive scaling of the fixed canvas
   useLayoutEffect(() => {
     const el = hostRef.current;
     if (!el) return undefined;
@@ -343,9 +308,9 @@ export default function HeroPhonePuzzle() {
     return () => { ro.disconnect(); mq.removeEventListener('change', measure); };
   }, []);
 
-  // Loop continuously (design's OM_PLAYBACK is {mode:loop}); run the rAF only
-  // while the hero is on screen. Reduced motion → freeze on the static reveal.
+  // Animation Loop
   useEffect(() => {
+    if (!assetsLoaded) return undefined;
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) {
       const rIdx = SCENES.findIndex((s) => s.name === 'Reveal');
@@ -358,7 +323,6 @@ export default function HeroPhonePuzzle() {
       if (!lastTs) lastTs = ts;
       acc += (ts - lastTs) / 1000;
       lastTs = ts;
-      if (!LOOP && acc >= TOTAL) { raf = 0; setTime(TOTAL - 0.001); return; }
       setTime(LOOP ? acc % TOTAL : acc);
       raf = requestAnimationFrame(tick);
     };
@@ -369,30 +333,138 @@ export default function HeroPhonePuzzle() {
     }, { threshold: 0.05 });
     if (el) io.observe(el);
     return () => { stop(); io.disconnect(); };
-  }, []);
+  }, [assetsLoaded]);
 
-  // Active scene + local progress (progress = localTime / dur, per useScene contract).
+  if (!assetsLoaded) {
+    return (
+      <div className="hero-phone-anim" ref={hostRef} aria-hidden="true" style={{ opacity: 0.3 }} />
+    );
+  }
+
+  // Active scene state calculation
   let idx = SCENES.length - 1;
   for (let j = 0; j < SCENES.length; j++) { if (time < STARTS[j + 1]) { idx = j; break; } }
   const wall = clamp(time - STARTS[idx], 0, SCENES[idx].dur);
-  const ctx = { progress: SCENES[idx].dur > 0 ? wall / SCENES[idx].dur : 0, index: idx, scene: SCENES[idx] };
-  const Comp = SCENE_MAP[SCENES[idx].name];
-  const piece = floatingPieceState(idx, ctx.progress, time);
+  const progress = SCENES[idx].dur > 0 ? wall / SCENES[idx].dur : 0;
+
+  // Persistent Phone2D transformations
+  let scaleX = 1;
+  let scaleVal = 1;
+  let screenView = 'front';
+  let phoneOpacity = 1;
+
+  if (idx === 0) {
+    const half = progress < 0.5;
+    const localP = clamp(half ? progress / 0.5 : (progress - 0.5) / 0.5, 0, 1);
+    const le = Easing.easeInOutCubic(localP);
+    scaleX = half ? 1 - le : le;
+    if (scaleX < 0.025) scaleX = 0.025; // Clamp scaleX
+    scaleVal = half ? 0.3 + 0.7 * le : 1;
+    screenView = half ? 'back' : 'front';
+  } else if (idx === 3) {
+    const fade = Easing.easeInOutCubic(progress);
+    phoneOpacity = 1 - fade;
+  }
+
+  // Layer Opacities
+  let baseOpacity = 1;
+  let settledOpacity = 0;
+  let revealOpacity = 0;
+  let settledGlowOpacity = 0;
+
+  if (idx === 0) {
+    baseOpacity = 1;
+  } else if (idx === 1) {
+    baseOpacity = 1;
+    if (progress >= 0.8) {
+      settledOpacity = 1;
+      settledGlowOpacity = clamp((1 - progress) / 0.2, 0, 1);
+    }
+  } else if (idx === 2) {
+    const fadeP = clamp(progress / 0.4, 0, 1);
+    const fe = Easing.easeInOutCubic(fadeP);
+    baseOpacity = 1 - fe;
+    settledOpacity = 1 - fe;
+    revealOpacity = fe;
+  } else if (idx === 3) {
+    revealOpacity = 1;
+  }
+
+  const piece = floatingPieceState(idx, progress, time);
 
   return (
     <div className="hero-phone-anim" ref={hostRef} aria-hidden="true">
+      {/* SVG Mask Definition */}
+      <svg width="0" height="0" style={{ position: 'absolute' }}>
+        <defs>
+          <mask id="puzzle-screen-mask">
+            <rect x="0" y="0" width={SCREEN_W} height={SCREEN_H} fill="white" />
+            <path d={CAVITY_D} fill="black" />
+          </mask>
+        </defs>
+      </svg>
+
       <div className="hero-phone-anim__bob">
         <div
           className="hero-phone-anim__canvas"
-          style={{ width: CANVAS_W, height: CANVAS_H, transform: `translate(-50%, -50%) scale(${scale})` }}
+          style={{
+            width: CANVAS_W,
+            height: CANVAS_H,
+            transform: `translate(-50%, -50%) scale(${scale})`,
+            opacity: phoneOpacity,
+            overflow: 'visible'
+          }}
         >
-          <SceneContext.Provider value={ctx}>
-            {Comp ? <Comp /> : null}
-          </SceneContext.Provider>
+          <Phone2D
+            scaleX={scaleX}
+            scaleVal={scaleVal}
+            screenView={screenView}
+            screen={
+              <div style={{ position: 'absolute', inset: 0 }}>
+                {/* Single Image Puzzle Base */}
+                <div style={{ position: 'absolute', inset: 0, opacity: baseOpacity, background: '#141416' }}>
+                  <div style={{ position: 'absolute', inset: 0, clipPath: `path('${CAVITY_D}')`, background: '#0e0e10' }}>
+                    <img src={PHOTO} style={{ ...imgStyle, opacity: 0.3 }} />
+                  </div>
+                  <div style={{ position: 'absolute', inset: 0, mask: 'url(#puzzle-screen-mask)', WebkitMask: 'url(#puzzle-screen-mask)' }}>
+                    <img src={PHOTO} style={imgStyle} />
+                  </div>
+                  <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                    {STATIC_PIECES.map((p) => (
+                      <path key={`s-${p.r}-${p.c}`} d={p.d} fill="none" stroke="rgba(0,0,0,0.18)" strokeWidth="0.9" />
+                    ))}
+                  </svg>
+                </div>
+
+                {/* Settled Piece */}
+                <div style={{ position: 'absolute', inset: 0, opacity: settledOpacity, overflow: 'visible' }}>
+                  <SettledPiece glowOpacity={settledGlowOpacity} />
+                </div>
+
+                {/* Crossfading Reveal */}
+                <img
+                  src={REVEAL}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    opacity: revealOpacity
+                  }}
+                />
+              </div>
+            }
+          />
+
           {piece && (
             <FloatingPieceOverlay
-              dx={piece.dx} dy={piece.dy} rot={piece.rot} scale={piece.scale}
-              opacity={1} flashOpacity={piece.flashOpacity}
+              dx={piece.dx}
+              dy={piece.dy}
+              rot={piece.rot}
+              scale={piece.scale}
+              opacity={1}
+              flashOpacity={piece.flashOpacity}
             />
           )}
         </div>
