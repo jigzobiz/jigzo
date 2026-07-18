@@ -31,16 +31,27 @@ export default function ReceivePage() {
   const [error, setError] = useState(null);
   const [puzzleData, setPuzzleData] = useState(null);
   const [resolvedRIndex, setResolvedRIndex] = useState(0);
+  const [retryTrigger, setRetryTrigger] = useState(0);
 
   const startTimeRef = useRef(null);
+
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+    setRetryTrigger(prev => prev + 1);
+  };
 
   // Fetch puzzle details on mount
   useEffect(() => {
     if (!publicId) return;
+    let active = true;
+
     const loadPuzzle = async () => {
       try {
         setLoading(true);
+        setError(null);
         const res = await api.getPuzzle(publicId, rIndexParsed);
+        if (!active) return;
         
         const puzzle = res.puzzle;
         const finalRIndex = puzzle.recipient?.index ?? 0;
@@ -54,21 +65,95 @@ export default function ReceivePage() {
           puzzle.cropImageUrl = `${apiBase}${puzzle.cropImageUrl}`;
         }
         
-        setPuzzleData(puzzle);
-        startTimeRef.current = Date.now();
-        
-        // Log open event
-        await api.recordOpen(publicId, finalRIndex);
+        // Log open event asynchronously
+        api.recordOpen(publicId, finalRIndex).catch(console.error);
         analytics.track('puzzle_opened', { puzzleId: publicId, recipientIndex: finalRIndex });
+
+        if (puzzle.cropImageUrl) {
+          const img = new Image();
+          
+          let completed = false;
+          const handleSuccess = () => {
+            if (!active || completed) return;
+            completed = true;
+            setPuzzleData(puzzle);
+            startTimeRef.current = Date.now();
+            setLoading(false);
+          };
+
+          const handleFailure = (err) => {
+            if (!active || completed) return;
+            completed = true;
+            console.error('[ReceivePage] Image loading/decoding failed:', err);
+            setError('Failed to load JIGZO puzzle image.');
+            setLoading(false);
+          };
+
+          img.onload = () => {
+            if (!active || completed) return;
+            if (typeof img.decode === 'function') {
+              img.decode()
+                .then(() => {
+                  handleSuccess();
+                })
+                .catch((decodeErr) => {
+                  console.warn('[ReceivePage] decode() rejected, falling back to dimensions check:', decodeErr);
+                  if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                    handleSuccess();
+                  } else {
+                    handleFailure(decodeErr);
+                  }
+                });
+            } else {
+              if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                handleSuccess();
+              } else {
+                handleFailure(new Error('Invalid image dimensions'));
+              }
+            }
+          };
+
+          img.onerror = (err) => {
+            handleFailure(err);
+          };
+
+          img.src = puzzle.cropImageUrl;
+
+          // Handle cached images
+          if (img.complete) {
+            if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+              if (typeof img.decode === 'function') {
+                img.decode()
+                  .then(() => {
+                    handleSuccess();
+                  })
+                  .catch((decodeErr) => {
+                    console.warn('[ReceivePage] Cached image decode() rejected, continuing:', decodeErr);
+                    handleSuccess();
+                  });
+              } else {
+                handleSuccess();
+              }
+            }
+          }
+        } else {
+          setPuzzleData(puzzle);
+          startTimeRef.current = Date.now();
+          setLoading(false);
+        }
       } catch (err) {
+        if (!active) return;
         console.error(err);
         setError(err.response?.data?.error || err.message || 'Failed to load JIGZO puzzle.');
-      } finally {
         setLoading(false);
       }
     };
     loadPuzzle();
-  }, [publicId, rIndexParsed]);
+
+    return () => {
+      active = false;
+    };
+  }, [publicId, rIndexParsed, retryTrigger]);
 
   if (loading) {
     return (
@@ -86,8 +171,12 @@ export default function ReceivePage() {
           <p style={{ fontSize: 14.5, lineHeight: 1.6, color: "rgba(5,5,5,0.6)", margin: "0 0 22px" }}>
             {error || 'The puzzle link might be expired or invalid.'}
           </p>
-          <a href="/" style={{ display: "inline-block", background: "#050505", color: "#FAF8EC", textDecoration: "none",
-            fontWeight: 600, fontSize: 14, borderRadius: 999, padding: "13px 26px" }}>Go Home</a>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+            <button type="button" onClick={handleRetry} style={{ display: "inline-block", background: "#050505", color: "#FAF8EC", border: "none",
+              fontWeight: 600, fontSize: 14, borderRadius: 999, padding: "13px 26px", cursor: "pointer" }}>Retry</button>
+            <a href="/" style={{ display: "inline-block", background: "transparent", color: "#050505", border: "1.5px solid #050505", textDecoration: "none",
+              fontWeight: 600, fontSize: 14, borderRadius: 999, padding: "12px 26px" }}>Go Home</a>
+          </div>
         </div>
       </div>
     );
@@ -175,6 +264,8 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     }
   }, [showReveal, publicId, rIndex, startTimeRef]);
 
+  const currentStageH = showReveal ? (stageW * 16 / 9) : stageH;
+
   const [scale, setScale] = useState(1);
   const wrapRef = useRef(null), stageRef = useRef(null), cardRef = useRef(null);
   const pieceRefs = useRef([]);
@@ -188,7 +279,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
       const availH = Math.max(240, window.innerHeight - offsetHeight);
       
       const scaleW = availW / stageW;
-      const scaleH = availH / stageH;
+      const scaleH = availH / currentStageH;
       setScale(Math.min(1, scaleW, scaleH));
     };
     fit();
@@ -473,6 +564,85 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
 
   const placedCount = placed.filter(Boolean).length;
 
+  if (showReveal && !loaderRunning) {
+    return (
+      <div className="receive-page completed-flow" style={{ fontFamily: "Archia,sans-serif", color: "#1C1913",
+        display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 14px 40px", width: "100%" }}>
+        <style>{`
+          @keyframes jzFade { from { opacity:0; } to { opacity:1; } }
+        `}</style>
+        
+        {/* completed reveal card (participates in normal document flow) */}
+        <div id="revealCard" className="reveal-card-wrapper"
+          style={{
+            position: "relative",
+            width: "100%",
+            maxWidth: "440px",
+            aspectRatio: "9 / 16",
+            marginInline: "auto",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            overflow: "hidden",
+            borderRadius: "14px",
+            boxShadow: "0 8px 32px rgba(5,5,5,0.12)",
+            animation: "jzFade 0.6s ease"
+          }}>
+          <div className="reveal-card" style={{ width: "100%", height: "100%", position: "relative", display: "block" }}>
+            <img src={data.cropImageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <div style={{ position: "absolute", inset: 0, background: "radial-gradient(120% 100% at 50% 42%, rgba(23,19,13,0.34), rgba(5,5,5,0.76) 78%)" }} />
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center",
+              justifyContent: "center", textAlign: "center", padding: "9% 11%" }}>
+              {data.toName || data.recipients?.[rIndex]?.name ? (
+                <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontWeight: 500, fontSize: 12.5,
+                  letterSpacing: "0.1em", color: "#E6C67F", marginBottom: 18, textShadow: "0 1px 4px rgba(5,5,5,0.8)" }}>{data.toName || data.recipients?.[rIndex]?.name}</div>
+              ) : null}
+              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontStyle: "italic", fontWeight: 400, fontSize: 20,
+                lineHeight: 1.32, color: "#F3ECDD", whiteSpace: "pre-line", maxWidth: "22ch",
+                textShadow: "0 1px 3px rgba(5,5,5,0.92), 0 2px 22px rgba(5,5,5,0.6)" }}>
+                {data.message || ""}
+              </div>
+              <div style={{ width: 44, height: 2, marginTop: 18, background: "linear-gradient(90deg, rgba(208,160,54,0), #D0A036, rgba(208,160,54,0))" }} />
+              {data.fromName ? (
+                <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontWeight: 500, fontSize: 12,
+                  letterSpacing: "0.08em", color: "rgba(238,232,220,0.82)", marginTop: 14, textShadow: "0 1px 4px rgba(5,5,5,0.8)" }}>{data.fromName}</div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {/* solved controls (placed below in normal flow with safe-area spacing) */}
+        <div style={{ textAlign: "center", marginTop: 24, width: "100%", animation: "jzFade 0.5s ease" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+            {/* Primary: Save or Share */}
+            <button type="button" onClick={onSaveOrShare} style={{ background: "#050505", color: "#FAF8EC", border: "none", borderRadius: 999,
+              padding: "13px 26px", fontSize: 14.5, fontWeight: 700, fontFamily: "Archia,sans-serif", cursor: "pointer", width: "100%", maxWidth: 280 }}>
+              Save or Share
+            </button>
+            
+            {/* Secondary: Create Your Puzzle */}
+            <button type="button" onClick={() => window.location.href = "/create"} style={{ background: "transparent", color: "#050505", border: "1.5px solid #050505",
+              borderRadius: 999, padding: "13px 26px", fontSize: 14.5, fontWeight: 600, fontFamily: "Archia,sans-serif", cursor: "pointer", width: "100%", maxWidth: 280 }}>
+              Create Your Puzzle
+            </button>
+
+            {/* Tertiary text action: Replay Puzzle */}
+            <button type="button" onClick={replay} style={{ background: "none", border: "none", color: "rgba(5,5,5,0.6)",
+              fontSize: 13.5, fontWeight: 600, fontFamily: "Archia,sans-serif", cursor: "pointer", textDecoration: "underline", marginTop: 4 }}>
+              Replay Puzzle
+            </button>
+          </div>
+          
+          {/* Minimal branding */}
+          <div style={{ marginTop: 24, opacity: 0.8 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: "rgba(5,5,5,0.7)" }}>Created with care.</div>
+            <div style={{ fontSize: 10.5, fontWeight: 500, color: "rgba(5,5,5,0.42)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Made with JIGZO</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="receive-page" style={{ fontFamily: "Archia,sans-serif", color: "#1C1913",
       display: "flex", flexDirection: "column", alignItems: "center", padding: "10px 14px 20px" }}>
@@ -496,12 +666,12 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
         )}
 
         {/* interactive stage (scaled to fit width & height) */}
-        <div ref={wrapRef} style={{ width: "100%", maxWidth: stageW, margin: "0 auto", height: stageH * scale, position: "relative" }}>
+        <div ref={wrapRef} style={{ width: "100%", maxWidth: stageW, margin: "0 auto", height: currentStageH * scale, position: "relative" }}>
           <div
             ref={stageRef}
             style={{
               width: stageW,
-              height: stageH,
+              height: currentStageH,
               transform: `translateX(-50%) scale(${scale})`,
               transformOrigin: "top center",
               position: "absolute",
