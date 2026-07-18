@@ -141,6 +141,12 @@ function FloatingPieceOverlay({ dy, opacity, flashOpacity }) {
   );
 }
 
+// Soft-edge blur (canvas px) applied to the phone BODY only — not the screen —
+// so the phone silhouette melts into the scene while the puzzle/reveal stay
+// sharp. Scaled down with the canvas, this reads as a sub-pixel edge softness.
+const EDGE_BLUR = 2.6;
+const bodyBlur = { filter: `blur(${EDGE_BLUR}px)` };
+
 function Phone({ rotateY, scaleVal, opacity = 1, screen }) {
   const W = PHONE_W, H = PHONE_H, D = PHONE_D;
   const bezelGrad = 'linear-gradient(160deg, #eaeaed 0%, #c7c7cc 22%, #f3f3f5 45%, #b9b9bf 62%, #e4e4e7 80%, #d0d0d4 100%)';
@@ -149,13 +155,15 @@ function Phone({ rotateY, scaleVal, opacity = 1, screen }) {
   return (
     <div style={{ position: 'absolute', left: '50%', top: '50%', width: 0, height: 0, perspective: '1900px', opacity }}>
       <div style={{ position: 'absolute', left: -W / 2, top: -H / 2, width: W, height: H, transformStyle: 'preserve-3d', transform: `rotateY(${rotateY}deg) scale(${scaleVal})` }}>
-        <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: '#050506', backfaceVisibility: 'hidden', opacity: frontVisible ? 1 : 0, transform: `translateZ(${D / 2}px)`, boxShadow: '0 30px 70px rgba(0,0,0,0.28), inset 0 0 0 1.5px rgba(255,255,255,0.35)' }}>
+        {/* FRONT: soft-edged body plate + notch (blurred) with the SHARP screen on top */}
+        <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', opacity: frontVisible ? 1 : 0, transform: `translateZ(${D / 2}px)` }}>
+          <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: '#050506', boxShadow: '0 30px 70px rgba(0,0,0,0.28), inset 0 0 0 1.5px rgba(255,255,255,0.35)', ...bodyBlur }} />
           <div style={{ position: 'absolute', left: SIDE_BEZEL, top: TOP_BEZEL, width: SCREEN_W, height: SCREEN_H, borderRadius: 34, overflow: 'hidden', background: '#000' }}>
             {screen}
           </div>
-          <div style={{ position: 'absolute', left: '50%', top: TOP_BEZEL + 16, width: 84, height: 24, marginLeft: -42, borderRadius: 12, background: '#0a0a0c' }} />
+          <div style={{ position: 'absolute', left: '50%', top: TOP_BEZEL + 16, width: 84, height: 24, marginLeft: -42, borderRadius: 12, background: '#0a0a0c', ...bodyBlur }} />
         </div>
-        <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: bezelGrad, backfaceVisibility: 'hidden', opacity: frontVisible ? 0 : 1, transform: `rotateY(180deg) translateZ(${D / 2}px)`, boxShadow: '0 30px 70px rgba(0,0,0,0.28)' }}>
+        <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: bezelGrad, backfaceVisibility: 'hidden', opacity: frontVisible ? 0 : 1, transform: `rotateY(180deg) translateZ(${D / 2}px)`, boxShadow: '0 30px 70px rgba(0,0,0,0.28)', ...bodyBlur }}>
           <div style={{ position: 'absolute', left: 26, top: 30, width: 108, height: 108, borderRadius: 30, background: 'linear-gradient(145deg,#2c2c30,#111113)' }}>
             <div style={{ position: 'absolute', left: 8, top: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
             <div style={{ position: 'absolute', right: 8, top: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
@@ -163,8 +171,8 @@ function Phone({ rotateY, scaleVal, opacity = 1, screen }) {
             <div style={{ position: 'absolute', right: 16, bottom: 18, width: 14, height: 14, borderRadius: '50%', background: '#e8e2c8' }} />
           </div>
         </div>
-        <div style={{ position: 'absolute', top: 0, left: W / 2 - D / 2, width: D, height: H, background: 'linear-gradient(90deg,#b6b6bb,#f0f0f2,#a9a9ae)', transform: `rotateY(90deg) translateZ(${W / 2}px)`, backfaceVisibility: 'hidden', borderRadius: 6 }} />
-        <div style={{ position: 'absolute', top: 0, left: W / 2 - D / 2, width: D, height: H, background: 'linear-gradient(90deg,#a9a9ae,#f0f0f2,#b6b6bb)', transform: `rotateY(-90deg) translateZ(${W / 2}px)`, backfaceVisibility: 'hidden', borderRadius: 6 }} />
+        <div style={{ position: 'absolute', top: 0, left: W / 2 - D / 2, width: D, height: H, background: 'linear-gradient(90deg,#b6b6bb,#f0f0f2,#a9a9ae)', transform: `rotateY(90deg) translateZ(${W / 2}px)`, backfaceVisibility: 'hidden', borderRadius: 6, ...bodyBlur }} />
+        <div style={{ position: 'absolute', top: 0, left: W / 2 - D / 2, width: D, height: H, background: 'linear-gradient(90deg,#a9a9ae,#f0f0f2,#b6b6bb)', transform: `rotateY(-90deg) translateZ(${W / 2}px)`, backfaceVisibility: 'hidden', borderRadius: 6, ...bodyBlur }} />
       </div>
     </div>
   );
