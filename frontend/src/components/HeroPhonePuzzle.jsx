@@ -378,9 +378,31 @@ export default function HeroPhonePuzzle() {
   const ctx = { progress: SCENES[idx].dur > 0 ? wall / SCENES[idx].dur : 0, index: idx, scene: SCENES[idx] };
   const Comp = SCENE_MAP[SCENES[idx].name];
   const piece = floatingPieceState(idx, ctx.progress, time);
+  // Static glow, but faded in as the flip grows the phone to full size (so the
+  // full-size glow doesn't sit behind the tiny phone at the flip's opening) and
+  // faded out during LoopOut to match the phone. Only an opacity — no filter,
+  // transform or compositing change — so it stays iOS-safe.
+  const glowOpacity = idx === 0 ? clamp(ctx.progress / 0.5, 0, 1)
+    : idx === SCENES.length - 1 ? clamp(1 - ctx.progress, 0, 1)
+      : 1;
 
   return (
     <div className="hero-phone-anim" ref={hostRef} aria-hidden="true">
+      {/* Static warm-white glow silhouette BEHIND the canvas. A childless rounded
+          rectangle at the phone's resting size, glowed with box-shadow (a paint
+          op — not a filter). It is NOT inside the animated/composited/rAF canvas,
+          so iOS Safari renders it reliably. Size/blur derive from `scale`, which
+          only changes on resize (never per animation frame). */}
+      <div
+        className="hero-phone-anim__glow"
+        style={{
+          width: PHONE_W * scale,
+          height: PHONE_H * scale,
+          borderRadius: 52 * scale,
+          boxShadow: `0 0 ${12 * scale}px rgba(255, 250, 231, 0.9), 0 0 ${46 * scale}px rgba(255, 250, 231, 0.5)`,
+          opacity: glowOpacity,
+        }}
+      />
       <div className="hero-phone-anim__bob">
         <div
           className="hero-phone-anim__canvas"
