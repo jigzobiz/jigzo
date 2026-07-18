@@ -16,6 +16,7 @@ const analyticsRouter = require('./routes/analytics');
 const adminRouter = require('./routes/admin');
 const { router: pricingRouter } = require('./routes/pricing');
 const testRouter = require('./routes/test');
+const whatsappWebhookRouter = require('./routes/webhooks/whatsapp');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -42,6 +43,8 @@ const limiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' }
 });
 app.use('/api/', limiter);
+
+app.use('/api/webhooks/whatsapp', express.raw({ type: 'application/json' }), whatsappWebhookRouter);
 
 // Increase body parser limit to support base64 image strings (15MB cap)
 app.use(express.json({ limit: '15mb' }));
