@@ -93,10 +93,10 @@ export default function ReceivePage() {
     );
   }
 
-  return <Receiver data={puzzleData} publicId={publicId} rIndex={resolvedRIndex} startTimeRef={startTimeRef} />;
+  return <Receiver data={puzzleData} setData={setPuzzleData} publicId={publicId} rIndex={resolvedRIndex} startTimeRef={startTimeRef} />;
 }
 
-function Receiver({ data, publicId, rIndex, startTimeRef }) {
+function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
   const g = GRID_FOR[data.pieceCount] || { cols: 3, rows: 6 };
   const cols = g.cols, rows = g.rows;
   const BW = 288, BH = 512, PAD = 46;
@@ -149,9 +149,15 @@ function Receiver({ data, publicId, rIndex, startTimeRef }) {
         api.recordComplete(publicId, rIndex, elapsed)
           .then((res) => {
             if (res && res.success) {
-              setPuzzleData(prev => ({
+              setData(prev => ({
                 ...prev,
-                message: res.message
+                message: res.message,
+                completedAt: res.completedAt,
+                completionRecorded: res.completionRecorded,
+                recipient: prev.recipient ? {
+                  ...prev.recipient,
+                  completedAt: res.completedAt
+                } : undefined
               }));
             }
           })
