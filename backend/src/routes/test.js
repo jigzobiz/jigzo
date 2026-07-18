@@ -211,12 +211,19 @@ router.post('/reveals', async (req, res, next) => {
     await puzzle.save();
 
     const origin = getFrontendOrigin();
+    const recipientLinks = puzzle.recipients.map((r, index) => ({
+      recipientIndex: index,
+      recipientName: r.name,
+      revealUrl: `${origin}/p/${puzzle.publicId}?r=${index}`
+    }));
+
     res.status(201).json({
       success: true,
       publicId: puzzle.publicId,
-      revealUrl: `${origin}/p/${puzzle.publicId}?r=0`,
+      revealUrl: recipientLinks[0]?.revealUrl || `${origin}/p/${puzzle.publicId}?r=0`,
       testMode: true,
-      expiresAt: puzzle.expiresAt
+      expiresAt: puzzle.expiresAt,
+      recipientLinks
     });
   } catch (error) {
     // If GridFS write succeeded but database save failed, delete GridFS file to avoid orphans

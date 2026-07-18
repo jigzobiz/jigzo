@@ -23,11 +23,14 @@ const SETTLE = "transform 0.28s cubic-bezier(0.25, 1, 0.2, 1), filter 0.24s ease
 export default function ReceivePage() {
   const { publicId } = useParams();
   const [searchParams] = useSearchParams();
-  const rIndex = parseInt(searchParams.get("r")) || 0;
+  
+  const rQueryValue = searchParams.get("r");
+  const rIndexParsed = rQueryValue !== null && rQueryValue !== "" ? parseInt(rQueryValue, 10) : undefined;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [puzzleData, setPuzzleData] = useState(null);
+  const [resolvedRIndex, setResolvedRIndex] = useState(0);
 
   const startTimeRef = useRef(null);
 
@@ -37,9 +40,12 @@ export default function ReceivePage() {
     const loadPuzzle = async () => {
       try {
         setLoading(true);
-        const res = await api.getPuzzle(publicId);
+        const res = await api.getPuzzle(publicId, rIndexParsed);
         
         const puzzle = res.puzzle;
+        const finalRIndex = puzzle.recipient?.index ?? 0;
+        setResolvedRIndex(finalRIndex);
+
         if (puzzle && puzzle.cropImageUrl && puzzle.cropImageUrl.startsWith('/uploads')) {
           // Uploads are served same-origin via the /uploads route (see vercel.json)
           // and the Vite dev proxy, so a relative URL is correct in every
@@ -52,8 +58,8 @@ export default function ReceivePage() {
         startTimeRef.current = Date.now();
         
         // Log open event
-        await api.recordOpen(publicId, rIndex);
-        analytics.track('puzzle_opened', { puzzleId: publicId, recipientIndex: rIndex });
+        await api.recordOpen(publicId, finalRIndex);
+        analytics.track('puzzle_opened', { puzzleId: publicId, recipientIndex: finalRIndex });
       } catch (err) {
         console.error(err);
         setError(err.response?.data?.error || err.message || 'Failed to load JIGZO puzzle.');
@@ -62,7 +68,7 @@ export default function ReceivePage() {
       }
     };
     loadPuzzle();
-  }, [publicId, rIndex]);
+  }, [publicId, rIndexParsed]);
 
   if (loading) {
     return (
@@ -87,7 +93,7 @@ export default function ReceivePage() {
     );
   }
 
-  return <Receiver data={puzzleData} publicId={publicId} rIndex={rIndex} startTimeRef={startTimeRef} />;
+  return <Receiver data={puzzleData} publicId={publicId} rIndex={resolvedRIndex} startTimeRef={startTimeRef} />;
 }
 
 function Receiver({ data, publicId, rIndex, startTimeRef }) {

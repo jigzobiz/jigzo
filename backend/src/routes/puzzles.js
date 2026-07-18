@@ -180,10 +180,24 @@ router.get('/:publicId', async (req, res, next) => {
       return res.status(410).json({ error: 'Puzzle link has expired.' });
     }
 
+    // Status / TestMode check
+    if (puzzle.status === 'ready' && !puzzle.testMode) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
     const rQuery = req.query.r;
-    const recipientIndex = parseInt(rQuery, 10);
-    if (isNaN(recipientIndex) || recipientIndex < 0 || recipientIndex >= puzzle.recipients.length) {
-      return res.status(400).json({ error: 'Invalid or missing recipient index.' });
+    let recipientIndex;
+    if (rQuery === undefined || rQuery === null || rQuery === '') {
+      if (puzzle.recipients.length === 1) {
+        recipientIndex = 0;
+      } else {
+        return res.status(400).json({ error: 'Invalid or missing recipient index.' });
+      }
+    } else {
+      recipientIndex = parseInt(rQuery, 10);
+      if (isNaN(recipientIndex) || recipientIndex < 0 || recipientIndex >= puzzle.recipients.length) {
+        return res.status(400).json({ error: 'Invalid or missing recipient index.' });
+      }
     }
 
     const recipient = puzzle.recipients[recipientIndex];
@@ -202,8 +216,7 @@ router.get('/:publicId', async (req, res, next) => {
       success: true,
       puzzle: {
         publicId: puzzle.publicId,
-        status: puzzle.status,
-        cropImageUrl: puzzle.cropImageUrl,
+        cropImageUrl: `${puzzle.cropImageUrl}?r=${recipientIndex}`,
         senderName: puzzle.revealIdentity ? puzzle.senderName : 'Anonymous',
         revealIdentity: puzzle.revealIdentity,
         pieceCount: puzzle.pieceCount,
@@ -229,6 +242,28 @@ router.get('/:publicId/image', async (req, res, next) => {
 
     if (puzzle.expiresAt && new Date() > puzzle.expiresAt) {
       return res.status(410).json({ error: 'Puzzle link has expired.' });
+    }
+
+    // Status / TestMode check
+    if (puzzle.status === 'ready' && !puzzle.testMode) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    if (puzzle.status === 'ready' && puzzle.testMode) {
+      const rQuery = req.query.r;
+      let recipientIndex;
+      if (rQuery === undefined || rQuery === null || rQuery === '') {
+        if (puzzle.recipients.length === 1) {
+          recipientIndex = 0;
+        } else {
+          return res.status(400).json({ error: 'Invalid or missing recipient index.' });
+        }
+      } else {
+        recipientIndex = parseInt(rQuery, 10);
+        if (isNaN(recipientIndex) || recipientIndex < 0 || recipientIndex >= puzzle.recipients.length) {
+          return res.status(400).json({ error: 'Invalid or missing recipient index.' });
+        }
+      }
     }
 
     if (puzzle.imageStorageId) {
@@ -320,8 +355,27 @@ router.post('/:publicId/open', async (req, res, next) => {
       return res.status(404).json({ error: 'Puzzle not found.' });
     }
 
-    // Determine recipient index (fallback to first recipient)
-    const recipientIndex = parseInt(req.query.r) || 0;
+    // Status / TestMode check
+    if (puzzle.status === 'ready' && !puzzle.testMode) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    // Determine recipient index
+    const rQuery = req.query.r;
+    let recipientIndex;
+    if (rQuery === undefined || rQuery === null || rQuery === '') {
+      if (puzzle.recipients.length === 1) {
+        recipientIndex = 0;
+      } else {
+        return res.status(400).json({ error: 'Invalid or missing recipient index.' });
+      }
+    } else {
+      recipientIndex = parseInt(rQuery, 10);
+      if (isNaN(recipientIndex) || recipientIndex < 0 || recipientIndex >= puzzle.recipients.length) {
+        return res.status(400).json({ error: 'Invalid or missing recipient index.' });
+      }
+    }
+
     const recipient = puzzle.recipients[recipientIndex];
 
     if (recipient) {
@@ -354,10 +408,24 @@ router.post('/:publicId/complete', async (req, res, next) => {
       return res.status(410).json({ error: 'Puzzle link has expired.' });
     }
 
+    // Status / TestMode check
+    if (puzzle.status === 'ready' && !puzzle.testMode) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
     const rQuery = req.query.r;
-    const recipientIndex = parseInt(rQuery, 10);
-    if (isNaN(recipientIndex) || recipientIndex < 0 || recipientIndex >= puzzle.recipients.length) {
-      return res.status(400).json({ error: 'Invalid or missing recipient index.' });
+    let recipientIndex;
+    if (rQuery === undefined || rQuery === null || rQuery === '') {
+      if (puzzle.recipients.length === 1) {
+        recipientIndex = 0;
+      } else {
+        return res.status(400).json({ error: 'Invalid or missing recipient index.' });
+      }
+    } else {
+      recipientIndex = parseInt(rQuery, 10);
+      if (isNaN(recipientIndex) || recipientIndex < 0 || recipientIndex >= puzzle.recipients.length) {
+        return res.status(400).json({ error: 'Invalid or missing recipient index.' });
+      }
     }
 
     const recipient = puzzle.recipients[recipientIndex];

@@ -763,6 +763,8 @@ export default function CreatePage() {
   }
 
   if (isSuccess && testModeResult) {
+    const hasMultipleLinks = testModeResult.recipientLinks && testModeResult.recipientLinks.length > 1;
+
     return (
       <div className="create-page">
         <div style={{ fontFamily: "Archia, sans-serif", color: T.ink, padding: "34px 20px 70px" }}>
@@ -776,18 +778,40 @@ export default function CreatePage() {
             </div>
             <h1 style={{ fontSize: 27, fontWeight: 300, margin: "0 0 12px", letterSpacing: "-0.02em" }}>Test Reveal Created</h1>
             <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 auto 26px", maxWidth: 360, lineHeight: 1.6 }}>
-              This is a staging-only test reveal. Copy the link below to test on another browser or device.
+              This is a staging-only test reveal. {hasMultipleLinks ? "Copy the recipient links below to test each recipient's view." : "Copy the link below to test on another browser or device."}
             </p>
-            <div style={{ marginBottom: 20 }}>
-              <input type="text" readOnly value={testModeResult.revealUrl} style={{ ...inputStyle, textAlign: 'center', marginBottom: 12 }} />
-              <div style={{ display: 'flex', gap: 10 }}>
-                <GhostButton onClick={() => {
-                  navigator.clipboard.writeText(testModeResult.revealUrl);
-                  alert('Copied to clipboard!');
-                }} style={{ flex: 1 }}>Copy Link</GhostButton>
-                <PrimaryButton onClick={() => window.open(testModeResult.revealUrl, "_blank")} style={{ flex: 1 }}>Open Reveal</PrimaryButton>
-              </div>
+            
+            <div style={{ marginBottom: 24, textAlign: 'left' }}>
+              {testModeResult.recipientLinks && testModeResult.recipientLinks.length > 0 ? (
+                testModeResult.recipientLinks.map((link) => (
+                  <div key={link.recipientIndex} style={{ marginBottom: 16, border: `1px solid ${T.ink15}`, padding: 16, borderRadius: 12, background: T.card }}>
+                    <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 8, color: T.ink }}>
+                      Recipient: {link.recipientName} {hasMultipleLinks ? `(Index ${link.recipientIndex})` : ''}
+                    </div>
+                    <input type="text" readOnly value={link.revealUrl} style={{ ...inputStyle, textAlign: 'left', marginBottom: 10, fontSize: 13 }} />
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <GhostButton onClick={() => {
+                        navigator.clipboard.writeText(link.revealUrl);
+                        alert(`Copied link for ${link.recipientName}!`);
+                      }} style={{ flex: 1, padding: "8px 12px", fontSize: 13 }}>Copy Link</GhostButton>
+                      <PrimaryButton onClick={() => window.open(link.revealUrl, "_blank")} style={{ flex: 1, padding: "8px 12px", fontSize: 13 }}>Open Reveal</PrimaryButton>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div style={{ border: `1px solid ${T.ink15}`, padding: 16, borderRadius: 12, background: T.card }}>
+                  <input type="text" readOnly value={testModeResult.revealUrl} style={{ ...inputStyle, textAlign: 'center', marginBottom: 12 }} />
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <GhostButton onClick={() => {
+                      navigator.clipboard.writeText(testModeResult.revealUrl);
+                      alert('Copied to clipboard!');
+                    }} style={{ flex: 1 }}>Copy Link</GhostButton>
+                    <PrimaryButton onClick={() => window.open(testModeResult.revealUrl, "_blank")} style={{ flex: 1 }}>Open Reveal</PrimaryButton>
+                  </div>
+                </div>
+              )}
             </div>
+            
             <p style={{ fontSize: 11.5, color: T.ink50, lineHeight: 1.5 }}>
               This test reveal will expire in 7 days.
             </p>
