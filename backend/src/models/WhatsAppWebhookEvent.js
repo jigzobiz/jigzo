@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const WhatsAppWebhookEventSchema = new mongoose.Schema({
-  idempotencyKey: { type: String, required: true, unique: true, index: true },
+  idempotencyKey: { type: String, required: true, unique: true },
   eventType: { type: String, required: true },
   providerMessageId: { type: String, required: true, index: true },
   phoneNumberId: { type: String },
@@ -20,7 +20,5 @@ const WhatsAppWebhookEventSchema = new mongoose.Schema({
   errorMessage: { type: String },
   processingError: { type: String }
 });
-
-WhatsAppWebhookEventSchema.index({ idempotencyKey: 1 }, { unique: true });
 
 module.exports = mongoose.model('WhatsAppWebhookEvent', WhatsAppWebhookEventSchema);

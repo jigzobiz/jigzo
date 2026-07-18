@@ -50,14 +50,26 @@ router.post('/', async (req, res, next) => {
     // Deduplicate webhook event atomically using WhatsAppWebhookEvent unique index
     const payloadHash = crypto.createHash('sha256').update(rawBodyString).digest('hex');
     
-    // Parse message metadata from payload
-    const statusObj = payload.statuses?.[0] || {};
-    const providerMessageId = statusObj.id;
-    const eventStatus = statusObj.status; // sent, delivered, read, failed
-    const occurredAt = statusObj.timestamp ? new Date(parseInt(statusObj.timestamp) * 1000) : null;
+    // Parse message metadata from Kapso-specific payload structure
+    const providerMessageId = payload.message?.id;
+    const kapsoObj = payload.message?.kapso || {};
+    const eventStatus = kapsoObj.status; // sent, delivered, read, failed
+    const occurredAt = payload.message?.timestamp ? new Date(parseInt(payload.message.timestamp) * 1000) : null;
     
     if (!providerMessageId || !eventStatus) {
       return res.status(400).json({ error: 'Invalid payload structure: missing message status info' });
+    }
+
+    // Validate that the normalized status agrees with the event header
+    const eventToStatusMap = {
+      'whatsapp.message.sent': 'sent',
+      'whatsapp.message.delivered': 'delivered',
+      'whatsapp.message.read': 'read',
+      'whatsapp.message.failed': 'failed'
+    };
+
+    if (eventToStatusMap[eventType] !== eventStatus) {
+      return res.status(400).json({ error: 'Mismatch between X-Webhook-Event and kapso.status' });
     }
 
     // Atomically reserve the event
@@ -67,7 +79,7 @@ router.post('/', async (req, res, next) => {
         idempotencyKey,
         eventType,
         providerMessageId,
-        phoneNumberId: payload.metadata?.phone_number_id || '',
+        phoneNumberId: payload.phone_number_id || '',
         eventStatus,
         occurredAt,
         receivedAt: new Date(),
@@ -106,46 +118,53 @@ router.post('/', async (req, res, next) => {
     const currentPriority = priority[messageRecord.status] || 0;
     const incomingPriority = priority[eventStatus] || 0;
 
-    if (incomingPriority > currentPriority) {
+    if (eventStatus === 'failed') {
+      // Record failure independently without deleting earlier timestamps
+      messageRecord.failedAt = occurredAt || new Date();
+      messageRecord.lastErrorCode = kapsoObj.errors?.[0]?.code || 'PROVIDER_FAILED';
+      messageRecord.lastErrorMessage = kapsoObj.errors?.[0]?.message || 'Message delivery failed';
+      
+      if (currentPriority < priority['sent']) {
+        messageRecord.status = 'failed';
+        await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, {
+          status: 'failed',
+          occurredAt,
+          errorCode: messageRecord.lastErrorCode,
+          errorMessage: messageRecord.lastErrorMessage
+        });
+      } else {
+        // Just record failure snapshots without altering status
+        await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, {
+          occurredAt,
+          errorCode: messageRecord.lastErrorCode,
+          errorMessage: messageRecord.lastErrorMessage
+        });
+      }
+      messageRecord.updatedAt = new Date();
+      await messageRecord.save();
+    } else if (incomingPriority > currentPriority) {
       // Upgrade status monotonically
       messageRecord.status = eventStatus;
       messageRecord.lastStatusAt = new Date();
 
       const snapshotUpdate = {
         status: eventStatus,
-        lastStatusAt: new Date()
+        lastStatusAt: new Date(),
+        occurredAt
       };
 
       if (eventStatus === 'sent') {
         messageRecord.sentAt = occurredAt || new Date();
-        snapshotUpdate.sentAt = messageRecord.sentAt;
       } else if (eventStatus === 'delivered') {
         messageRecord.deliveredAt = occurredAt || new Date();
-        snapshotUpdate.deliveredAt = messageRecord.deliveredAt;
       } else if (eventStatus === 'read') {
         messageRecord.readAt = occurredAt || new Date();
-        snapshotUpdate.readAt = messageRecord.readAt;
       }
 
       await messageRecord.save();
       
       // Update Puzzle recipient snapshot
       await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, snapshotUpdate);
-    } else if (eventStatus === 'failed') {
-      // Record failure independently without deleting earlier timestamps
-      messageRecord.status = 'failed';
-      messageRecord.failedAt = occurredAt || new Date();
-      messageRecord.lastErrorCode = statusObj.errors?.[0]?.code || 'PROVIDER_FAILED';
-      messageRecord.lastErrorMessage = statusObj.errors?.[0]?.message || 'Message delivery failed';
-      messageRecord.updatedAt = new Date();
-      await messageRecord.save();
-
-      await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, {
-        status: 'failed',
-        failedAt: messageRecord.failedAt,
-        errorCode: messageRecord.lastErrorCode,
-        errorMessage: messageRecord.lastErrorMessage
-      });
     }
 
     webhookEvent.processingStatus = 'processed';

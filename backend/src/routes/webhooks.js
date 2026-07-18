@@ -85,13 +85,15 @@ router.post('/payment', async (req, res, next) => {
             rec.lastError = result.error || 'Email delivery failed.';
           }
         } else {
-          try {
-            await whatsappService.claimAndSendPuzzleDelivery({
-              puzzleId: puzzle.publicId,
-              recipientIndex: i
-            });
-          } catch (waError) {
-            console.error('[PaymentWebhook] WhatsApp delivery error:', waError.message);
+          if (process.env.WHATSAPP_ENABLED === 'true') {
+            try {
+              await whatsappService.claimAndSendPuzzleDelivery({
+                puzzleId: puzzle.publicId,
+                recipientIndex: i
+              });
+            } catch (waError) {
+              console.error('[PaymentWebhook] WhatsApp delivery error:', waError.message);
+            }
           }
         }
       }

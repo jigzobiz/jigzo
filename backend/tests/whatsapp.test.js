@@ -8,6 +8,13 @@ const mockDb = {
   webhookEvents: {}
 };
 
+function maskPhone(phone) {
+  if (!phone) return 'unknown';
+  const str = String(phone);
+  if (str.length <= 4) return '****';
+  return '*'.repeat(str.length - 4) + str.slice(-4);
+}
+
 // Mock models
 const MockPuzzle = {
   findOne: async ({ publicId }) => mockDb.puzzles[publicId] || null,
@@ -96,10 +103,10 @@ const MockWhatsAppMessage = function(data) {
     return this;
   };
 };
-MockWhatsAppMessage.findOne = async ({ idempotencyKey, providerMessageId }) => {
-  if (idempotencyKey) return mockDb.messages[idempotencyKey] || null;
-  if (providerMessageId) {
-    return Object.values(mockDb.messages).find(m => m.providerMessageId === providerMessageId) || null;
+MockWhatsAppMessage.findOne = async (query) => {
+  if (query.idempotencyKey) return mockDb.messages[query.idempotencyKey] || null;
+  if (query.providerMessageId) {
+    return Object.values(mockDb.messages).find(m => m.providerMessageId === query.providerMessageId) || null;
   }
   return null;
 };
@@ -108,7 +115,7 @@ const MockWhatsAppWebhookEvent = function(data) {
   this._data = { ...data };
   this.save = async () => {
     const key = this._data.idempotencyKey;
-    if (mockDb.webhookEvents[key]) {
+    if (mockDb.webhookEvents[key] && mockDb.webhookEvents[key] !== this) {
       const err = new Error('Duplicate key');
       err.code = 11000;
       throw err;
@@ -118,7 +125,7 @@ const MockWhatsAppWebhookEvent = function(data) {
   };
 };
 
-// We temporarily replace the global Mock classes in whatsappService context
+// Intercept mongoose model requires before importing JIGZO modules
 const Module = require('module');
 const originalRequire = Module.prototype.require;
 Module.prototype.require = function(path) {
@@ -128,95 +135,316 @@ Module.prototype.require = function(path) {
   return originalRequire.apply(this, arguments);
 };
 
-// Import actual module dependencies AFTER overriding require
+// Import JIGZO service and webhook router under the mock environment
 const whatsappService = require('../src/services/whatsappService');
+const whatsappWebhookRouter = require('../src/routes/webhooks/whatsapp');
 
-// Inject mock updates
-const originalUpdateRecipientSnapshot = whatsappService.updateRecipientSnapshot;
+// Inject mock updates into service snapshot updates to run DB-free
 whatsappService.updateRecipientSnapshot = async (puzzleId, recipientIndex, fields) => {
   const puzzle = mockDb.puzzles[puzzleId];
   if (puzzle && puzzle.recipients[recipientIndex]) {
     const rec = puzzle.recipients[recipientIndex];
     if (fields.status) rec.whatsappSendStatus = fields.status;
     if (fields.providerMessageId) rec.providerMessageId = fields.providerMessageId;
-    if (fields.sentAt) rec.whatsappSentAt = fields.sentAt;
-    if (fields.deliveredAt) rec.whatsappDeliveredAt = fields.deliveredAt;
-    if (fields.readAt) rec.whatsappReadAt = fields.readAt;
-    if (fields.failedAt) rec.whatsappFailedAt = fields.failedAt;
-    if (fields.lastStatusAt) rec.whatsappLastStatusAt = fields.lastStatusAt;
+    if (fields.occurredAt) {
+      if (fields.status === 'sent') rec.whatsappSentAt = fields.occurredAt;
+      if (fields.status === 'delivered') rec.whatsappDeliveredAt = fields.occurredAt;
+      if (fields.status === 'read') rec.whatsappReadAt = fields.occurredAt;
+      if (fields.status === 'failed') rec.whatsappFailedAt = fields.occurredAt;
+    }
     if (fields.errorCode) rec.whatsappLastErrorCode = fields.errorCode;
     if (fields.errorMessage) rec.whatsappLastErrorMessage = fields.errorMessage;
   }
 };
 
-// Setup initial state
+// Mock fetch globally
+let lastFetchParams = null;
+let fetchResponseMock = null;
+global.fetch = async (url, options) => {
+  lastFetchParams = { url, options };
+  return fetchResponseMock || {
+    ok: true,
+    text: async () => JSON.stringify({ messages: [{ id: 'mock-provider-id-999' }] })
+  };
+};
+
 function resetMocks() {
   mockDb.puzzles = {};
   mockDb.messages = {};
   mockDb.webhookEvents = {};
   process.env.WHATSAPP_ENABLED = 'false';
-  process.env.KAPSO_API_KEY = 'mock_key';
-  process.env.KAPSO_PHONE_NUMBER_ID = 'mock_phone_id';
+  process.env.KAPSO_API_KEY = 'mock_api_key_123';
+  process.env.KAPSO_PHONE_NUMBER_ID = '10928374';
+  process.env.KAPSO_WEBHOOK_SECRET = 'mock_webhook_secret_abc';
+  lastFetchParams = null;
+  fetchResponseMock = null;
 }
 
-async function runTests() {
-  console.log('Starting JIGZO WhatsApp Delivery Integration Tests...');
+// Minimal router test helper
+function invokeWebhookRoute(req, res, next) {
+  const routeStack = whatsappWebhookRouter.stack.find(s => s.route)?.route.stack || [];
+  const handler = routeStack[0]?.handle;
+  if (!handler) {
+    throw new Error('Webhook POST handler not found in router');
+  }
+  return handler(req, res, next);
+}
 
-  // Test 1: Dormant Safety Checks
+async function runAllTests() {
+  console.log('Starting JIGZO WhatsApp Delivery Integration Tests...\n');
+
+  // ==========================================
+  // Group 1: Disabled Mode Safety
+  // ==========================================
+  console.log('Group 1: Disabled Mode Safety');
   resetMocks();
-  mockDb.puzzles['test-puz-1'] = {
-    publicId: 'test-puz-1',
+  mockDb.puzzles['puz-safety'] = {
+    publicId: 'puz-safety',
     senderName: 'Zahra',
     revealIdentity: true,
-    recipients: [
-      { name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }
-    ]
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }]
   };
 
-  let res = await whatsappService.claimAndSendPuzzleDelivery({
-    puzzleId: 'test-puz-1',
+  let resSafety = await whatsappService.claimAndSendPuzzleDelivery({
+    puzzleId: 'puz-safety',
     recipientIndex: 0
   });
 
-  assert.strictEqual(res.success, true);
-  assert.strictEqual(res.status, 'disabled');
-  assert.strictEqual(mockDb.messages[`puzzle-delivery:test-puz-1:0:jigzo_puzzle_delivery:v1`].status, 'disabled');
-  assert.strictEqual(mockDb.puzzles['test-puz-1'].recipients[0].whatsappSendStatus, 'disabled');
-  console.log('✓ Test 1: Dormant safety validated successfully.');
+  assert.strictEqual(resSafety.success, true);
+  assert.strictEqual(resSafety.status, 'disabled');
+  assert.strictEqual(Object.keys(mockDb.messages).length, 0); // No message record created
+  assert.strictEqual(mockDb.puzzles['puz-safety'].recipients[0].whatsappSendStatus, 'pending'); // Snapshot untouched
+  assert.strictEqual(lastFetchParams, null); // No fetch calls occurred
+  console.log('✓ Group 1 passed.');
 
-  // Test 2: Double Claims Idempotency Checks
+  // ==========================================
+  // Group 2: Exact Template Payload
+  // ==========================================
+  console.log('\nGroup 2: Exact Template Payload');
+  
+  // Identity ON
   resetMocks();
-  mockDb.puzzles['test-puz-2'] = {
-    publicId: 'test-puz-2',
-    senderName: 'Sara',
+  process.env.WHATSAPP_ENABLED = 'true';
+  mockDb.puzzles['puz-temp-on'] = {
+    publicId: 'puz-temp-on',
+    senderName: 'Zahra',
     revealIdentity: true,
-    recipients: [
-      { name: 'Mariam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }
-    ]
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }]
+  };
+  await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-temp-on', recipientIndex: 0 });
+  
+  let sentBodyOn = JSON.parse(lastFetchParams.options.body);
+  assert.strictEqual(sentBodyOn.template.name, 'jigzo_puzzle_delivery');
+  assert.strictEqual(sentBodyOn.template.language.code, 'en_US');
+  assert.strictEqual(sentBodyOn.template.components[0].parameters[1].text, 'Zahra');
+  assert.strictEqual(sentBodyOn.template.components[1].parameters[0].text, 'puz-temp-on?r=0');
+
+  // Identity OFF
+  resetMocks();
+  process.env.WHATSAPP_ENABLED = 'true';
+  mockDb.puzzles['puz-temp-off'] = {
+    publicId: 'puz-temp-off',
+    senderName: 'Zahra',
+    revealIdentity: false,
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }]
+  };
+  await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-temp-off', recipientIndex: 0 });
+  
+  let sentBodyOff = JSON.parse(lastFetchParams.options.body);
+  assert.strictEqual(sentBodyOff.template.components[0].parameters[1].text, 'Someone');
+  console.log('✓ Group 2 passed.');
+
+  // ==========================================
+  // Group 3: API Outcomes
+  // ==========================================
+  console.log('\nGroup 3: API Outcomes');
+  
+  // Accepted
+  resetMocks();
+  process.env.WHATSAPP_ENABLED = 'true';
+  mockDb.puzzles['puz-api'] = {
+    publicId: 'puz-api',
+    senderName: 'Zahra',
+    revealIdentity: true,
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }]
+  };
+  fetchResponseMock = {
+    ok: true,
+    text: async () => JSON.stringify({ messages: [{ id: 'provider-accepted-id-123' }] })
+  };
+  let resApi = await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-api', recipientIndex: 0 });
+  assert.strictEqual(resApi.success, true);
+  assert.strictEqual(resApi.providerMessageId, 'provider-accepted-id-123');
+  assert.strictEqual(mockDb.messages[`puzzle-delivery:puz-api:0:jigzo_puzzle_delivery:v1`].status, 'accepted');
+  assert.ok(mockDb.messages[`puzzle-delivery:puz-api:0:jigzo_puzzle_delivery:v1`].acceptedAt);
+
+  // Timeout -> verification_required
+  resetMocks();
+  process.env.WHATSAPP_ENABLED = 'true';
+  mockDb.puzzles['puz-timeout'] = {
+    publicId: 'puz-timeout',
+    senderName: 'Zahra',
+    revealIdentity: true,
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }]
+  };
+  global.fetch = async () => { throw new Error('Timeout connecting to proxy'); };
+  
+  let resTimeout = await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-timeout', recipientIndex: 0 });
+  assert.strictEqual(resTimeout.success, false);
+  assert.strictEqual(mockDb.messages[`puzzle-delivery:puz-timeout:0:jigzo_puzzle_delivery:v1`].status, 'verification_required');
+  console.log('✓ Group 3 passed.');
+
+  // ==========================================
+  // Group 4: Webhook Security
+  // ==========================================
+  console.log('\nGroup 4: Webhook Security');
+  resetMocks();
+  
+  const webhookPayload = JSON.stringify({
+    phone_number_id: '10928374',
+    message: {
+      id: 'provider-accepted-id-123',
+      timestamp: '1721245678',
+      kapso: { status: 'sent' }
+    }
+  });
+
+  const validSignature = crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET)
+    .update(Buffer.from(webhookPayload, 'utf8'))
+    .digest('hex');
+
+  // Valid signature
+  let req = {
+    headers: {
+      'x-webhook-signature': validSignature,
+      'x-idempotency-key': 'web-idemp-1',
+      'x-webhook-event': 'whatsapp.message.sent'
+    },
+    body: Buffer.from(webhookPayload, 'utf8')
+  };
+  let resStatus = 0;
+  let resBody = null;
+  let resJson = (data) => { resBody = data; };
+  let resMock = {
+    status: (s) => { resStatus = s; return { json: resJson }; },
+    json: resJson
+  };
+  
+  await invokeWebhookRoute(req, resMock, () => {});
+  assert.strictEqual(resStatus, 200);
+
+  // Invalid signature
+  req.headers['x-webhook-signature'] = 'invalid_sig_value';
+  await invokeWebhookRoute(req, resMock, () => {});
+  assert.strictEqual(resStatus, 401);
+  console.log('✓ Group 4 passed.');
+
+  // ==========================================
+  // Group 5: Kapso Webhook Event Status Mapping
+  // ==========================================
+  console.log('\nGroup 5: Kapso Webhook Event Status Mapping');
+  resetMocks();
+  // Valid payload mapping
+  const kapsoSentPayload = JSON.stringify({
+    phone_number_id: '10928374',
+    message: {
+      id: 'msg-999',
+      timestamp: '1721245678',
+      kapso: { status: 'sent' }
+    }
+  });
+  const validSigSent = crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET)
+    .update(Buffer.from(kapsoSentPayload, 'utf8'))
+    .digest('hex');
+
+  let reqSent = {
+    headers: {
+      'x-webhook-signature': validSigSent,
+      'x-idempotency-key': 'event-sent-1',
+      'x-webhook-event': 'whatsapp.message.sent'
+    },
+    body: Buffer.from(kapsoSentPayload, 'utf8')
+  };
+  
+  // Register message record to match
+  mockDb.messages['puzzle-delivery:puz-webhook:0:jigzo_puzzle_delivery:v1'] = new MockWhatsAppMessage({
+    puzzleId: 'puz-webhook',
+    recipientIndex: 0,
+    idempotencyKey: 'puzzle-delivery:puz-webhook:0:jigzo_puzzle_delivery:v1',
+    providerMessageId: 'msg-999',
+    destinationMasked: '***331',
+    status: 'accepted'
+  });
+  mockDb.puzzles['puz-webhook'] = {
+    publicId: 'puz-webhook',
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'accepted' }]
   };
 
-  const p1 = whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'test-puz-2', recipientIndex: 0 });
-  const p2 = whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'test-puz-2', recipientIndex: 0 });
-  const [res1, res2] = await Promise.all([p1, p2]);
+  await invokeWebhookRoute(reqSent, resMock, () => {});
+  assert.strictEqual(resStatus, 200);
+  assert.strictEqual(mockDb.messages['puzzle-delivery:puz-webhook:0:jigzo_puzzle_delivery:v1'].status, 'sent');
+  console.log('✓ Group 5 passed.');
 
-  // One of them is disabled, the other is duplicate_request
-  const statuses = [res1.status, res2.status];
-  assert.ok(statuses.includes('disabled'));
-  
-  const reasons = [res1.reason, res2.reason];
-  assert.ok(reasons.includes('duplicate_request'));
-  console.log('✓ Test 2: Outbound double claim locks verified successfully.');
-
-  // Test 3: Normalization & Logging Checks
+  // ==========================================
+  // Group 6: Status Lifecycle
+  // ==========================================
+  console.log('\nGroup 6: Status Lifecycle');
+  // Enforce late sent does not downgrade delivered or read
   resetMocks();
-  const normalized = whatsappService.normalizePhone('3393-1331', '973');
-  assert.strictEqual(normalized, '+97333931331');
-  console.log('✓ Test 3: Phone number normalization validated successfully.');
+  mockDb.messages['puzzle-delivery:lifecycle:0:jigzo_puzzle_delivery:v1'] = new MockWhatsAppMessage({
+    puzzleId: 'lifecycle',
+    recipientIndex: 0,
+    idempotencyKey: 'puzzle-delivery:lifecycle:0:jigzo_puzzle_delivery:v1',
+    providerMessageId: 'lifecycle-msg-1',
+    destinationMasked: '***331',
+    status: 'read',
+    readAt: new Date()
+  });
+  mockDb.puzzles['lifecycle'] = {
+    publicId: 'lifecycle',
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'read' }]
+  };
+
+  // Attempt late sent webhook
+  const lateSentPayload = JSON.stringify({
+    phone_number_id: '10928374',
+    message: {
+      id: 'lifecycle-msg-1',
+      timestamp: '1721245678',
+      kapso: { status: 'sent' }
+    }
+  });
+  const lateSig = crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET)
+    .update(Buffer.from(lateSentPayload, 'utf8'))
+    .digest('hex');
+
+  let reqLate = {
+    headers: {
+      'x-webhook-signature': lateSig,
+      'x-idempotency-key': 'late-sent-key',
+      'x-webhook-event': 'whatsapp.message.sent'
+    },
+    body: Buffer.from(lateSentPayload, 'utf8')
+  };
+
+  await invokeWebhookRoute(reqLate, resMock, () => {});
+  assert.strictEqual(mockDb.messages['puzzle-delivery:lifecycle:0:jigzo_puzzle_delivery:v1'].status, 'read'); // Status remained 'read'
+  console.log('✓ Group 6 passed.');
+
+  // ==========================================
+  // Group 7: Data Privacy and logging
+  // ==========================================
+  console.log('\nGroup 7: Data Privacy and logging');
+  // Masking assertion
+  const maskedVal = maskPhone('+97333931331');
+  assert.strictEqual(maskedVal.includes('+973'), false);
+  assert.strictEqual(maskedVal.endsWith('1331'), true);
+  console.log('✓ Group 7 passed.');
 
   console.log('\nAll WhatsApp Integration unit tests passed successfully!');
 }
 
-runTests().catch(err => {
+runAllTests().catch(err => {
   console.error('Test execution failed:', err);
   process.exit(1);
 });

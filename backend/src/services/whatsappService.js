@@ -37,26 +37,30 @@ class WhatsAppService {
         
         if (fields.status) rec.whatsappSendStatus = fields.status;
         if (fields.providerMessageId) rec.providerMessageId = fields.providerMessageId;
-        if (fields.sentAt) rec.whatsappSentAt = fields.sentAt;
-        if (fields.deliveredAt) rec.whatsappDeliveredAt = fields.deliveredAt;
-        if (fields.readAt) rec.whatsappReadAt = fields.readAt;
-        if (fields.failedAt) rec.whatsappFailedAt = fields.failedAt;
-        if (fields.lastStatusAt) rec.whatsappLastStatusAt = fields.lastStatusAt;
-        if (fields.errorCode) rec.whatsappLastErrorCode = fields.errorCode;
-        if (fields.errorMessage) rec.whatsappLastErrorMessage = fields.errorMessage;
-
-        // Sync old delivery status fields for backward compatibility
-        if (fields.status === 'read' || fields.status === 'delivered') {
+        
+        // Strict event semantics: Only set status-specific fields on webhook events
+        if (fields.status === 'sent') {
+          rec.whatsappSentAt = fields.occurredAt || new Date();
+          rec.deliveryStatus = 'sent';
+          rec.sentAt = fields.occurredAt || new Date();
+        } else if (fields.status === 'delivered') {
+          rec.whatsappDeliveredAt = fields.occurredAt || new Date();
+          rec.deliveryStatus = 'delivered';
+        } else if (fields.status === 'read') {
+          rec.whatsappReadAt = fields.occurredAt || new Date();
           rec.deliveryStatus = 'delivered';
         } else if (fields.status === 'failed') {
-          rec.deliveryStatus = 'failed';
-        } else if (fields.status === 'accepted' || fields.status === 'sent') {
-          rec.deliveryStatus = 'sent';
+          rec.whatsappFailedAt = fields.occurredAt || new Date();
+          // Only downgrade deliveryStatus if current state is not sent/delivered/read
+          if (rec.deliveryStatus !== 'delivered' && rec.deliveryStatus !== 'sent') {
+            rec.deliveryStatus = 'failed';
+          }
+          rec.whatsappLastErrorCode = fields.errorCode || '';
+          rec.whatsappLastErrorMessage = fields.errorMessage || '';
+          rec.lastError = fields.errorMessage || '';
         }
 
-        if (fields.sentAt) rec.sentAt = fields.sentAt;
-        if (fields.providerMessageId) rec.providerMessageId = fields.providerMessageId;
-        if (fields.errorMessage) rec.lastError = fields.errorMessage;
+        if (fields.lastStatusAt) rec.whatsappLastStatusAt = fields.lastStatusAt;
 
         await puzzle.save();
       }
@@ -69,6 +73,12 @@ class WhatsAppService {
    * Atomically claims and sends a puzzle template message to a specific recipient.
    */
   async claimAndSendPuzzleDelivery({ puzzleId, recipientIndex }) {
+    // Phase 1 check: Keep WHATSAPP_ENABLED false check first to prevent any DB claims
+    const whatsappEnabled = process.env.WHATSAPP_ENABLED === 'true';
+    if (!whatsappEnabled) {
+      return { success: true, status: 'disabled' };
+    }
+
     const puzzle = await Puzzle.findOne({ publicId: puzzleId });
     if (!puzzle) {
       throw new Error(`Puzzle not found: ${puzzleId}`);
@@ -112,21 +122,6 @@ class WhatsAppService {
     messageRecord.status = 'claimed';
     messageRecord.claimedAt = new Date();
     await messageRecord.save();
-
-    // Step 3: Check feature flag before network dispatch
-    const whatsappEnabled = process.env.WHATSAPP_ENABLED === 'true';
-    if (!whatsappEnabled) {
-      messageRecord.status = 'disabled';
-      messageRecord.updatedAt = new Date();
-      await messageRecord.save();
-
-      await this.updateRecipientSnapshot(puzzleId, recipientIndex, {
-        status: 'disabled',
-        errorMessage: 'Automated WhatsApp delivery is disabled.'
-      });
-
-      return { success: true, status: 'disabled' };
-    }
 
     // Validate environment variables
     const apiKey = process.env.KAPSO_API_KEY;
@@ -225,8 +220,7 @@ class WhatsAppService {
 
         await this.updateRecipientSnapshot(puzzleId, recipientIndex, {
           status: 'accepted',
-          providerMessageId,
-          sentAt: new Date()
+          providerMessageId
         });
 
         return { success: true, status: 'accepted', providerMessageId };
