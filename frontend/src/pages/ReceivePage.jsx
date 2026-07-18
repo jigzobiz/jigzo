@@ -506,9 +506,9 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
         rows.push({ type: "text", t: recipientName, f: `500 ${12.5 * S}px "JetBrains Mono", monospace`, color: "#E6C67F", ls: 0.1 * 12.5 * S, lh: 12.5 * S * 1.3, gap: 18 * S });
       }
       msgLines.forEach((ln, i) => rows.push({ type: "text", t: ln, f: `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`, color: "#F3ECDD", lh: 20 * S * 1.32, shadow: true, gap: i === msgLines.length - 1 ? 18 * S : 0 }));
-      rows.push({ type: "rule", h: 2 * S, w: 44 * S, gap: data.fromName ? 14 * S : 0 });
-      if (data.fromName) {
-        rows.push({ type: "text", t: data.fromName, f: `500 ${12 * S}px "JetBrains Mono", monospace`, color: "rgba(238,232,220,0.82)", ls: 0.08 * 12 * S, lh: 12 * S * 1.3, gap: 0 });
+      rows.push({ type: "rule", h: 2 * S, w: 44 * S, gap: data.senderName ? 14 * S : 0 });
+      if (data.senderName) {
+        rows.push({ type: "text", t: `From ${data.senderName}`, f: `500 ${12 * S}px "JetBrains Mono", monospace`, color: "rgba(238,232,220,0.82)", ls: 0.08 * 12 * S, lh: 12 * S * 1.3, gap: 0 });
       }
 
       const total = rows.reduce((s, r) => s + (r.h || r.lh) + r.gap, 0);
@@ -686,9 +686,9 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
                       {data.message || ""}
                     </div>
                     <div style={{ width: 44, height: 2, marginTop: 18, background: "linear-gradient(90deg, rgba(208,160,54,0), #D0A036, rgba(208,160,54,0))" }} />
-                    {data.fromName ? (
+                    {data.senderName ? (
                       <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontWeight: 500, fontSize: 12,
-                        letterSpacing: "0.08em", color: "rgba(238,232,220,0.82)", marginTop: 14, textShadow: "0 1px 4px rgba(5,5,5,0.8)" }}>{data.fromName}</div>
+                        letterSpacing: "0.08em", color: "rgba(238,232,220,0.82)", marginTop: 14, textShadow: "0 1px 4px rgba(5,5,5,0.8)" }}>{`From ${data.senderName}`}</div>
                     ) : null}
                   </div>
                 </div>
