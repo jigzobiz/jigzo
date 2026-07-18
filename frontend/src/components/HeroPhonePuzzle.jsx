@@ -120,20 +120,15 @@ const PHOTO = '/assets/demo-photo.png';
 const REVEAL = '/assets/demo-reveal.png';
 const imgStyle = { position: 'absolute', top: 0, left: 0, width: SCREEN_W, height: SCREEN_H, objectFit: 'cover' };
 
-// Adjustment 4: extremely subtle softness so the phone/puzzle sit in the scene
-// like the background photo. Applied to the phone body, puzzle and piece ONLY —
-// never the reveal <img> — so the reveal text stays clearly readable. In canvas
-// space, so it scales down with the canvas to a sub-pixel screen blur.
-const SOFT_BLUR = 'blur(1.3px)';
-
 /* ── scene components (verbatim, asset URLs swapped to /assets/) ──────────── */
 // Memoized: the assembled board is identical every frame, so it renders once
 // and is reused across the continuous loop instead of rebuilding 18 clip paths.
 const PuzzleScreenBase = React.memo(function PuzzleScreenBase() {
   return (
-    <div style={{ position: 'absolute', inset: 0, background: '#141416', filter: SOFT_BLUR }}>
+    <div style={{ position: 'absolute', inset: 0, background: '#141416' }}>
       <div style={{ position: 'absolute', inset: 0, clipPath: `path('${CAVITY_D}')`, background: '#0e0e10' }}>
-        <img src={PHOTO} style={{ ...imgStyle, filter: 'brightness(0.32) saturate(0.5)' }} />
+        {/* recessed missing-slot look via opacity over the dark bg (no filter) */}
+        <img src={PHOTO} style={{ ...imgStyle, opacity: 0.3 }} />
       </div>
       {STATIC_PIECES.map((p) => (
         <div key={`p-${p.r}-${p.c}`} style={{ position: 'absolute', inset: 0, clipPath: `path('${p.d}')` }}>
@@ -150,7 +145,7 @@ const PuzzleScreenBase = React.memo(function PuzzleScreenBase() {
 const SettledPiece = React.memo(function SettledPiece() {
   const d = piecePath(FR, FC, 0);
   return (
-    <div style={{ position: 'absolute', inset: 0, filter: SOFT_BLUR }}>
+    <div style={{ position: 'absolute', inset: 0 }}>
       <div style={{ position: 'absolute', inset: 0, clipPath: `path('${d}')` }}>
         <img src={PHOTO} style={imgStyle} />
       </div>
@@ -163,10 +158,9 @@ const SettledPiece = React.memo(function SettledPiece() {
 
 function FloatingPieceOverlay({ dx = 0, dy = 0, rot = 0, scale = 1, opacity, flashOpacity }) {
   const d = piecePath(FR, FC, 0);
-  const liftT = clamp(Math.abs(dx) / Math.abs(FLOAT_DX), 0, 1);
   return (
-    <div style={{ position: 'absolute', left: SCREEN_LEFT, top: SCREEN_TOP, width: SCREEN_W, height: SCREEN_H, opacity, transform: `translate(${dx}px, ${dy}px) rotate(${rot}deg) scale(${scale})`, filter: SOFT_BLUR }}>
-      <div style={{ position: 'absolute', inset: 0, clipPath: `path('${d}')`, filter: `drop-shadow(0 ${10 + liftT * 26}px ${18 + liftT * 34}px rgba(0,0,0,${(0.3 + liftT * 0.25).toFixed(2)}))` }}>
+    <div style={{ position: 'absolute', left: SCREEN_LEFT, top: SCREEN_TOP, width: SCREEN_W, height: SCREEN_H, opacity, transform: `translate(${dx}px, ${dy}px) rotate(${rot}deg) scale(${scale})` }}>
+      <div style={{ position: 'absolute', inset: 0, clipPath: `path('${d}')` }}>
         <img src={PHOTO} style={imgStyle} />
       </div>
       <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
@@ -188,9 +182,15 @@ function Phone2D({ scaleX = 1, scaleVal = 1, screenView = 'front', screen }) {
   const lensGrad = 'radial-gradient(circle at 35% 30%, #4a4a50, #0d0d0f 70%)';
   return (
     <div style={{ position: 'absolute', left: '50%', top: '50%', width: W, height: H, marginLeft: -W / 2, marginTop: -H / 2, transform: `scale(${scaleVal}) scaleX(${scaleX})`, transformOrigin: 'center' }}>
+      {/* Warm-white glow, BEHIND the phone body and INSIDE this transformed
+          wrapper — so it scales, flips (scaleX) and bobs with the phone for free,
+          and shrinks with it during the flip's opening. A radial-gradient
+          background (rgba(255,250,231) → transparent), NOT a filter, so iOS
+          Safari renders it reliably. Matches the floating pieces' warm light. */}
+      <div style={{ position: 'absolute', left: '50%', top: '50%', width: '176%', height: '140%', marginLeft: '-88%', marginTop: '-70%', background: 'radial-gradient(closest-side at 50% 50%, rgba(255,250,231,0.55) 0%, rgba(255,250,231,0.34) 46%, rgba(255,250,231,0.12) 68%, rgba(255,250,231,0) 82%)', pointerEvents: 'none' }} />
       {screenView === 'front' ? (
         <React.Fragment>
-          <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: '#050506', opacity: BODY_FADE, boxShadow: '0 30px 70px rgba(0,0,0,0.22), inset 0 0 0 1.5px rgba(255,255,255,0.12)', filter: SOFT_BLUR }} />
+          <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: '#050506', opacity: BODY_FADE, boxShadow: '0 30px 70px rgba(0,0,0,0.22), inset 0 0 0 1.5px rgba(255,255,255,0.12)' }} />
           {/* iOS Safari fix: WebKit fails to clip descendants to `border-radius`
               once they are promoted to their own compositing layer (by filter,
               transform or animation) — the layer's straight rectangular edges
@@ -205,7 +205,7 @@ function Phone2D({ scaleX = 1, scaleVal = 1, screenView = 'front', screen }) {
           <div style={{ position: 'absolute', left: '50%', top: TOP_BEZEL + 16, width: 84, height: 24, marginLeft: -42, borderRadius: 12, background: '#0a0a0c', opacity: BODY_FADE }} />
         </React.Fragment>
       ) : (
-        <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: bezelGrad, opacity: BODY_FADE, boxShadow: '0 24px 54px rgba(0,0,0,0.18)', filter: SOFT_BLUR }}>
+        <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: bezelGrad, opacity: BODY_FADE, boxShadow: '0 24px 54px rgba(0,0,0,0.18)' }}>
           <div style={{ position: 'absolute', left: 26, top: 30, width: 108, height: 108, borderRadius: 30, background: 'linear-gradient(145deg,#2c2c30,#111113)' }}>
             <div style={{ position: 'absolute', left: 8, top: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
             <div style={{ position: 'absolute', right: 8, top: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
@@ -378,31 +378,9 @@ export default function HeroPhonePuzzle() {
   const ctx = { progress: SCENES[idx].dur > 0 ? wall / SCENES[idx].dur : 0, index: idx, scene: SCENES[idx] };
   const Comp = SCENE_MAP[SCENES[idx].name];
   const piece = floatingPieceState(idx, ctx.progress, time);
-  // Static glow, but faded in as the flip grows the phone to full size (so the
-  // full-size glow doesn't sit behind the tiny phone at the flip's opening) and
-  // faded out during LoopOut to match the phone. Only an opacity — no filter,
-  // transform or compositing change — so it stays iOS-safe.
-  const glowOpacity = idx === 0 ? clamp(ctx.progress / 0.5, 0, 1)
-    : idx === SCENES.length - 1 ? clamp(1 - ctx.progress, 0, 1)
-      : 1;
 
   return (
     <div className="hero-phone-anim" ref={hostRef} aria-hidden="true">
-      {/* Static warm-white glow silhouette BEHIND the canvas. A childless rounded
-          rectangle at the phone's resting size, glowed with box-shadow (a paint
-          op — not a filter). It is NOT inside the animated/composited/rAF canvas,
-          so iOS Safari renders it reliably. Size/blur derive from `scale`, which
-          only changes on resize (never per animation frame). */}
-      <div
-        className="hero-phone-anim__glow"
-        style={{
-          width: PHONE_W * scale,
-          height: PHONE_H * scale,
-          borderRadius: 52 * scale,
-          boxShadow: `0 0 ${12 * scale}px rgba(255, 250, 231, 0.9), 0 0 ${46 * scale}px rgba(255, 250, 231, 0.5)`,
-          opacity: glowOpacity,
-        }}
-      />
       <div className="hero-phone-anim__bob">
         <div
           className="hero-phone-anim__canvas"
