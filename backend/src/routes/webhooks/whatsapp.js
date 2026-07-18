@@ -1,5 +1,5 @@
 const express = require('express');
-const router = reportRouter = express.Router();
+const router = express.Router();
 const crypto = require('crypto');
 const WhatsAppWebhookEvent = require('../../models/WhatsAppWebhookEvent');
 const WhatsAppMessage = require('../../models/WhatsAppMessage');
@@ -78,12 +78,9 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'Mismatch between X-Webhook-Event and kapso.status' });
     }
 
-    // Atomically reserve/claim the event
-    let webhookEvent;
-    let isNewEvent = false;
-
+    // 1. Attempt to insert the event as queued
     try {
-      webhookEvent = new WhatsAppWebhookEvent({
+      const initialEvent = new WhatsAppWebhookEvent({
         idempotencyKey,
         eventType,
         providerMessageId,
@@ -94,62 +91,56 @@ router.post('/', async (req, res, next) => {
         payloadHash,
         processingStatus: 'queued'
       });
-      await webhookEvent.save();
-      isNewEvent = true;
+      await initialEvent.save();
     } catch (dbErr) {
-      if (dbErr.code === 11000) {
-        // Event already exists
-        const existing = await WhatsAppWebhookEvent.findOne({ idempotencyKey });
-        if (existing.processingStatus === 'processed') {
-          return res.status(200).json({ success: true, note: 'duplicate_webhook_ignored' });
-        }
-
-        // Processing check
-        if (existing.processingStatus === 'processing') {
-          const freshLease = Date.now() - existing.processingStartedAt.getTime() < 120000;
-          if (freshLease) {
-            return res.status(200).json({ success: true, note: 'lease_active_skip' });
-          }
-        }
-
-        // Failed or expired lease: atomically reclaim
-        const reclaimed = await WhatsAppWebhookEvent.findOneAndUpdate(
-          {
-            idempotencyKey,
-            $or: [
-              { processingStatus: 'failed' },
-              {
-                processingStatus: 'processing',
-                processingStartedAt: { $lt: new Date(Date.now() - 120000) }
-              }
-            ]
-          },
-          {
-            $set: {
-              processingStatus: 'processing',
-              processingStartedAt: new Date()
-            },
-            $inc: { processingAttempts: 1 }
-          },
-          { new: true }
-        );
-
-        if (!reclaimed) {
-          return res.status(200).json({ success: true, note: 'concurrent_reclaim_skip' });
-        }
-        webhookEvent = reclaimed;
-      } else {
+      if (dbErr.code !== 11000) {
         throw dbErr;
       }
     }
 
-    // Claim the new event
-    if (isNewEvent) {
-      webhookEvent.processingStatus = 'processing';
-      webhookEvent.processingStartedAt = new Date();
-      webhookEvent.processingAttempts = 1;
-      await webhookEvent.save();
+    // 2. Atomically claim with a lease-based findOneAndUpdate
+    const leaseCutoff = new Date(Date.now() - 120000);
+    const claimedEvent = await WhatsAppWebhookEvent.findOneAndUpdate(
+      {
+        idempotencyKey,
+        $or: [
+          { processingStatus: 'queued' },
+          { processingStatus: 'failed' },
+          {
+            processingStatus: 'processing',
+            processingStartedAt: { $lt: leaseCutoff }
+          }
+        ]
+      },
+      {
+        $set: {
+          processingStatus: 'processing',
+          processingStartedAt: new Date(),
+          lastProcessingError: ''
+        },
+        $inc: {
+          processingAttempts: 1
+        }
+      },
+      { new: true }
+    );
+
+    if (!claimedEvent) {
+      // Fetch the existing event to return the accurate state code
+      const existing = await WhatsAppWebhookEvent.findOne({ idempotencyKey });
+      if (!existing) {
+        return res.status(500).json({ error: 'Failed to claim or retrieve event' });
+      }
+      if (existing.processingStatus === 'processed') {
+        return res.status(200).json({ success: true, note: 'duplicate_webhook_ignored' });
+      }
+      if (existing.processingStatus === 'processing') {
+        return res.status(200).json({ success: true, note: 'lease_active_skip' });
+      }
+      return res.status(500).json({ error: 'Unexpected processing state retryable' });
     }
+
+    let webhookEvent = claimedEvent;
 
     // Process status update monotonically
     // Match recipient primarily using providerMessageId

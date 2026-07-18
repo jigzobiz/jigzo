@@ -42,13 +42,28 @@ const WhatsAppMessageSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
-WhatsAppMessageSchema.index({ idempotencyKey: 1 }, { unique: true });
+WhatsAppMessageSchema.index(
+  { idempotencyKey: 1 },
+  {
+    name: 'whatsapp_idempotency_unique',
+    unique: true,
+    partialFilterExpression: {
+      idempotencyKey: { $type: 'string' }
+    }
+  }
+);
+
 WhatsAppMessageSchema.index(
   { providerMessageId: 1 },
-  { 
-    unique: true, 
-    sparse: true, 
-    partialFilterExpression: { providerMessageId: { $type: "string" } } 
+  {
+    name: 'whatsapp_provider_message_unique',
+    unique: true,
+    partialFilterExpression: {
+      providerMessageId: {
+        $type: 'string',
+        $gt: ''
+      }
+    }
   }
 );
 
