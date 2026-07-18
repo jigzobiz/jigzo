@@ -693,24 +693,11 @@ a { color:inherit; text-decoration:none; }
   top: 366px;
   bottom: 44px;
   overflow: visible;
-  /* NO filter here. A `filter: drop-shadow` on this element used to draw the
-     glow, but on real iOS Safari it applied to the whole animated, GPU-composited,
-     rAF-driven 1080×1920 canvas subtree (will-change + translateZ(0) + isolation
-     inside) and WebKit silently dropped it → no glow on iPhone. The glow is now a
-     separate static, non-composited silhouette element (.hero-phone-anim__glow)
-     BEHIND the canvas — see below and HeroPhonePuzzle.jsx. */
-}
-/* Static warm-WHITE glow silhouette, behind the animated canvas. A childless
-   rounded rectangle matching the phone's resting size (set inline from the JS
-   scale). box-shadow is a PAINT operation (not a filter) on a simple static
-   element with no composited descendants, so iOS Safari renders it reliably —
-   unlike a filter over the live animated subtree. Colour rgba(255,250,231)
-   matches the floating pieces (warm white light, not gold). */
-.landing-page .hero-phone-anim__glow {
-  position: absolute;
-  inset: 0;
-  margin: auto;          /* centres in the box (matches the centred phone), no transform */
-  pointer-events: none;
+  /* NO filter anywhere on this element or its animated subtree. The glow is a
+     radial-gradient background inside the phone wrapper (HeroPhonePuzzle.jsx) so
+     it scales/flips/bobs with the phone; the puzzle "blend" blur was removed too,
+     because a `filter` promotes elements to composited layers that iOS Safari
+     fails to (a) render as a glow and (b) clip to the screen's rounded corners. */
 }
 /* Gentle continuous vertical bob so the phone floats like the other hero
    elements instead of sitting static (a few px, ease-in-out). Kept on its own
