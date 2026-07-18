@@ -264,6 +264,47 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     }
   }, [showReveal, publicId, rIndex, startTimeRef]);
 
+  const cachedBlobRef = useRef(null);
+  const generationPromiseRef = useRef(null);
+  const lastDepsRef = useRef({});
+  const [exportLoading, setExportLoading] = useState(false);
+
+  useEffect(() => {
+    if (showReveal && data) {
+      const currentDeps = {
+        url: data.cropImageUrl,
+        msg: data.message,
+        sender: data.senderName,
+        recName: data.recipient?.name || data.toName || ''
+      };
+      const depsChanged =
+        currentDeps.url !== lastDepsRef.current.url ||
+        currentDeps.msg !== lastDepsRef.current.msg ||
+        currentDeps.sender !== lastDepsRef.current.sender ||
+        currentDeps.recName !== lastDepsRef.current.recName;
+
+      if (depsChanged) {
+        cachedBlobRef.current = null;
+        generationPromiseRef.current = null;
+        lastDepsRef.current = currentDeps;
+        buildRevealPng().catch(err => {
+          console.error('[ReceivePage] Background pre-generation failed:', err);
+        });
+      } else if (!cachedBlobRef.current && !generationPromiseRef.current) {
+        buildRevealPng().catch(err => {
+          console.error('[ReceivePage] Background pre-generation failed:', err);
+        });
+      }
+    }
+  }, [
+    showReveal,
+    data?.cropImageUrl,
+    data?.message,
+    data?.senderName,
+    data?.recipient?.name,
+    data?.toName
+  ]);
+
   const [scale, setScale] = useState(1);
   const wrapRef = useRef(null), stageRef = useRef(null), cardRef = useRef(null);
   const headerRef = useRef(null);
@@ -454,102 +495,120 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
   };
 
   const replay = () => { setShowReveal(false); setPlaced(homes.map(() => false)); setGid(homes.map((_, i) => i)); setPositions(scatter()); };
-  const buildRevealPng = (onBlob) => {
-    const CW = 1080, CH = 1920;
-    const cardW = 340;
-    const S = CW / cardW;
-    const CREAM = "rgb(250,248,236)";
+  const buildRevealPng = () => {
+    if (generationPromiseRef.current) {
+      return generationPromiseRef.current;
+    }
+    const promise = new Promise((resolve, reject) => {
+      const CW = 1080, CH = 1920;
+      const cardW = 340;
+      const S = CW / cardW;
+      const CREAM = "rgb(250,248,236)";
 
-    const paint = (img) => {
-      const canvas = document.createElement("canvas");
-      canvas.width = CW; canvas.height = CH;
-      const ctx = canvas.getContext("2d");
+      const paint = (img) => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = CW; canvas.height = CH;
+          const ctx = canvas.getContext("2d");
 
-      ctx.fillStyle = CREAM;
-      ctx.fillRect(0, 0, CW, CH);
+          ctx.fillStyle = CREAM;
+          ctx.fillRect(0, 0, CW, CH);
 
-      if (img && img.width) {
-        const s = Math.max(CW / img.width, CH / img.height);
-        const dw = img.width * s, dh = img.height * s;
-        ctx.drawImage(img, (CW - dw) / 2, (CH - dh) / 2, dw, dh);
-      } else { ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, CW, CH); }
+          if (img && img.width) {
+            const s = Math.max(CW / img.width, CH / img.height);
+            const dw = img.width * s, dh = img.height * s;
+            ctx.drawImage(img, (CW - dw) / 2, (CH - dh) / 2, dw, dh);
+          } else { ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, CW, CH); }
 
-      const cx = CW * 0.5, cy = CH * 0.42;
-      const R = Math.hypot(Math.max(cx, CW - cx), Math.max(cy, CH - cy)) * 1.02;
-      const vg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
-      vg.addColorStop(0, "rgba(23,19,13,0.34)");
-      vg.addColorStop(0.78, "rgba(5,5,5,0.76)");
-      vg.addColorStop(1, "rgba(5,5,5,0.76)");
-      ctx.fillStyle = vg; ctx.fillRect(0, 0, CW, CH);
+          const cx = CW * 0.5, cy = CH * 0.42;
+          const R = Math.hypot(Math.max(cx, CW - cx), Math.max(cy, CH - cy)) * 1.02;
+          const vg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+          vg.addColorStop(0, "rgba(23,19,13,0.34)");
+          vg.addColorStop(0.78, "rgba(5,5,5,0.76)");
+          vg.addColorStop(1, "rgba(5,5,5,0.76)");
+          ctx.fillStyle = vg; ctx.fillRect(0, 0, CW, CH);
 
-      const contentW = 842;
-      ctx.font = `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`;
-      const msgLines = [];
-      (data.message || "").split("\n").forEach((para) => {
-        let line = "";
-        para.split(" ").forEach((w) => {
-          const test = line ? line + " " + w : w;
-          if (ctx.measureText(test).width > contentW && line) { msgLines.push(line); line = w; }
-          else line = test;
-        });
-        msgLines.push(line);
-      });
+          const contentW = 842;
+          ctx.font = `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`;
+          const msgLines = [];
+          (data.message || "").split("\n").forEach((para) => {
+            let line = "";
+            para.split(" ").forEach((w) => {
+              const test = line ? line + " " + w : w;
+              if (ctx.measureText(test).width > contentW && line) { msgLines.push(line); line = w; }
+              else line = test;
+            });
+            msgLines.push(line);
+          });
 
-      const rows = [];
-      const recipientName = data.recipient?.name || data.toName || '';
-      if (recipientName) {
-        rows.push({ type: "text", t: recipientName, f: `500 ${12.5 * S}px "JetBrains Mono", monospace`, color: "#E6C67F", ls: 0.1 * 12.5 * S, lh: 12.5 * S * 1.3, gap: 18 * S });
-      }
-      msgLines.forEach((ln, i) => rows.push({ type: "text", t: ln, f: `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`, color: "#F3ECDD", lh: 20 * S * 1.32, shadow: true, gap: i === msgLines.length - 1 ? 18 * S : 0 }));
-      rows.push({ type: "rule", h: 2 * S, w: 44 * S, gap: data.senderName ? 14 * S : 0 });
-      if (data.senderName) {
-        rows.push({ type: "text", t: data.senderName, f: `500 ${12 * S}px "JetBrains Mono", monospace`, color: "rgba(238,232,220,0.82)", ls: 0.08 * 12 * S, lh: 12 * S * 1.3, gap: 0 });
-      }
+          const rows = [];
+          const recipientName = data.recipient?.name || data.toName || '';
+          if (recipientName) {
+            rows.push({ type: "text", t: recipientName, f: `500 ${12.5 * S}px "JetBrains Mono", monospace`, color: "#E6C67F", ls: 0.1 * 12.5 * S, lh: 12.5 * S * 1.3, gap: 18 * S });
+          }
+          msgLines.forEach((ln, i) => rows.push({ type: "text", t: ln, f: `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`, color: "#F3ECDD", lh: 20 * S * 1.32, shadow: true, gap: i === msgLines.length - 1 ? 18 * S : 0 }));
+          rows.push({ type: "rule", h: 2 * S, w: 44 * S, gap: data.senderName ? 14 * S : 0 });
+          if (data.senderName) {
+            rows.push({ type: "text", t: data.senderName, f: `500 ${12 * S}px "JetBrains Mono", monospace`, color: "rgba(238,232,220,0.82)", ls: 0.08 * 12 * S, lh: 12 * S * 1.3, gap: 0 });
+          }
 
-      const total = rows.reduce((s, r) => s + (r.h || r.lh) + r.gap, 0);
-      let y = (CH - total) / 2;
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      rows.forEach((r) => {
-        const rowH = r.h || r.lh;
-        if (r.type === "rule") {
-          const gr = ctx.createLinearGradient(CW / 2 - r.w / 2, 0, CW / 2 + r.w / 2, 0);
-          gr.addColorStop(0, "rgba(208,160,54,0)"); gr.addColorStop(0.5, "#D0A036"); gr.addColorStop(1, "rgba(208,160,54,0)");
-          ctx.fillStyle = gr; ctx.fillRect(CW / 2 - r.w / 2, y + rowH / 2 - r.h / 2, r.w, r.h);
-        } else {
-          ctx.save();
-          ctx.font = r.f; ctx.fillStyle = r.color;
-          if ("letterSpacing" in ctx) ctx.letterSpacing = (r.ls || 0) + "px";
-          if (r.shadow) { ctx.shadowColor = "rgba(5,5,5,0.92)"; ctx.shadowBlur = 9 * S; ctx.shadowOffsetY = 2 * S; }
-          else { ctx.shadowColor = "rgba(5,5,5,0.8)"; ctx.shadowBlur = 5 * S; ctx.shadowOffsetY = 1 * S; }
-          ctx.fillText(r.t, CW / 2, y + rowH / 2);
-          ctx.restore();
+          const total = rows.reduce((s, r) => s + (r.h || r.lh) + r.gap, 0);
+          let y = (CH - total) / 2;
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          rows.forEach((r) => {
+            const rowH = r.h || r.lh;
+            if (r.type === "rule") {
+              const gr = ctx.createLinearGradient(CW / 2 - r.w / 2, 0, CW / 2 + r.w / 2, 0);
+              gr.addColorStop(0, "rgba(208,160,54,0)"); gr.addColorStop(0.5, "#D0A036"); gr.addColorStop(1, "rgba(208,160,54,0)");
+              ctx.fillStyle = gr; ctx.fillRect(CW / 2 - r.w / 2, y + rowH / 2 - r.h / 2, r.w, r.h);
+            } else {
+              ctx.save();
+              ctx.font = r.f; ctx.fillStyle = r.color;
+              if ("letterSpacing" in ctx) ctx.letterSpacing = (r.ls || 0) + "px";
+              if (r.shadow) { ctx.shadowColor = "rgba(5,5,5,0.92)"; ctx.shadowBlur = 9 * S; ctx.shadowOffsetY = 2 * S; }
+              else { ctx.shadowColor = "rgba(5,5,5,0.8)"; ctx.shadowBlur = 5 * S; ctx.shadowOffsetY = 1 * S; }
+              ctx.fillText(r.t, CW / 2, y + rowH / 2);
+              ctx.restore();
+            }
+            y += rowH + r.gap;
+          });
+
+          canvas.toBlob((blob) => {
+            if (blob) {
+              cachedBlobRef.current = blob;
+              resolve(blob);
+            } else {
+              reject(new Error("Canvas conversion to blob returned null"));
+            }
+          }, "image/jpeg", 0.82);
+        } catch (e) {
+          reject(e);
         }
-        y += rowH + r.gap;
-      });
+      };
 
-      canvas.toBlob((blob) => { onBlob(blob || null); }, "image/jpeg", 0.82);
-    };
-
-    const run = () => {
-      if (data.cropImageUrl) {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => paint(img);
-        img.onerror = () => paint(null);
-        img.src = data.cropImageUrl;
-        if (img.complete) {
-          paint(img);
-        }
-      } else paint(null);
-    };
-    if (document.fonts && document.fonts.ready) {
-      Promise.all([
-        'italic 400 20px "Playfair Display"',
-        '500 11px "JetBrains Mono"',
-        '500 10px "JetBrains Mono"',
-      ].map((w) => document.fonts.load(w).catch(() => {})))
-        .then(() => document.fonts.ready).then(run, run);
-    } else run();
+      const run = () => {
+        if (data && data.cropImageUrl) {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => paint(img);
+          img.onerror = () => paint(null);
+          img.src = data.cropImageUrl;
+          if (img.complete) {
+            paint(img);
+          }
+        } else paint(null);
+      };
+      if (document.fonts && document.fonts.ready) {
+        Promise.all([
+          'italic 400 20px "Playfair Display"',
+          '500 11px "JetBrains Mono"',
+          '500 10px "JetBrains Mono"',
+        ].map((w) => document.fonts.load(w).catch(() => {})))
+          .then(() => document.fonts.ready).then(run, run);
+      } else run();
+    });
+    generationPromiseRef.current = promise;
+    return promise;
   };
 
   const saveAsFile = (file) => {
@@ -560,22 +619,32 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     setTimeout(() => URL.revokeObjectURL(a.href), 1500);
   };
 
-  const onSaveOrShare = () => {
-    buildRevealPng((blob) => {
+  const onSaveOrShare = async () => {
+    if (exportLoading) return;
+    setExportLoading(true);
+    try {
+      let blob = cachedBlobRef.current;
       if (!blob) {
-        alert('Failed to generate image for saving.');
-        return;
+        blob = await buildRevealPng();
+      }
+      if (!blob) {
+        throw new Error("Blob is null or undefined");
       }
       const file = new File([blob], "jigzo-reveal.jpg", { type: "image/jpeg" });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: "Your JIGZO reveal" }).catch((err) => {
-          if (err && err.name === "AbortError") return;
-          saveAsFile(file);
-        });
+        await navigator.share({ files: [file], title: "Your JIGZO reveal" });
       } else {
         saveAsFile(file);
       }
-    });
+    } catch (err) {
+      if (err && err.name === "AbortError") return;
+      console.error('[ReceivePage] Export failed:', err);
+      alert('Failed to generate image for saving. Please try again.');
+      generationPromiseRef.current = null;
+      cachedBlobRef.current = null;
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   const placedCount = placed.filter(Boolean).length;
@@ -700,9 +769,9 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
           <div ref={actionsRef} style={{ textAlign: "center", marginTop: 18, animation: "jzFade 0.5s ease" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
               {/* Primary: Save or Share */}
-              <button type="button" onClick={onSaveOrShare} style={{ background: "#050505", color: "#FAF8EC", border: "none", borderRadius: 999,
-                padding: "13px 26px", fontSize: 14.5, fontWeight: 700, fontFamily: "Archia,sans-serif", cursor: "pointer", width: "100%", maxWidth: 280 }}>
-                Save or Share
+              <button type="button" onClick={onSaveOrShare} disabled={exportLoading} style={{ background: "#050505", color: "#FAF8EC", border: "none", borderRadius: 999,
+                padding: "13px 26px", fontSize: 14.5, fontWeight: 700, fontFamily: "Archia,sans-serif", cursor: "pointer", width: "100%", maxWidth: 280, opacity: exportLoading ? 0.75 : 1 }}>
+                {exportLoading ? "Generating..." : "Save or Share"}
               </button>
               
               {/* Secondary: Create Your Puzzle */}

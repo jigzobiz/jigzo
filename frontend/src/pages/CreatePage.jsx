@@ -677,6 +677,50 @@ export default function CreatePage() {
         tone
       });
 
+      const expectedCount = formattedRecipients.length;
+      const links = res.recipientLinks;
+      let errorMsg = null;
+
+      if (!Array.isArray(links)) {
+        errorMsg = "recipientLinks is not an array";
+      } else if (links.length !== expectedCount) {
+        errorMsg = `recipientLinks length (${links.length}) does not match expected recipient count (${expectedCount})`;
+      } else {
+        const indexes = links.map(l => l.recipientIndex);
+        const uniqueIndexes = new Set(indexes);
+        if (uniqueIndexes.size !== expectedCount) {
+          errorMsg = "duplicate recipientIndex detected in links";
+        } else {
+          const sortedIndexes = [...indexes].sort((a, b) => a - b);
+          for (let i = 0; i < expectedCount; i++) {
+            if (sortedIndexes[i] !== i) {
+              errorMsg = `non-sequential recipientIndex detected: expected ${i}, found ${sortedIndexes[i]}`;
+              break;
+            }
+          }
+        }
+        if (!errorMsg) {
+          for (const link of links) {
+            const index = link.recipientIndex;
+            const urlStr = link.revealUrl || '';
+            if (!urlStr.includes(`?r=${index}`) && !urlStr.includes(`&r=${index}`)) {
+              errorMsg = `revealUrl for index ${index} does not contain '?r=${index}' or '&r=${index}' query parameter`;
+              break;
+            }
+            if (urlStr.includes("jigzo.biz") && !urlStr.includes("staging.jigzo.biz")) {
+              errorMsg = `revealUrl links to Production instead of Staging: ${urlStr}`;
+              break;
+            }
+          }
+        }
+      }
+
+      if (errorMsg) {
+        alert(`Safe Staging Error: API validation failed. ${errorMsg}`);
+        setIsProcessing(false);
+        return;
+      }
+
       setTestModeResult(res);
       setIsSuccess(true);
     } catch (err) {
@@ -785,8 +829,9 @@ export default function CreatePage() {
               {testModeResult.recipientLinks && testModeResult.recipientLinks.length > 0 ? (
                 testModeResult.recipientLinks.map((link) => (
                   <div key={link.recipientIndex} style={{ marginBottom: 16, border: `1px solid ${T.ink15}`, padding: 16, borderRadius: 12, background: T.card }}>
-                    <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 8, color: T.ink }}>
-                      Recipient: {link.recipientName} {hasMultipleLinks ? `(Index ${link.recipientIndex})` : ''}
+                    <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 8, color: T.ink, display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Recipient {link.recipientIndex + 1}</span>
+                      <span style={{ color: T.ink66 }}>{link.recipientName}</span>
                     </div>
                     <input type="text" readOnly value={link.revealUrl} style={{ ...inputStyle, textAlign: 'left', marginBottom: 10, fontSize: 13 }} />
                     <div style={{ display: 'flex', gap: 10 }}>
@@ -1067,7 +1112,7 @@ export default function CreatePage() {
             </p>
 
             <div style={{ marginBottom: 18 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50, marginBottom: 6 }}>Recipient’s Name</label>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50, marginBottom: 6 }}>Recipient (to)</label>
               <input type="text" placeholder="e.g. Sofia, Mom, Alex" value={primaryRecipientName}
                 onChange={(e) => handlePrimaryRecipientNameChange(e.target.value)} style={inputStyle}
                 autoComplete="off" />
@@ -1083,17 +1128,15 @@ export default function CreatePage() {
               </div>
             </div>
 
-            {occasion && (
-              <div style={{ marginBottom: 18, animation: "fadeUp 0.3s ease" }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50, marginBottom: 8 }}>Choose a tone</label>
-                <div className={`tones-chips-wrapper ${tone ? "chips-container-has-selection" : ""}`} style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {TONES.map((t) => (
-                    <button type="button" key={t.id} onClick={() => { setTone(t.id); pickCombo(occasion, t.id); }}
-                      className={`tone-chip ${t.id === tone ? "active" : ""}`}>{t.label}</button>
-                  ))}
-                </div>
+            <div style={{ marginBottom: 18, animation: "fadeUp 0.3s ease" }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50, marginBottom: 8 }}>Choose a tone</label>
+              <div className={`tones-chips-wrapper ${tone ? "chips-container-has-selection" : ""}`} style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {TONES.map((t) => (
+                  <button type="button" key={t.id} onClick={() => { setTone(t.id); pickCombo(occasion, t.id); }}
+                    className={`tone-chip ${t.id === tone ? "active" : ""}`}>{t.label}</button>
+                ))}
               </div>
-            )}
+            </div>
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -1172,7 +1215,7 @@ export default function CreatePage() {
               return (
                 <div key={idx} style={{ padding: 18, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, marginBottom: 16, position: "relative" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <span style={{ fontWeight: 600, fontSize: 14.5 }}>Recipient #{idx + 1}</span>
+                    <span style={{ fontWeight: 600, fontSize: 14.5 }}>Recipient (to) #{idx + 1}</span>
                     {recipients.length > 1 && (
                       <button type="button" onClick={() => setRecipients(prev => prev.filter((_, i) => i !== idx))} className="edit-btn">Remove</button>
                     )}
@@ -1354,7 +1397,7 @@ export default function CreatePage() {
               </div>
             </div>
 
-            <Disclosure title="Preview their WhatsApp message">
+            <Disclosure title="Preview their WhatsApp message" defaultOpen={true}>
               <WhatsAppPreview senderName={senderName} showIdentity={revealIdentity} receiverName={recipients[0]?.name} />
             </Disclosure>
 
@@ -1382,7 +1425,7 @@ export default function CreatePage() {
                   </div>
                 )}
                 <div style={{ fontSize: 13.5, lineHeight: 1.7, flex: 1 }}>
-                  <div><strong>Recipients ({recipients.length})</strong> · {recipients.map(r => r.name || "—").join(", ")} <button type="button" onClick={() => setCurrentStep(3)} className="edit-btn">Edit</button></div>
+                  <div><strong>Recipients (to) ({recipients.length})</strong> · {recipients.map(r => r.name || "—").join(", ")} <button type="button" onClick={() => setCurrentStep(3)} className="edit-btn">Edit</button></div>
                   <div style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", maxWidth: 260 }}>
                     <strong>Message</strong> · "{message}" <button type="button" onClick={() => setCurrentStep(2)} className="edit-btn">Edit</button>
                   </div>
@@ -1392,7 +1435,7 @@ export default function CreatePage() {
               </div>
             </div>
 
-            <Disclosure title="Preview the reveal layout">
+            <Disclosure title="Preview the reveal layout" defaultOpen={true}>
               <div style={{ display: "flex", justifyContent: "center", margin: "14px 0" }}>
                 <div 
                   onClick={() => { if (!revealSimSolved) handleSimulateSolve(); }}
