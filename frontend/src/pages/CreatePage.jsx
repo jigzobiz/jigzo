@@ -665,8 +665,6 @@ export default function CreatePage() {
         };
       });
 
-      console.log('[DIAGNOSTIC] Submitting test reveal formattedRecipients:', formattedRecipients);
-      alert(`[DIAGNOSTIC] Calling POST /api/test/reveals\nSubmitted Recipients Count: ${formattedRecipients.length}\nPayload: ${JSON.stringify(formattedRecipients, null, 2)}`);
 
       const res = await api.createTestReveal({
         cropData,
@@ -860,13 +858,6 @@ export default function CreatePage() {
               )}
             </div>
             
-            {/* Staging Diagnostics Block */}
-            <div style={{ padding: 12, borderRadius: 10, background: 'rgba(5,5,5,0.04)', fontSize: 11, color: T.ink66, textAlign: 'left', marginBottom: 20, border: `1.5px dashed ${T.ink15}` }}>
-              <div><strong>Staging Diagnostic Info:</strong></div>
-              <div>Submitted Recipients Count: {recipients.length}</div>
-              <div>Response RecipientLinks Count: {testModeResult.recipientLinks?.length || 0}</div>
-              <div>Response JSON: <pre style={{ margin: "4px 0 0", fontSize: 9, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{JSON.stringify(testModeResult, null, 2)}</pre></div>
-            </div>
 
             <p style={{ fontSize: 11.5, color: T.ink50, lineHeight: 1.5 }}>
               This test reveal will expire in 7 days.
