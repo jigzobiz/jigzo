@@ -164,6 +164,20 @@ export default function CreatePage() {
   const [interestRegistering, setInterestRegistering] = useState(false);
   const [revealSimSolved, setRevealSimSolved] = useState(false);
   const [revealSimLoading, setRevealSimLoading] = useState(false);
+  const [isTestModeEnabled, setIsTestModeEnabled] = useState(false);
+  const [testModeResult, setTestModeResult] = useState(null);
+
+  useEffect(() => {
+    const checkTestMode = async () => {
+      try {
+        const res = await api.getTestStatus();
+        setIsTestModeEnabled(res.enabled);
+      } catch (err) {
+        console.error('Error fetching test status:', err);
+      }
+    };
+    checkTestMode();
+  }, []);
 
   const [defaultDialCode, setDefaultDialCode] = useState("+973");
   const [recipients, setRecipients] = useState([
@@ -631,6 +645,48 @@ export default function CreatePage() {
     }
   };
 
+  const handleCreateTestReveal = async () => {
+    setIsProcessing(true);
+    try {
+      const formattedRecipients = recipients.map(r => {
+        const method = r.deliveryMethod === "email" ? "email" : "whatsapp";
+        if (method === "email") {
+          return {
+            name: r.name,
+            deliveryMethod: "email",
+            email: String(r.email || "").trim().toLowerCase()
+          };
+        }
+        return {
+          name: r.name,
+          deliveryMethod: "whatsapp",
+          countryCode: r.dial,
+          phone: r.phone
+        };
+      });
+
+      const res = await api.createTestReveal({
+        cropData,
+        message,
+        senderName,
+        senderPhone: senderDial + senderPhone,
+        revealIdentity,
+        pieceCount,
+        recipients: formattedRecipients,
+        occasion,
+        tone
+      });
+
+      setTestModeResult(res);
+      setIsSuccess(true);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to create test reveal: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleNotifyMe = async () => {
     if (!interestEmail.trim()) return;
     setInterestRegistering(true);
@@ -700,6 +756,41 @@ export default function CreatePage() {
             <LoaderOrbit />
             <h1 style={{ fontSize: 22, fontWeight: 500, margin: "24px 0 8px", letterSpacing: "-0.01em" }}>Preparing your JIGZO…</h1>
             <p style={{ fontSize: 14, color: T.ink60 }}>This usually takes only a few seconds.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isSuccess && testModeResult) {
+    return (
+      <div className="create-page">
+        <div style={{ fontFamily: "Archia, sans-serif", color: T.ink, padding: "34px 20px 70px" }}>
+          <div style={{ maxWidth: 480, margin: "0 auto", textAlign: "center", paddingTop: 30 }}>
+            <div style={{ width: 84, height: 84, margin: "0 auto 24px", borderRadius: "50%", background: T.goldWarm,
+              display: "flex", alignItems: "center", justifyContent: "center", animation: "ckPop 0.5s cubic-bezier(.2,.8,.2,1) both" }}>
+              <svg width="42" height="42" viewBox="0 0 42 42" fill="none">
+                <path d="M11 22 L18 29 L31 14" stroke={T.ink} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round"
+                  strokeDasharray="40" strokeDashoffset="40" style={{ animation: "ckDraw 0.5s ease 0.35s forwards" }} />
+              </svg>
+            </div>
+            <h1 style={{ fontSize: 27, fontWeight: 300, margin: "0 0 12px", letterSpacing: "-0.02em" }}>Test Reveal Created</h1>
+            <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 auto 26px", maxWidth: 360, lineHeight: 1.6 }}>
+              This is a staging-only test reveal. Copy the link below to test on another browser or device.
+            </p>
+            <div style={{ marginBottom: 20 }}>
+              <input type="text" readOnly value={testModeResult.revealUrl} style={{ ...inputStyle, textAlign: 'center', marginBottom: 12 }} />
+              <div style={{ display: 'flex', gap: 10 }}>
+                <GhostButton onClick={() => {
+                  navigator.clipboard.writeText(testModeResult.revealUrl);
+                  alert('Copied to clipboard!');
+                }} style={{ flex: 1 }}>Copy Link</GhostButton>
+                <PrimaryButton onClick={() => window.open(testModeResult.revealUrl, "_blank")} style={{ flex: 1 }}>Open Reveal</PrimaryButton>
+              </div>
+            </div>
+            <p style={{ fontSize: 11.5, color: T.ink50, lineHeight: 1.5 }}>
+              This test reveal will expire in 7 days.
+            </p>
           </div>
         </div>
       </div>
@@ -1448,9 +1539,16 @@ export default function CreatePage() {
               </div>
             </div>
 
-            <div className="footer-nav">
-              <GhostButton onClick={handleBack}>Back</GhostButton>
-              <PrimaryButton disabled style={{ flex: 1 }}>Pay &amp; Send</PrimaryButton>
+            <div className="footer-nav" style={{ flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 12, width: '100%' }}>
+                <GhostButton onClick={handleBack}>Back</GhostButton>
+                <PrimaryButton disabled style={{ flex: 1 }}>Pay &amp; Send</PrimaryButton>
+              </div>
+              {isTestModeEnabled && (
+                <PrimaryButton onClick={handleCreateTestReveal} style={{ width: '100%', background: T.goldWarm, color: T.ink }}>
+                  Create Test Reveal (Staging Only)
+                </PrimaryButton>
+              )}
             </div>
           </div>
         )}

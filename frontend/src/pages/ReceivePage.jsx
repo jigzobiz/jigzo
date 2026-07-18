@@ -140,7 +140,19 @@ function Receiver({ data, publicId, rIndex, startTimeRef }) {
       // Calculate and report solve duration
       if (startTimeRef.current) {
         const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-        api.recordComplete(publicId, rIndex, elapsed).catch(console.error);
+        api.recordComplete(publicId, rIndex, elapsed)
+          .then((res) => {
+            if (res && res.success) {
+              setPuzzleData(prev => ({
+                ...prev,
+                message: res.message
+              }));
+            }
+          })
+          .catch(err => {
+            console.error('[ReceivePage] Completion recording failed:', err);
+            alert('Failed to register solve. Message may not unlock correctly.');
+          });
         analytics.track('puzzle_completed', { puzzleId: publicId, recipientIndex: rIndex, durationSeconds: elapsed });
       }
 

@@ -6,6 +6,7 @@ const Order = require('../models/Order');
 const imageService = require('../services/imageService');
 const whatsappService = require('../services/whatsappService');
 const { validatePhone, validateEmail } = require('../utils/contactValidation');
+const storageService = require('../services/storageService');
 
 /**
  * POST /api/puzzles
@@ -120,7 +121,7 @@ router.post('/', async (req, res, next) => {
       }
     }
 
-    const publicId = uuidv4().replace(/-/g, '').substring(0, 16);
+    const publicId = require('crypto').randomBytes(16).toString('hex');
 
     // Save image to local disk
     const cropImageUrl = await imageService.saveCropImage(cropData, publicId);
@@ -174,15 +175,28 @@ router.get('/:publicId', async (req, res, next) => {
       return res.status(404).json({ error: 'Puzzle not found.' });
     }
 
-    // Format safe recipient fields
-    const safeRecipients = puzzle.recipients.map((r, index) => ({
-      index,
-      name: r.name,
-      deliveryStatus: r.deliveryStatus,
-      openedAt: r.openedAt,
-      completedAt: r.completedAt,
-      completionSeconds: r.completionSeconds
-    }));
+    // Expiry check
+    if (puzzle.expiresAt && new Date() > puzzle.expiresAt) {
+      return res.status(410).json({ error: 'Puzzle link has expired.' });
+    }
+
+    const rQuery = req.query.r;
+    const recipientIndex = parseInt(rQuery, 10);
+    if (isNaN(recipientIndex) || recipientIndex < 0 || recipientIndex >= puzzle.recipients.length) {
+      return res.status(400).json({ error: 'Invalid or missing recipient index.' });
+    }
+
+    const recipient = puzzle.recipients[recipientIndex];
+    const safeRecipient = {
+      index: recipientIndex,
+      name: recipient.name,
+      openedAt: recipient.openedAt,
+      completedAt: recipient.completedAt
+    };
+
+    // Format safe recipients list showing ONLY the requested index
+    const safeRecipients = [];
+    safeRecipients[recipientIndex] = safeRecipient;
 
     res.json({
       success: true,
@@ -190,13 +204,55 @@ router.get('/:publicId', async (req, res, next) => {
         publicId: puzzle.publicId,
         status: puzzle.status,
         cropImageUrl: puzzle.cropImageUrl,
-        message: puzzle.message,
         senderName: puzzle.revealIdentity ? puzzle.senderName : 'Anonymous',
         revealIdentity: puzzle.revealIdentity,
         pieceCount: puzzle.pieceCount,
+        recipient: safeRecipient,
         recipients: safeRecipients
       }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/puzzles/:publicId/image
+ * Streams GridFS image or falls back to legacy path redirect.
+ */
+router.get('/:publicId/image', async (req, res, next) => {
+  try {
+    const puzzle = await Puzzle.findOne({ publicId: req.params.publicId });
+    if (!puzzle) {
+      return res.status(404).json({ error: 'Puzzle not found.' });
+    }
+
+    if (puzzle.expiresAt && new Date() > puzzle.expiresAt) {
+      return res.status(410).json({ error: 'Puzzle link has expired.' });
+    }
+
+    if (puzzle.imageStorageId) {
+      res.setHeader('Content-Type', puzzle.imageMimeType || 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      
+      const stream = storageService.getImageStream(puzzle.imageStorageId);
+      stream.on('error', (err) => {
+        console.error('[ImageRoute] GridFS Stream error:', err);
+        if (!res.headersSent) {
+          res.status(404).json({ error: 'Image not found.' });
+        }
+      });
+      stream.pipe(res);
+    } else if (puzzle.cropImageUrl) {
+      // Legacy compatibility: redirect only to trusted local same-origin paths
+      const cleanUrl = String(puzzle.cropImageUrl).trim();
+      if (cleanUrl.startsWith('/uploads/') || cleanUrl.startsWith('/assets/')) {
+        return res.redirect(cleanUrl);
+      }
+      return res.status(404).json({ error: 'Image not found.' });
+    } else {
+      return res.status(404).json({ error: 'Image not found.' });
+    }
   } catch (error) {
     next(error);
   }
@@ -294,17 +350,25 @@ router.post('/:publicId/complete', async (req, res, next) => {
       return res.status(404).json({ error: 'Puzzle not found.' });
     }
 
-    const recipientIndex = parseInt(req.query.r) || 0;
+    if (puzzle.expiresAt && new Date() > puzzle.expiresAt) {
+      return res.status(410).json({ error: 'Puzzle link has expired.' });
+    }
+
+    const rQuery = req.query.r;
+    const recipientIndex = parseInt(rQuery, 10);
+    if (isNaN(recipientIndex) || recipientIndex < 0 || recipientIndex >= puzzle.recipients.length) {
+      return res.status(400).json({ error: 'Invalid or missing recipient index.' });
+    }
+
     const recipient = puzzle.recipients[recipientIndex];
 
-    if (!recipient) {
-      return res.status(400).json({ error: 'Recipient index out of bounds.' });
-    }
+    let completionRecorded = false;
 
     if (!recipient.completedAt) {
       recipient.completedAt = new Date();
       recipient.completionSeconds = parseInt(durationSeconds) || 0;
       await puzzle.save();
+      completionRecorded = true;
 
       // Check if Reveal Alert addon was purchased for this puzzle order
       const order = await Order.findOne({ puzzleId: puzzle.publicId, paymentStatus: 'paid' });
@@ -322,8 +386,10 @@ router.post('/:publicId/complete', async (req, res, next) => {
 
     res.json({
       success: true,
-      completedAt: recipient.completedAt,
-      completionSeconds: recipient.completionSeconds
+      completionRecorded,
+      message: puzzle.message,
+      senderName: puzzle.revealIdentity ? puzzle.senderName : 'Anonymous',
+      completedAt: recipient.completedAt
     });
   } catch (error) {
     next(error);

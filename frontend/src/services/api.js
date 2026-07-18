@@ -140,5 +140,15 @@ export const api = {
       sessionId
     });
     return response.data;
+  },
+
+  getTestStatus: async () => {
+    const response = await API.get('/api/test/status');
+    return response.data;
+  },
+
+  createTestReveal: async (data) => {
+    const response = await API.post('/api/test/reveals', data);
+    return response.data;
   }
 };

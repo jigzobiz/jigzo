@@ -45,6 +45,9 @@ const PuzzleSchema = new mongoose.Schema({
     default: 'draft'
   },
   cropImageUrl: { type: String, required: true },
+  imageStorageId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  imageMimeType: { type: String, default: '' },
+  testMode: { type: Boolean, default: false },
   message: { type: String, default: '' },
   senderName: { type: String, default: '' },
   senderPhone: { type: String, default: '' },

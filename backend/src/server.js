@@ -15,6 +15,7 @@ const interestRouter = require('./routes/interest');
 const analyticsRouter = require('./routes/analytics');
 const adminRouter = require('./routes/admin');
 const { router: pricingRouter } = require('./routes/pricing');
+const testRouter = require('./routes/test');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -67,6 +68,7 @@ app.use('/api/interest', interestRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/pricing', pricingRouter);
+app.use('/api/test', testRouter);
 
 // Base Check
 app.get('/health', (req, res) => {
