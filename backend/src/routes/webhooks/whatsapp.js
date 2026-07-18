@@ -1,5 +1,5 @@
 const express = require('express');
-const router = express.Router();
+const router = reportRouter = express.Router();
 const crypto = require('crypto');
 const WhatsAppWebhookEvent = require('../../models/WhatsAppWebhookEvent');
 const WhatsAppMessage = require('../../models/WhatsAppMessage');
@@ -7,6 +7,12 @@ const whatsappService = require('../../services/whatsappService');
 
 router.post('/', async (req, res, next) => {
   try {
+    // 1. Validate the webhook payload version
+    const payloadVersion = req.headers['x-webhook-payload-version'];
+    if (!payloadVersion || payloadVersion.trim().toLowerCase() !== 'v2') {
+      return res.status(400).json({ error: 'Unsupported or missing webhook payload version' });
+    }
+
     const signature = req.headers['x-webhook-signature'];
     const idempotencyKey = req.headers['x-idempotency-key'];
     const eventType = req.headers['x-webhook-event'];
@@ -72,8 +78,10 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'Mismatch between X-Webhook-Event and kapso.status' });
     }
 
-    // Atomically reserve the event
+    // Atomically reserve/claim the event
     let webhookEvent;
+    let isNewEvent = false;
+
     try {
       webhookEvent = new WhatsAppWebhookEvent({
         idempotencyKey,
@@ -83,15 +91,64 @@ router.post('/', async (req, res, next) => {
         eventStatus,
         occurredAt,
         receivedAt: new Date(),
-        payloadHash
+        payloadHash,
+        processingStatus: 'queued'
       });
       await webhookEvent.save();
+      isNewEvent = true;
     } catch (dbErr) {
       if (dbErr.code === 11000) {
-        // Already processed
-        return res.status(200).json({ success: true, note: 'duplicate_webhook_ignored' });
+        // Event already exists
+        const existing = await WhatsAppWebhookEvent.findOne({ idempotencyKey });
+        if (existing.processingStatus === 'processed') {
+          return res.status(200).json({ success: true, note: 'duplicate_webhook_ignored' });
+        }
+
+        // Processing check
+        if (existing.processingStatus === 'processing') {
+          const freshLease = Date.now() - existing.processingStartedAt.getTime() < 120000;
+          if (freshLease) {
+            return res.status(200).json({ success: true, note: 'lease_active_skip' });
+          }
+        }
+
+        // Failed or expired lease: atomically reclaim
+        const reclaimed = await WhatsAppWebhookEvent.findOneAndUpdate(
+          {
+            idempotencyKey,
+            $or: [
+              { processingStatus: 'failed' },
+              {
+                processingStatus: 'processing',
+                processingStartedAt: { $lt: new Date(Date.now() - 120000) }
+              }
+            ]
+          },
+          {
+            $set: {
+              processingStatus: 'processing',
+              processingStartedAt: new Date()
+            },
+            $inc: { processingAttempts: 1 }
+          },
+          { new: true }
+        );
+
+        if (!reclaimed) {
+          return res.status(200).json({ success: true, note: 'concurrent_reclaim_skip' });
+        }
+        webhookEvent = reclaimed;
+      } else {
+        throw dbErr;
       }
-      throw dbErr;
+    }
+
+    // Claim the new event
+    if (isNewEvent) {
+      webhookEvent.processingStatus = 'processing';
+      webhookEvent.processingStartedAt = new Date();
+      webhookEvent.processingAttempts = 1;
+      await webhookEvent.save();
     }
 
     // Process status update monotonically
@@ -99,88 +156,96 @@ router.post('/', async (req, res, next) => {
     const messageRecord = await WhatsAppMessage.findOne({ providerMessageId });
     if (!messageRecord) {
       webhookEvent.processingStatus = 'failed';
-      webhookEvent.processingError = 'Unmatched providerMessageId';
-      webhookEvent.processedAt = new Date();
+      webhookEvent.lastProcessingError = 'Unmatched providerMessageId';
+      webhookEvent.processedAt = null;
       await webhookEvent.save();
-      return res.status(200).json({ success: true, note: 'unmatched_message_id_logged' });
+      
+      // Return HTTP 500 so Kapso retries the delivery
+      return res.status(500).json({ error: 'Unmatched providerMessageId retryable' });
     }
 
-    const priority = {
-      'pending': 0,
-      'disabled': 0,
-      'claimed': 1,
-      'sending': 2,
-      'accepted': 3,
-      'sent': 4,
-      'delivered': 5,
-      'read': 6
-    };
-
-    const currentPriority = priority[messageRecord.status] || 0;
-    const incomingPriority = priority[eventStatus] || 0;
-
-    if (eventStatus === 'failed') {
-      // Parse v2 errors array inside payload.message.kapso.statuses
-      const statusesArray = kapsoObj.statuses || [];
-      const failedStatus = statusesArray.find(s => s.status === 'failed') || {};
-      const errorObj = failedStatus.errors?.[0] || {};
-      
-      messageRecord.failedAt = occurredAt || new Date();
-      messageRecord.lastErrorCode = errorObj.code || 'PROVIDER_FAILED';
-      let errorMsg = errorObj.message || 'Message delivery failed';
-      if (errorObj.error_data?.details) {
-        errorMsg += ` (${errorObj.error_data.details})`;
-      }
-      messageRecord.lastErrorMessage = String(errorMsg).slice(0, 500);
-      
-      if (currentPriority < priority['sent']) {
-        messageRecord.status = 'failed';
-        await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, {
-          status: 'failed',
-          failedAt: messageRecord.failedAt,
-          errorCode: messageRecord.lastErrorCode,
-          errorMessage: messageRecord.lastErrorMessage
-        });
-      } else {
-        // Just record failure snapshots without altering achievements
-        await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, {
-          failedAt: messageRecord.failedAt,
-          errorCode: messageRecord.lastErrorCode,
-          errorMessage: messageRecord.lastErrorMessage
-        });
-      }
-      messageRecord.updatedAt = new Date();
-      await messageRecord.save();
-    } else if (incomingPriority > currentPriority) {
-      // Upgrade status monotonically
-      messageRecord.status = eventStatus;
-      messageRecord.lastStatusAt = new Date();
-
-      const snapshotUpdate = {
-        status: eventStatus,
-        lastStatusAt: new Date(),
-        occurredAt
+    try {
+      const priority = {
+        'pending': 0,
+        'disabled': 0,
+        'claimed': 1,
+        'sending': 2,
+        'accepted': 3,
+        'sent': 4,
+        'delivered': 5,
+        'read': 6
       };
 
-      if (eventStatus === 'sent') {
-        messageRecord.sentAt = occurredAt || new Date();
-      } else if (eventStatus === 'delivered') {
-        messageRecord.deliveredAt = occurredAt || new Date();
-      } else if (eventStatus === 'read') {
-        messageRecord.readAt = occurredAt || new Date();
+      const currentPriority = priority[messageRecord.status] || 0;
+      const incomingPriority = priority[eventStatus] || 0;
+
+      if (eventStatus === 'failed') {
+        const statusesArray = kapsoObj.statuses || [];
+        const failedStatus = statusesArray.find(s => s.status === 'failed') || {};
+        const errorObj = failedStatus.errors?.[0] || {};
+        
+        messageRecord.failedAt = occurredAt || new Date();
+        messageRecord.lastErrorCode = errorObj.code || 'PROVIDER_FAILED';
+        let errorMsg = errorObj.message || 'Message delivery failed';
+        if (errorObj.error_data?.details) {
+          errorMsg += ` (${errorObj.error_data.details})`;
+        }
+        messageRecord.lastErrorMessage = String(errorMsg).slice(0, 500);
+        
+        if (currentPriority < priority['sent']) {
+          messageRecord.status = 'failed';
+          await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, {
+            status: 'failed',
+            failedAt: messageRecord.failedAt,
+            errorCode: messageRecord.lastErrorCode,
+            errorMessage: messageRecord.lastErrorMessage
+          });
+        } else {
+          await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, {
+            failedAt: messageRecord.failedAt,
+            errorCode: messageRecord.lastErrorCode,
+            errorMessage: messageRecord.lastErrorMessage
+          });
+        }
+        messageRecord.updatedAt = new Date();
+        await messageRecord.save();
+      } else if (incomingPriority > currentPriority) {
+        // Upgrade status monotonically
+        messageRecord.status = eventStatus;
+        messageRecord.lastStatusAt = new Date();
+
+        const snapshotUpdate = {
+          status: eventStatus,
+          lastStatusAt: new Date(),
+          occurredAt
+        };
+
+        if (eventStatus === 'sent') {
+          messageRecord.sentAt = occurredAt || new Date();
+        } else if (eventStatus === 'delivered') {
+          messageRecord.deliveredAt = occurredAt || new Date();
+        } else if (eventStatus === 'read') {
+          messageRecord.readAt = occurredAt || new Date();
+        }
+
+        await messageRecord.save();
+        
+        // Update Puzzle recipient snapshot
+        await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, snapshotUpdate);
       }
 
-      await messageRecord.save();
-      
-      // Update Puzzle recipient snapshot
-      await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, snapshotUpdate);
+      webhookEvent.processingStatus = 'processed';
+      webhookEvent.processedAt = new Date();
+      await webhookEvent.save();
+
+      return res.status(200).json({ success: true });
+    } catch (processErr) {
+      webhookEvent.processingStatus = 'failed';
+      webhookEvent.lastProcessingError = String(processErr.message).slice(0, 500);
+      await webhookEvent.save();
+
+      return res.status(500).json({ error: 'Processing exception occurred' });
     }
-
-    webhookEvent.processingStatus = 'processed';
-    webhookEvent.processedAt = new Date();
-    await webhookEvent.save();
-
-    res.status(200).json({ success: true });
   } catch (err) {
     console.error('[WhatsAppWebhook] Exception:', err.message);
     next(err);

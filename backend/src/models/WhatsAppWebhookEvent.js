@@ -8,12 +8,15 @@ const WhatsAppWebhookEventSchema = new mongoose.Schema({
   eventStatus: { type: String, required: true },
   occurredAt: { type: Date, default: null },
   receivedAt: { type: Date, default: Date.now },
-  processedAt: { type: Date },
+  processedAt: { type: Date, default: null },
   processingStatus: {
     type: String,
-    enum: ['queued', 'processed', 'failed'],
+    enum: ['queued', 'processing', 'processed', 'failed'],
     default: 'queued'
   },
+  processingStartedAt: { type: Date, default: null },
+  processingAttempts: { type: Number, default: 0 },
+  lastProcessingError: { type: String, default: '' },
   payloadHash: { type: String, required: true },
   errorCode: { type: String },
   errorTitle: { type: String },

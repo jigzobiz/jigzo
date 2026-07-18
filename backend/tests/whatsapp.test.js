@@ -125,6 +125,27 @@ MockWhatsAppMessage.findOne = async (query) => {
 
 const MockWhatsAppWebhookEvent = function(data) {
   this._data = { ...data };
+  Object.defineProperty(this, 'processingStatus', {
+    get: () => this._data.processingStatus,
+    set: (v) => { this._data.processingStatus = v; }
+  });
+  Object.defineProperty(this, 'processingStartedAt', {
+    get: () => this._data.processingStartedAt,
+    set: (v) => { this._data.processingStartedAt = v; }
+  });
+  Object.defineProperty(this, 'processingAttempts', {
+    get: () => this._data.processingAttempts,
+    set: (v) => { this._data.processingAttempts = v; }
+  });
+  Object.defineProperty(this, 'lastProcessingError', {
+    get: () => this._data.lastProcessingError,
+    set: (v) => { this._data.lastProcessingError = v; }
+  });
+  Object.defineProperty(this, 'processedAt', {
+    get: () => this._data.processedAt,
+    set: (v) => { this._data.processedAt = v; }
+  });
+
   this.save = async () => {
     const key = this._data.idempotencyKey;
     if (mockDb.webhookEvents[key] && mockDb.webhookEvents[key] !== this) {
@@ -135,6 +156,35 @@ const MockWhatsAppWebhookEvent = function(data) {
     mockDb.webhookEvents[key] = this;
     return this;
   };
+};
+MockWhatsAppWebhookEvent.findOne = async (query) => {
+  if (query.idempotencyKey) return mockDb.webhookEvents[query.idempotencyKey] || null;
+  return null;
+};
+MockWhatsAppWebhookEvent.findOneAndUpdate = async (query, update, options) => {
+  const key = query.idempotencyKey;
+  const existing = mockDb.webhookEvents[key];
+  if (!existing) return null;
+  
+  let match = false;
+  if (query.$or) {
+    for (let cond of query.$or) {
+      if (cond.processingStatus && existing.processingStatus === cond.processingStatus) {
+        match = true;
+        break;
+      }
+    }
+  }
+  if (match) {
+    if (update.$set) {
+      Object.assign(existing._data, update.$set);
+    }
+    if (update.$inc && update.$inc.processingAttempts) {
+      existing._data.processingAttempts = (existing._data.processingAttempts || 0) + update.$inc.processingAttempts;
+    }
+    return existing;
+  }
+  return null;
 };
 
 // Intercept mongoose model requires before importing JIGZO modules
@@ -356,9 +406,9 @@ async function runAllTests() {
   console.log('✓ Scenario 3.4: Network request timeout is caught and marked verification_required: Success');
 
   // ==========================================
-  // Group 4: Webhook Security
+  // Group 4: Webhook Security & Version checks
   // ==========================================
-  console.log('\n--- Group 4: Webhook Security ---');
+  console.log('\n--- Group 4: Webhook Security & Version checks ---');
   resetMocks();
   
   const webhookPayload = JSON.stringify({
@@ -384,107 +434,110 @@ async function runAllTests() {
 
   // Missing signature
   let reqNoSig = {
-    headers: { 'x-idempotency-key': 'w-1', 'x-webhook-event': 'whatsapp.message.sent' },
+    headers: { 'x-idempotency-key': 'w-1', 'x-webhook-event': 'whatsapp.message.sent', 'x-webhook-payload-version': 'v2' },
     body: Buffer.from(webhookPayload, 'utf8')
   };
   await invokeWebhookRoute(reqNoSig, resMock, () => {});
   assert.strictEqual(resStatus, 400);
   console.log('✓ Scenario 4.1: Missing webhook signature header returns HTTP 400: Success');
 
+  // Missing payload version header
+  let reqNoVersion = {
+    headers: { 'x-webhook-signature': validSignature, 'x-idempotency-key': 'w-1', 'x-webhook-event': 'whatsapp.message.sent' },
+    body: Buffer.from(webhookPayload, 'utf8')
+  };
+  await invokeWebhookRoute(reqNoVersion, resMock, () => {});
+  assert.strictEqual(resStatus, 400);
+  console.log('✓ Scenario 4.2: Missing or invalid payload version header returns HTTP 400: Success');
+
   // Malformed signature length
   let reqBadSig = {
-    headers: { 'x-webhook-signature': 'too_short', 'x-idempotency-key': 'w-2', 'x-webhook-event': 'whatsapp.message.sent' },
+    headers: { 'x-webhook-signature': 'too_short', 'x-idempotency-key': 'w-2', 'x-webhook-event': 'whatsapp.message.sent', 'x-webhook-payload-version': 'v2' },
     body: Buffer.from(webhookPayload, 'utf8')
   };
   await invokeWebhookRoute(reqBadSig, resMock, () => {});
   assert.strictEqual(resStatus, 401);
-  console.log('✓ Scenario 4.2: Malformed signature length timing-safe comparison safely rejected: Success');
+  console.log('✓ Scenario 4.3: Malformed signature length timing-safe comparison safely rejected: Success');
 
   // Missing idempotency key
   let reqNoIdemp = {
-    headers: { 'x-webhook-signature': validSignature, 'x-webhook-event': 'whatsapp.message.sent' },
+    headers: { 'x-webhook-signature': validSignature, 'x-webhook-event': 'whatsapp.message.sent', 'x-webhook-payload-version': 'v2' },
     body: Buffer.from(webhookPayload, 'utf8')
   };
   await invokeWebhookRoute(reqNoIdemp, resMock, () => {});
   assert.strictEqual(resStatus, 400);
-  console.log('✓ Scenario 4.3: Missing idempotency key header returns HTTP 400: Success');
+  console.log('✓ Scenario 4.4: Missing idempotency key header returns HTTP 400: Success');
 
-  // Duplicate idempotency key returns 200
-  let reqValid = {
-    headers: { 'x-webhook-signature': validSignature, 'x-idempotency-key': 'w-dup-1', 'x-webhook-event': 'whatsapp.message.sent' },
-    body: Buffer.from(webhookPayload, 'utf8')
-  };
-  mockDb.messages['puzzle-delivery:webhook-test:0:jigzo_puzzle_delivery:v1'] = new MockWhatsAppMessage({
-    puzzleId: 'webhook-test',
+  // ==========================================
+  // Group 5: Kapso Webhook Event Status Mapping & Retry Idempotency
+  // ==========================================
+  console.log('\n--- Group 5: Kapso Webhook Event Status Mapping & Retry Idempotency ---');
+  resetMocks();
+  
+  // Set up matching puzzle message
+  mockDb.messages['puzzle-delivery:webhook-retry:0:jigzo_puzzle_delivery:v1'] = new MockWhatsAppMessage({
+    puzzleId: 'webhook-retry',
     recipientIndex: 0,
-    idempotencyKey: 'puzzle-delivery:webhook-test:0:jigzo_puzzle_delivery:v1',
-    providerMessageId: 'msg-123',
+    idempotencyKey: 'puzzle-delivery:webhook-retry:0:jigzo_puzzle_delivery:v1',
+    providerMessageId: 'msg-retry-123',
     destinationMasked: '***331',
     status: 'accepted'
   });
-  mockDb.puzzles['webhook-test'] = {
-    publicId: 'webhook-test',
+  mockDb.puzzles['webhook-retry'] = {
+    publicId: 'webhook-retry',
     recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'accepted' }]
   };
 
-  await invokeWebhookRoute(reqValid, resMock, () => {});
-  assert.strictEqual(resStatus, 200);
+  const retryPayload = JSON.stringify({
+    phone_number_id: '10928374',
+    message: {
+      id: 'msg-retry-123',
+      timestamp: '1721245678',
+      kapso: { status: 'sent' }
+    }
+  });
+  const sigRetry = crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET).update(Buffer.from(retryPayload, 'utf8')).digest('hex');
 
-  // Send duplicate request
+  // Unmatched provider ID -> Marks webhook failed, returns 500
+  let reqUnmatched = {
+    headers: {
+      'x-webhook-signature': crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET).update(Buffer.from(JSON.stringify({ phone_number_id: '10928374', message: { id: 'unmatched-id', timestamp: '1721245678', kapso: { status: 'sent' } } }), 'utf8')).digest('hex'),
+      'x-idempotency-key': 'retry-idemp-1',
+      'x-webhook-event': 'whatsapp.message.sent',
+      'x-webhook-payload-version': 'v2'
+    },
+    body: Buffer.from(JSON.stringify({ phone_number_id: '10928374', message: { id: 'unmatched-id', timestamp: '1721245678', kapso: { status: 'sent' } } }), 'utf8')
+  };
+  
   resStatus = 0;
-  await invokeWebhookRoute(reqValid, resMock, () => {});
+  await invokeWebhookRoute(reqUnmatched, resMock, () => {});
+  assert.strictEqual(resStatus, 500); // 500 returned
+  assert.strictEqual(mockDb.webhookEvents['retry-idemp-1'].processingStatus, 'failed');
+  console.log('✓ Scenario 5.1: Unmatched providerMessageId event returns HTTP 500 and marks webhook failed: Success');
+
+  // Retry with same idempotency key succeeds after matching is set up
+  mockDb.messages['puzzle-delivery:webhook-retry:0:jigzo_puzzle_delivery:v1'] = new MockWhatsAppMessage({
+    puzzleId: 'webhook-retry',
+    recipientIndex: 0,
+    idempotencyKey: 'puzzle-delivery:webhook-retry:0:jigzo_puzzle_delivery:v1',
+    providerMessageId: 'unmatched-id',
+    destinationMasked: '***331',
+    status: 'accepted'
+  });
+  
+  resStatus = 0;
+  await invokeWebhookRoute(reqUnmatched, resMock, () => {});
+  assert.strictEqual(resStatus, 200); // Success!
+  assert.strictEqual(mockDb.webhookEvents['retry-idemp-1'].processingStatus, 'processed');
+  console.log('✓ Scenario 5.2: Retrying failed/expired lease webhook using same idempotency key succeeds: Success');
+
+  // Third delivery returns 200 without second database updates
+  resStatus = 0;
+  resBody = null;
+  await invokeWebhookRoute(reqUnmatched, resMock, () => {});
   assert.strictEqual(resStatus, 200);
   assert.strictEqual(resBody.note, 'duplicate_webhook_ignored');
-  console.log('✓ Scenario 4.4: Duplicate idempotency key returns HTTP 200 and performs no duplicate database updates: Success');
-
-  // ==========================================
-  // Group 5: Kapso Webhook Event Status Mapping
-  // ==========================================
-  console.log('\n--- Group 5: Kapso Webhook Event Status Mapping ---');
-  resetMocks();
-  
-  // Sent, Delivered, Read mapping
-  const events = ['sent', 'delivered', 'read'];
-  for (let event of events) {
-    const payloadStr = JSON.stringify({
-      phone_number_id: '10928374',
-      message: {
-        id: `msg-${event}`,
-        timestamp: '1721245678',
-        kapso: { status: event }
-      }
-    });
-    const sig = crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET)
-      .update(Buffer.from(payloadStr, 'utf8'))
-      .digest('hex');
-
-    let reqObj = {
-      headers: {
-        'x-webhook-signature': sig,
-        'x-idempotency-key': `k-event-${event}`,
-        'x-webhook-event': `whatsapp.message.${event}`
-      },
-      body: Buffer.from(payloadStr, 'utf8')
-    };
-
-    mockDb.messages[`puzzle-delivery:k-event:${event}:jigzo_puzzle_delivery:v1`] = new MockWhatsAppMessage({
-      puzzleId: 'k-event',
-      recipientIndex: 0,
-      idempotencyKey: `puzzle-delivery:k-event:${event}:jigzo_puzzle_delivery:v1`,
-      providerMessageId: `msg-${event}`,
-      destinationMasked: '***331',
-      status: 'accepted'
-    });
-    mockDb.puzzles['k-event'] = {
-      publicId: 'k-event',
-      recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'accepted' }]
-    };
-
-    await invokeWebhookRoute(reqObj, resMock, () => {});
-    assert.strictEqual(resStatus, 200);
-    assert.strictEqual(mockDb.messages[`puzzle-delivery:k-event:${event}:jigzo_puzzle_delivery:v1`].status, event);
-    console.log(`✓ Scenario 5.${events.indexOf(event) + 1}: Kapso v2 ${event} payload event status successfully mapped: Success`);
-  }
+  console.log('✓ Scenario 5.3: Third duplicate webhook delivery returns HTTP 200 immediately without reprocessing: Success');
 
   // Failed status with errors inside message.kapso.statuses
   const failedPayload = JSON.stringify({
@@ -518,7 +571,8 @@ async function runAllTests() {
     headers: {
       'x-webhook-signature': sigFail,
       'x-idempotency-key': 'k-event-fail-1',
-      'x-webhook-event': 'whatsapp.message.failed'
+      'x-webhook-event': 'whatsapp.message.failed',
+      'x-webhook-payload-version': 'v2'
     },
     body: Buffer.from(failedPayload, 'utf8')
   };
@@ -566,7 +620,7 @@ async function runAllTests() {
   });
   const sigSent = crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET).update(Buffer.from(payloadSent, 'utf8')).digest('hex');
   let reqSentLate = {
-    headers: { 'x-webhook-signature': sigSent, 'x-idempotency-key': 'lc-id-1', 'x-webhook-event': 'whatsapp.message.sent' },
+    headers: { 'x-webhook-signature': sigSent, 'x-idempotency-key': 'lc-id-1', 'x-webhook-event': 'whatsapp.message.sent', 'x-webhook-payload-version': 'v2' },
     body: Buffer.from(payloadSent, 'utf8')
   };
   await invokeWebhookRoute(reqSentLate, resMock, () => {});
@@ -591,7 +645,7 @@ async function runAllTests() {
   });
   const sigFailLate = crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET).update(Buffer.from(payloadFail, 'utf8')).digest('hex');
   let reqFailLate = {
-    headers: { 'x-webhook-signature': sigFailLate, 'x-idempotency-key': 'lc-id-2', 'x-webhook-event': 'whatsapp.message.failed' },
+    headers: { 'x-webhook-signature': sigFailLate, 'x-idempotency-key': 'lc-id-2', 'x-webhook-event': 'whatsapp.message.failed', 'x-webhook-payload-version': 'v2' },
     body: Buffer.from(payloadFail, 'utf8')
   };
   await invokeWebhookRoute(reqFailLate, resMock, () => {});

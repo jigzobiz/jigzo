@@ -7,7 +7,7 @@ const WhatsAppMessageSchema = new mongoose.Schema({
   messageType: { type: String, default: 'puzzle_delivery' },
   templateName: { type: String, default: 'jigzo_puzzle_delivery' },
   languageCode: { type: String, default: 'en_US' },
-  idempotencyKey: { type: String, required: true, unique: true, index: true },
+  idempotencyKey: { type: String, required: true },
   status: {
     type: String,
     enum: [
@@ -24,7 +24,7 @@ const WhatsAppMessageSchema = new mongoose.Schema({
     ],
     default: 'pending'
   },
-  providerMessageId: { type: String, sparse: true, unique: true },
+  providerMessageId: { type: String },
   destinationMasked: { type: String, required: true },
   attemptCount: { type: Number, default: 0 },
   claimedAt: { type: Date },
@@ -41,5 +41,15 @@ const WhatsAppMessageSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
+
+WhatsAppMessageSchema.index({ idempotencyKey: 1 }, { unique: true });
+WhatsAppMessageSchema.index(
+  { providerMessageId: 1 },
+  { 
+    unique: true, 
+    sparse: true, 
+    partialFilterExpression: { providerMessageId: { $type: "string" } } 
+  }
+);
 
 module.exports = mongoose.model('WhatsAppMessage', WhatsAppMessageSchema);
