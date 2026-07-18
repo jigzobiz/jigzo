@@ -667,6 +667,57 @@ a { color:inherit; text-decoration:none; }
   animation-play-state: paused !important;
 }
 
+/* =========================================================
+   HERO PHONE PUZZLE — Claude Design "Phone Puzzle Reveal"
+   (HeroPhonePuzzle.jsx). Absolutely-positioned decorative
+   layer over the photo, above the hero image/veil but BELOW
+   the copy (z-index:10) and trust strip (z-index:20) so the
+   headline, subtext, CTA and the rising piece never cover
+   the text. pointer-events:none keeps the CTA clickable.
+   ========================================================= */
+.landing-page .hero-phone-anim {
+  position: absolute;
+  /* z-index:1 sits above the hero photo/veil (foreground) but below the copy
+     container (z-index:2) and trust strip (z-index:20), so text is never
+     covered and the rising piece passes behind the headline. */
+  z-index: 1;
+  pointer-events: none;
+  aspect-ratio: 1080 / 1920;
+  width: var(--hpa-w, 82vw);
+  left: 50%;
+  bottom: var(--hpa-bottom, -12%);
+  transform: translateX(-50%);
+  overflow: visible;
+}
+.landing-page .hero-phone-anim__canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  will-change: transform;
+}
+
+/* Desktop: on the right image side, over the held phone; clear of the
+   left copy column. Separately tuned size/position/travel. */
+@media (min-width: 761px) {
+  .landing-page .hero-phone-anim {
+    left: 47%;
+    right: auto;
+    bottom: -20%;
+    transform: translateX(-50%);
+    width: var(--hpa-w, 42vw);
+    max-width: 520px;
+    min-width: 320px;
+  }
+}
+@media (min-width: 1200px) {
+  .landing-page .hero-phone-anim {
+    left: 49%;
+    bottom: -22%;
+    width: 34vw;
+  }
+}
+
 /* Spacing after hero */
 .landing-page .occasions-section {
   padding-top: clamp(64px, 10vh, 88px) !important;

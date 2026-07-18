@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import RevealMock from '../components/RevealMock';
+import HeroPhonePuzzle from '../components/HeroPhonePuzzle';
 import { analytics } from '../services/analytics';
 import { getLocalizedPrice, resolveVisitorCurrency } from '../services/jigzoPricing';
 
@@ -82,6 +83,9 @@ export default function LandingPage() {
           <img className="hero-piece hero-piece--03" src="/assets/hero-piece-03-trimmed.png" alt="" aria-hidden="true" />
           <img className="hero-piece hero-piece--04" src="/assets/hero-piece-04-trimmed.png" alt="" aria-hidden="true" />
           <img className="hero-piece hero-piece--05" src="/assets/hero-piece-05-trimmed.png" alt="" aria-hidden="true" />
+
+          {/* Claude Design "Phone Puzzle Reveal" — rotate → jigsaw → drop → reveal */}
+          <HeroPhonePuzzle />
 
           <div className="wrap hero__container">
             <div className="hero__content">
