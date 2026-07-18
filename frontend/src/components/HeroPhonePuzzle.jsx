@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 /*
- * HeroPhonePuzzle — Refactored with single persistent phone wrapper,
- * SVG-masked single photo puzzle screen, and shape-following glows.
+ * HeroPhonePuzzle — Refactored with positive stacking context phone glow
+ * and SVG-masked single photo puzzle screen base.
  */
 
 const COLS = 3, ROWS = 6;
@@ -105,10 +105,10 @@ const imgStyle = { position: 'absolute', top: 0, left: 0, width: SCREEN_W, heigh
 const SettledPiece = React.memo(function SettledPiece({ glowOpacity = 0 }) {
   const d = piecePath(FR, FC, 0);
   return (
-    <div style={{ position: 'absolute', inset: 0 }}>
+    <div style={{ position: 'absolute', inset: 0, overflow: 'visible' }}>
       {/* Snap/Settle edge glows */}
       {glowOpacity > 0.001 && (
-        <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: glowOpacity }}>
+        <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible', opacity: glowOpacity, zIndex: 0 }}>
           <path d={d} fill="none" stroke="rgba(211,158,69,0.22)" strokeWidth="16" strokeLinejoin="round" strokeLinecap="round" />
           <path d={d} fill="none" stroke="rgba(244,211,142,0.48)" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" />
           <path d={d} fill="none" stroke="rgba(255,250,231,0.95)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
@@ -116,14 +116,14 @@ const SettledPiece = React.memo(function SettledPiece({ glowOpacity = 0 }) {
       )}
 
       {/* Minimal highlight border always active for the settled piece */}
-      <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible', zIndex: 1 }}>
         <path d={d} fill="none" stroke="rgba(255,250,231,0.4)" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
 
-      <div style={{ position: 'absolute', inset: 0, clipPath: `path('${d}')` }}>
+      <div style={{ position: 'absolute', inset: 0, clipPath: `path('${d}')`, zIndex: 2 }}>
         <img src={PHOTO} style={imgStyle} />
       </div>
-      <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 3 }}>
         <path d={d} fill="none" stroke="rgba(0,0,0,0.18)" strokeWidth="0.9" />
       </svg>
     </div>
@@ -133,22 +133,22 @@ const SettledPiece = React.memo(function SettledPiece({ glowOpacity = 0 }) {
 function FloatingPieceOverlay({ dx = 0, dy = 0, rot = 0, scale = 1, opacity, flashOpacity }) {
   const d = piecePath(FR, FC, 0);
   return (
-    <div style={{ position: 'absolute', left: SCREEN_LEFT, top: SCREEN_TOP, width: SCREEN_W, height: SCREEN_H, opacity, transform: `translate(${dx}px, ${dy}px) rotate(${rot}deg) scale(${scale})` }}>
+    <div style={{ position: 'absolute', left: SCREEN_LEFT, top: SCREEN_TOP, width: SCREEN_W, height: SCREEN_H, opacity, transform: `translate(${dx}px, ${dy}px) rotate(${rot}deg) scale(${scale})`, overflow: 'visible', isolation: 'isolate' }}>
       {/* SVG Shape-Following Glow behind the image piece */}
-      <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible', zIndex: 0 }}>
         <path d={d} fill="none" stroke="rgba(211,158,69,0.22)" strokeWidth="16" strokeLinejoin="round" strokeLinecap="round" />
         <path d={d} fill="none" stroke="rgba(244,211,142,0.48)" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" />
         <path d={d} fill="none" stroke="rgba(255,250,231,0.95)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
 
-      <div style={{ position: 'absolute', inset: 0, clipPath: `path('${d}')` }}>
+      <div style={{ position: 'absolute', inset: 0, clipPath: `path('${d}')`, zIndex: 1 }}>
         <img src={PHOTO} style={imgStyle} />
       </div>
-      <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2 }}>
         <path d={d} fill="none" stroke="rgba(0,0,0,0.2)" strokeWidth="0.9" />
       </svg>
       {flashOpacity > 0.001 && (
-        <div style={{ position: 'absolute', inset: 0, clipPath: `path('${d}')`, background: 'linear-gradient(135deg, #FFE3A0 0%, #E8B04B 45%, #8C5A2B 100%)', opacity: flashOpacity }} />
+        <div style={{ position: 'absolute', inset: 0, clipPath: `path('${d}')`, background: 'linear-gradient(135deg, #FFE3A0 0%, #E8B04B 45%, #8C5A2B 100%)', opacity: flashOpacity, zIndex: 3 }} />
       )}
     </div>
   );
@@ -159,32 +159,62 @@ function Phone2D({ scaleX = 1, scaleVal = 1, screenView = 'front', screen }) {
   const bezelGrad = 'linear-gradient(158deg, #efe8d8 0%, #ded5c3 44%, #d1c7b4 72%, #e7dfcd 100%)';
   const lensGrad = 'radial-gradient(circle at 35% 30%, #4a4a50, #0d0d0f 70%)';
   return (
-    <div style={{ position: 'absolute', left: '50%', top: '50%', width: W, height: H, marginLeft: -W / 2, marginTop: -H / 2, transform: `scale(${scaleVal}) scaleX(${scaleX})`, transformOrigin: 'center' }}>
-      {/* Refined outline shape-following glow behind the phone body */}
-      <svg width="400" height="760" style={{ position: 'absolute', top: -30, left: -30, pointerEvents: 'none', zIndex: -1 }}>
-        <rect x="30" y="30" width="340" height="700" rx="52" ry="52" fill="none" stroke="rgba(211,158,69,0.18)" strokeWidth="18" />
-        <rect x="30" y="30" width="340" height="700" rx="52" ry="52" fill="none" stroke="rgba(244,211,142,0.44)" strokeWidth="6" />
-        <rect x="30" y="30" width="340" height="700" rx="52" ry="52" fill="none" stroke="rgba(255,250,231,0.85)" strokeWidth="2" />
-      </svg>
+    <div style={{
+      position: 'absolute',
+      left: '50%',
+      top: '50%',
+      width: W,
+      height: H,
+      marginLeft: -W / 2,
+      marginTop: -H / 2,
+      transform: `scale(${scaleVal}) scaleX(${scaleX})`,
+      transformOrigin: 'center',
+      isolation: 'isolate',
+      overflow: 'visible',
+      backfaceVisibility: 'hidden',
+      WebkitBackfaceVisibility: 'hidden'
+    }}>
+      {/* Glow layer - zIndex: 0 */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: -2,
+          borderRadius: 54,
+          border: '2px solid rgba(255,250,231,0.92)',
+          boxShadow: [
+            '0 0 0 5px rgba(244,211,142,0.38)',
+            '0 0 0 12px rgba(211,158,69,0.16)',
+            '0 0 18px 7px rgba(244,211,142,0.30)',
+            '0 0 34px 12px rgba(211,158,69,0.14)'
+          ].join(', '),
+          pointerEvents: 'none',
+          zIndex: 0,
+          overflow: 'visible'
+        }}
+      />
 
-      {screenView === 'front' ? (
-        <React.Fragment>
-          <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: '#050506', opacity: BODY_FADE, boxShadow: '0 30px 70px rgba(0,0,0,0.22), inset 0 0 0 1.5px rgba(255,255,255,0.12)' }} />
-          <div style={{ position: 'absolute', left: SIDE_BEZEL, top: TOP_BEZEL, width: SCREEN_W, height: SCREEN_H, borderRadius: 34, overflow: 'hidden', background: '#000', isolation: 'isolate', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)', contain: 'paint' }}>
-            {screen}
+      {/* Phone content layer - zIndex: 1 */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+        {screenView === 'front' ? (
+          <React.Fragment>
+            <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: '#050506', opacity: BODY_FADE, boxShadow: '0 30px 70px rgba(0,0,0,0.22), inset 0 0 0 1.5px rgba(255,255,255,0.12)' }} />
+            <div style={{ position: 'absolute', left: SIDE_BEZEL, top: TOP_BEZEL, width: SCREEN_W, height: SCREEN_H, borderRadius: 34, overflow: 'hidden', background: '#000', isolation: 'isolate', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)', contain: 'paint' }}>
+              {screen}
+            </div>
+            <div style={{ position: 'absolute', left: '50%', top: TOP_BEZEL + 16, width: 84, height: 24, marginLeft: -42, borderRadius: 12, background: '#0a0a0c', opacity: BODY_FADE }} />
+          </React.Fragment>
+        ) : (
+          <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: bezelGrad, opacity: BODY_FADE, boxShadow: '0 24px 54px rgba(0,0,0,0.18)' }}>
+            <div style={{ position: 'absolute', left: 26, top: 30, width: 108, height: 108, borderRadius: 30, background: 'linear-gradient(145deg,#2c2c30,#111113)' }}>
+              <div style={{ position: 'absolute', left: 8, top: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
+              <div style={{ position: 'absolute', right: 8, top: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
+              <div style={{ position: 'absolute', left: 8, bottom: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
+              <div style={{ position: 'absolute', right: 16, bottom: 18, width: 14, height: 14, borderRadius: '50%', background: '#e8e2c8' }} />
+            </div>
           </div>
-          <div style={{ position: 'absolute', left: '50%', top: TOP_BEZEL + 16, width: 84, height: 24, marginLeft: -42, borderRadius: 12, background: '#0a0a0c', opacity: BODY_FADE }} />
-        </React.Fragment>
-      ) : (
-        <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: bezelGrad, opacity: BODY_FADE, boxShadow: '0 24px 54px rgba(0,0,0,0.18)' }}>
-          <div style={{ position: 'absolute', left: 26, top: 30, width: 108, height: 108, borderRadius: 30, background: 'linear-gradient(145deg,#2c2c30,#111113)' }}>
-            <div style={{ position: 'absolute', left: 8, top: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
-            <div style={{ position: 'absolute', right: 8, top: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
-            <div style={{ position: 'absolute', left: 8, bottom: 8, width: 46, height: 46, borderRadius: '50%', background: lensGrad, border: '1px solid rgba(255,255,255,0.15)' }} />
-            <div style={{ position: 'absolute', right: 16, bottom: 18, width: 14, height: 14, borderRadius: '50%', background: '#e8e2c8' }} />
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -381,7 +411,8 @@ export default function HeroPhonePuzzle() {
             width: CANVAS_W,
             height: CANVAS_H,
             transform: `translate(-50%, -50%) scale(${scale})`,
-            opacity: phoneOpacity
+            opacity: phoneOpacity,
+            overflow: 'visible'
           }}
         >
           <Phone2D
@@ -406,7 +437,7 @@ export default function HeroPhonePuzzle() {
                 </div>
 
                 {/* Settled Piece */}
-                <div style={{ position: 'absolute', inset: 0, opacity: settledOpacity }}>
+                <div style={{ position: 'absolute', inset: 0, opacity: settledOpacity, overflow: 'visible' }}>
                   <SettledPiece glowOpacity={settledGlowOpacity} />
                 </div>
 
