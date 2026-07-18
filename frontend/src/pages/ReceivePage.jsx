@@ -264,33 +264,58 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     }
   }, [showReveal, publicId, rIndex, startTimeRef]);
 
-  const currentStageH = showReveal ? (stageW * 16 / 9) : stageH;
-
   const [scale, setScale] = useState(1);
   const wrapRef = useRef(null), stageRef = useRef(null), cardRef = useRef(null);
+  const headerRef = useRef(null);
+  const actionsRef = useRef(null);
   const pieceRefs = useRef([]);
 
-  useEffect(() => {
+  const fit = useCallback(() => {
     const wrap = wrapRef.current;
     if (!wrap) return;
-    const fit = () => {
-      const availW = wrap.clientWidth;
-      const offsetHeight = showReveal ? 240 : 130;
-      const availH = Math.max(240, window.innerHeight - offsetHeight);
-      
-      const scaleW = availW / stageW;
-      const scaleH = availH / currentStageH;
-      setScale(Math.min(1, scaleW, scaleH));
-    };
+    const availW = wrap.parentElement ? wrap.parentElement.clientWidth : wrap.clientWidth;
+    const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    
+    let measuredHeaderHeight = 0;
+    if (headerRef.current) {
+      measuredHeaderHeight = headerRef.current.getBoundingClientRect().height;
+    }
+    
+    let measuredActionHeight = 0;
+    if (actionsRef.current) {
+      measuredActionHeight = actionsRef.current.getBoundingClientRect().height;
+    }
+    
+    const safetySpacing = 32;
+    const availH = Math.max(280, viewportHeight - measuredHeaderHeight - measuredActionHeight - safetySpacing);
+    
+    const scaleW = availW / stageW;
+    const scaleH = availH / stageH;
+    setScale(Math.min(1, scaleW, scaleH));
+  }, [stageW, stageH]);
+
+  useEffect(() => {
     fit();
+    const wrap = wrapRef.current;
+    if (!wrap) return;
     const ro = new ResizeObserver(fit);
     ro.observe(wrap);
     window.addEventListener("resize", fit);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", fit);
+    }
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", fit);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", fit);
+      }
     };
-  }, [stageW, stageH, showReveal]);
+  }, [fit]);
+
+  useEffect(() => {
+    fit();
+  }, [showReveal, loaderRunning, fit]);
 
   const gridNeighbors = (i) => {
     const h = homes[i], res = [];
@@ -429,20 +454,10 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
   };
 
   const replay = () => { setShowReveal(false); setPlaced(homes.map(() => false)); setGid(homes.map((_, i) => i)); setPositions(scatter()); };
-
   const buildRevealPng = (onBlob) => {
-    const W = BW, H = BH;
-    const dpr = window.devicePixelRatio || 1;
-    const scr = window.screen || {};
-    const sw = scr.width || 0, sh = scr.height || 0;
-    let CW, CH;
-    if (sh > sw && sw && sh) {
-      CW = Math.max(1080, Math.round(sw * dpr));
-      CH = Math.max(1920, Math.round(sh * dpr));
-    } else {
-      CW = 1080; CH = 1920;
-    }
-    const S = Math.min(CW / W, CH / H);
+    const CW = 1080, CH = 1920;
+    const cardW = 340;
+    const S = CW / cardW;
     const CREAM = "rgb(250,248,236)";
 
     const paint = (img) => {
@@ -450,7 +465,6 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
       canvas.width = CW; canvas.height = CH;
       const ctx = canvas.getContext("2d");
 
-      // Fill canvas background with cream color before clipping
       ctx.fillStyle = CREAM;
       ctx.fillRect(0, 0, CW, CH);
 
@@ -473,7 +487,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
       vg.addColorStop(1, "rgba(5,5,5,0.76)");
       ctx.fillStyle = vg; ctx.fillRect(0, 0, CW, CH);
 
-      const contentW = (W * 0.78) * S;
+      const contentW = 842;
       ctx.font = `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`;
       const msgLines = [];
       (data.message || "").split("\n").forEach((para) => {
@@ -487,10 +501,15 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
       });
 
       const rows = [];
-      if (data.toName) rows.push({ type: "text", t: data.toName, f: `500 ${12.5 * S}px "JetBrains Mono", monospace`, color: "#E6C67F", ls: 0.1 * 12.5 * S, lh: 12.5 * S * 1.3, gap: 18 * S });
+      const recipientName = data.recipient?.name || data.toName || '';
+      if (recipientName) {
+        rows.push({ type: "text", t: recipientName, f: `500 ${12.5 * S}px "JetBrains Mono", monospace`, color: "#E6C67F", ls: 0.1 * 12.5 * S, lh: 12.5 * S * 1.3, gap: 18 * S });
+      }
       msgLines.forEach((ln, i) => rows.push({ type: "text", t: ln, f: `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`, color: "#F3ECDD", lh: 20 * S * 1.32, shadow: true, gap: i === msgLines.length - 1 ? 18 * S : 0 }));
       rows.push({ type: "rule", h: 2 * S, w: 44 * S, gap: data.fromName ? 14 * S : 0 });
-      if (data.fromName) rows.push({ type: "text", t: data.fromName, f: `500 ${12 * S}px "JetBrains Mono", monospace`, color: "rgba(238,232,220,0.82)", ls: 0.08 * 12 * S, lh: 12 * S * 1.3, gap: 0 });
+      if (data.fromName) {
+        rows.push({ type: "text", t: data.fromName, f: `500 ${12 * S}px "JetBrains Mono", monospace`, color: "rgba(238,232,220,0.82)", ls: 0.08 * 12 * S, lh: 12 * S * 1.3, gap: 0 });
+      }
 
       const total = rows.reduce((s, r) => s + (r.h || r.lh) + r.gap, 0);
       let y = (CH - total) / 2;
@@ -513,7 +532,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
         y += rowH + r.gap;
       });
 
-      canvas.toBlob((blob) => { onBlob(blob || null); }, "image/jpeg", 0.85);
+      canvas.toBlob((blob) => { onBlob(blob || null); }, "image/png");
     };
 
     const run = () => {
@@ -523,6 +542,9 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
         img.onload = () => paint(img);
         img.onerror = () => paint(null);
         img.src = data.cropImageUrl;
+        if (img.complete) {
+          paint(img);
+        }
       } else paint(null);
     };
     if (document.fonts && document.fonts.ready) {
@@ -535,113 +557,35 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     } else run();
   };
 
-  const sharedFileRef = useRef(null);
-  useEffect(() => {
-    if (!showReveal) { sharedFileRef.current = null; return; }
-    buildRevealPng((blob) => { if (blob) sharedFileRef.current = new File([blob], "jigzo-reveal.jpg", { type: "image/jpeg" }); });
-  }, [showReveal]);
-
   const saveAsFile = (file) => {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(file);
-    a.download = "jigzo-reveal.jpg";
+    a.download = "jigzo-reveal.png";
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1500);
   };
 
   const onSaveOrShare = () => {
-    const file = sharedFileRef.current;
-    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], title: "Your JIGZO reveal" }).catch((err) => {
-        if (err && err.name === "AbortError") return;
+    buildRevealPng((blob) => {
+      if (!blob) {
+        alert('Failed to generate image for saving.');
+        return;
+      }
+      const file = new File([blob], "jigzo-reveal.png", { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: "Your JIGZO reveal" }).catch((err) => {
+          if (err && err.name === "AbortError") return;
+          saveAsFile(file);
+        });
+      } else {
         saveAsFile(file);
-      });
-      return;
-    }
-    if (file) saveAsFile(file);
-    else buildRevealPng((blob) => { if (blob) saveAsFile(new File([blob], "jigzo-reveal.jpg", { type: "image/jpeg" })); });
+      }
+    });
   };
 
   const placedCount = placed.filter(Boolean).length;
 
-  if (showReveal && !loaderRunning) {
-    return (
-      <div className="receive-page completed-flow" style={{ fontFamily: "Archia,sans-serif", color: "#1C1913",
-        display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 14px 40px", width: "100%" }}>
-        <style>{`
-          @keyframes jzFade { from { opacity:0; } to { opacity:1; } }
-        `}</style>
-        
-        {/* completed reveal card (participates in normal document flow) */}
-        <div id="revealCard" className="reveal-card-wrapper"
-          style={{
-            position: "relative",
-            width: "100%",
-            maxWidth: "440px",
-            aspectRatio: "9 / 16",
-            marginInline: "auto",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            overflow: "hidden",
-            borderRadius: "14px",
-            boxShadow: "0 8px 32px rgba(5,5,5,0.12)",
-            animation: "jzFade 0.6s ease"
-          }}>
-          <div className="reveal-card" style={{ width: "100%", height: "100%", position: "relative", display: "block" }}>
-            <img src={data.cropImageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            <div style={{ position: "absolute", inset: 0, background: "radial-gradient(120% 100% at 50% 42%, rgba(23,19,13,0.34), rgba(5,5,5,0.76) 78%)" }} />
-            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center",
-              justifyContent: "center", textAlign: "center", padding: "9% 11%" }}>
-              {data.toName || data.recipients?.[rIndex]?.name ? (
-                <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontWeight: 500, fontSize: 12.5,
-                  letterSpacing: "0.1em", color: "#E6C67F", marginBottom: 18, textShadow: "0 1px 4px rgba(5,5,5,0.8)" }}>{data.toName || data.recipients?.[rIndex]?.name}</div>
-              ) : null}
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontStyle: "italic", fontWeight: 400, fontSize: 20,
-                lineHeight: 1.32, color: "#F3ECDD", whiteSpace: "pre-line", maxWidth: "22ch",
-                textShadow: "0 1px 3px rgba(5,5,5,0.92), 0 2px 22px rgba(5,5,5,0.6)" }}>
-                {data.message || ""}
-              </div>
-              <div style={{ width: 44, height: 2, marginTop: 18, background: "linear-gradient(90deg, rgba(208,160,54,0), #D0A036, rgba(208,160,54,0))" }} />
-              {data.fromName ? (
-                <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontWeight: 500, fontSize: 12,
-                  letterSpacing: "0.08em", color: "rgba(238,232,220,0.82)", marginTop: 14, textShadow: "0 1px 4px rgba(5,5,5,0.8)" }}>{data.fromName}</div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        {/* solved controls (placed below in normal flow with safe-area spacing) */}
-        <div style={{ textAlign: "center", marginTop: 24, width: "100%", animation: "jzFade 0.5s ease" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
-            {/* Primary: Save or Share */}
-            <button type="button" onClick={onSaveOrShare} style={{ background: "#050505", color: "#FAF8EC", border: "none", borderRadius: 999,
-              padding: "13px 26px", fontSize: 14.5, fontWeight: 700, fontFamily: "Archia,sans-serif", cursor: "pointer", width: "100%", maxWidth: 280 }}>
-              Save or Share
-            </button>
-            
-            {/* Secondary: Create Your Puzzle */}
-            <button type="button" onClick={() => window.location.href = "/create"} style={{ background: "transparent", color: "#050505", border: "1.5px solid #050505",
-              borderRadius: 999, padding: "13px 26px", fontSize: 14.5, fontWeight: 600, fontFamily: "Archia,sans-serif", cursor: "pointer", width: "100%", maxWidth: 280 }}>
-              Create Your Puzzle
-            </button>
-
-            {/* Tertiary text action: Replay Puzzle */}
-            <button type="button" onClick={replay} style={{ background: "none", border: "none", color: "rgba(5,5,5,0.6)",
-              fontSize: 13.5, fontWeight: 600, fontFamily: "Archia,sans-serif", cursor: "pointer", textDecoration: "underline", marginTop: 4 }}>
-              Replay Puzzle
-            </button>
-          </div>
-          
-          {/* Minimal branding */}
-          <div style={{ marginTop: 24, opacity: 0.8 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 600, color: "rgba(5,5,5,0.7)" }}>Created with care.</div>
-            <div style={{ fontSize: 10.5, fontWeight: 500, color: "rgba(5,5,5,0.42)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Made with JIGZO</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const recipientName = data.recipient?.name || data.toName || '';
 
   return (
     <div className="receive-page" style={{ fontFamily: "Archia,sans-serif", color: "#1C1913",
@@ -652,7 +596,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
       <div style={showReveal ? { width: "100%", display: "flex", flexDirection: "column", alignItems: "center" } : { width: "100%", maxWidth: 440 }}>
         {/* above the puzzle — heading + live piece counter */}
         {!showReveal && (
-          <div style={{ textAlign: "center", marginBottom: 12 }}>
+          <div ref={headerRef} style={{ textAlign: "center", marginBottom: 12 }}>
             <h1 style={{ fontSize: 19, fontWeight: 600, margin: "0 0 4px", letterSpacing: "-0.015em", color: "#050505" }}>
               Solve to reveal your message
             </h1>
@@ -666,12 +610,12 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
         )}
 
         {/* interactive stage (scaled to fit width & height) */}
-        <div ref={wrapRef} style={{ width: "100%", maxWidth: stageW, margin: "0 auto", height: currentStageH * scale, position: "relative" }}>
+        <div ref={wrapRef} style={{ width: "100%", maxWidth: stageW, margin: "0 auto", height: stageH * scale, position: "relative" }}>
           <div
             ref={stageRef}
             style={{
               width: stageW,
-              height: currentStageH,
+              height: stageH,
               transform: `translateX(-50%) scale(${scale})`,
               transformOrigin: "top center",
               position: "absolute",
@@ -716,7 +660,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
               <div ref={cardRef} id="revealCard" className="reveal-card-wrapper"
                 style={{
                   position: "relative",
-                  width: "min(100%, 440px)",
+                  height: "100%",
                   aspectRatio: "9 / 16",
                   marginInline: "auto",
                   display: "flex",
@@ -732,9 +676,9 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
                   <div style={{ position: "absolute", inset: 0, background: "radial-gradient(120% 100% at 50% 42%, rgba(23,19,13,0.34), rgba(5,5,5,0.76) 78%)" }} />
                   <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center",
                     justifyContent: "center", textAlign: "center", padding: "9% 11%" }}>
-                    {data.toName || data.recipients?.[rIndex]?.name ? (
+                    {recipientName ? (
                       <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontWeight: 500, fontSize: 12.5,
-                        letterSpacing: "0.1em", color: "#E6C67F", marginBottom: 18, textShadow: "0 1px 4px rgba(5,5,5,0.8)" }}>{data.toName || data.recipients?.[rIndex]?.name}</div>
+                        letterSpacing: "0.1em", color: "#E6C67F", marginBottom: 18, textShadow: "0 1px 4px rgba(5,5,5,0.8)" }}>{recipientName}</div>
                     ) : null}
                     <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontStyle: "italic", fontWeight: 400, fontSize: 20,
                       lineHeight: 1.32, color: "#F3ECDD", whiteSpace: "pre-line", maxWidth: "22ch",
@@ -758,7 +702,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
 
         {/* solved controls */}
         {showReveal && !loaderRunning && (
-          <div style={{ textAlign: "center", marginTop: 18, animation: "jzFade 0.5s ease" }}>
+          <div ref={actionsRef} style={{ textAlign: "center", marginTop: 18, animation: "jzFade 0.5s ease" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
               {/* Primary: Save or Share */}
               <button type="button" onClick={onSaveOrShare} style={{ background: "#050505", color: "#FAF8EC", border: "none", borderRadius: 999,
