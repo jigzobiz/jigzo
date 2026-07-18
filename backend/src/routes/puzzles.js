@@ -217,7 +217,7 @@ router.get('/:publicId', async (req, res, next) => {
       puzzle: {
         publicId: puzzle.publicId,
         cropImageUrl: `${puzzle.cropImageUrl}?r=${recipientIndex}`,
-        senderName: puzzle.revealIdentity ? puzzle.senderName : 'Anonymous',
+        senderName: puzzle.senderName,
         revealIdentity: puzzle.revealIdentity,
         pieceCount: puzzle.pieceCount,
         recipient: safeRecipient,
@@ -456,7 +456,7 @@ router.post('/:publicId/complete', async (req, res, next) => {
       success: true,
       completionRecorded,
       message: puzzle.message,
-      senderName: puzzle.revealIdentity ? puzzle.senderName : 'Anonymous',
+      senderName: puzzle.senderName,
       completedAt: recipient.completedAt
     });
   } catch (error) {
