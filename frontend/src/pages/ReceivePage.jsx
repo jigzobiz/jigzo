@@ -268,6 +268,8 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
   const generationPromiseRef = useRef(null);
   const cacheKeyRef = useRef("");
   const [exportLoading, setExportLoading] = useState(false);
+  const [revealObjectUrl, setRevealObjectUrl] = useState("");
+  const [retryTrigger, setRetryTrigger] = useState(0);
 
   const getExportKey = () => {
     const recName = data?.recipient?.name || data?.toName || '';
@@ -282,6 +284,14 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
   };
 
   useEffect(() => {
+    return () => {
+      if (revealObjectUrl) {
+        URL.revokeObjectURL(revealObjectUrl);
+      }
+    };
+  }, [revealObjectUrl]);
+
+  useEffect(() => {
     const hasMessage = data?.message && typeof data.message === 'string' && data.message.trim() !== '';
     const hasRecipient = !!(data?.recipient?.name || data?.toName);
     const hasSender = !!data?.senderName;
@@ -289,16 +299,33 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     if (showReveal && data && hasMessage && hasRecipient && hasSender) {
       const currentKey = getExportKey();
       if (currentKey !== cacheKeyRef.current) {
+        if (revealObjectUrl) {
+          URL.revokeObjectURL(revealObjectUrl);
+          setRevealObjectUrl("");
+        }
         cachedBlobRef.current = null;
         generationPromiseRef.current = null;
         cacheKeyRef.current = currentKey;
-        buildRevealPng().catch(err => {
+        buildRevealPng().then(blob => {
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            setRevealObjectUrl(url);
+          }
+        }).catch(err => {
           console.error('[ReceivePage] Background pre-generation failed:', err);
         });
       } else if (!cachedBlobRef.current && !generationPromiseRef.current) {
-        buildRevealPng().catch(err => {
+        buildRevealPng().then(blob => {
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            setRevealObjectUrl(url);
+          }
+        }).catch(err => {
           console.error('[ReceivePage] Background pre-generation failed:', err);
         });
+      } else if (cachedBlobRef.current && !revealObjectUrl) {
+        const url = URL.createObjectURL(cachedBlobRef.current);
+        setRevealObjectUrl(url);
       }
     }
   }, [
@@ -307,7 +334,8 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     data?.message,
     data?.senderName,
     data?.recipient?.name,
-    data?.toName
+    data?.toName,
+    retryTrigger
   ]);
 
   const [scale, setScale] = useState(1);
@@ -746,25 +774,21 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
                   animation: "jzFade 0.6s ease"
                 }}>
                 <div className="reveal-card" style={{ width: "100%", height: "100%", position: "relative", display: "block", marginInline: "auto", left: "auto", right: "auto", transform: "none" }}>
-                  <img src={data.cropImageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  <div style={{ position: "absolute", inset: 0, background: "radial-gradient(120% 100% at 50% 42%, rgba(23,19,13,0.34), rgba(5,5,5,0.76) 78%)" }} />
-                  <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center",
-                    justifyContent: "center", textAlign: "center", padding: "9% 11%" }}>
-                    {recipientName ? (
-                      <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontWeight: 500, fontSize: 12.5,
-                        letterSpacing: "0.1em", color: "#E6C67F", marginBottom: 18, textShadow: "0 1px 4px rgba(5,5,5,0.8)" }}>{recipientName}</div>
-                    ) : null}
-                    <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontStyle: "italic", fontWeight: 400, fontSize: 20,
-                      lineHeight: 1.32, color: "#F3ECDD", whiteSpace: "pre-line", maxWidth: "22ch",
-                      textShadow: "0 1px 3px rgba(5,5,5,0.92), 0 2px 22px rgba(5,5,5,0.6)" }}>
-                      {data.message || ""}
+                  {revealObjectUrl ? (
+                    <img src={revealObjectUrl} alt="Completed JIGZO" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  ) : (
+                    <div style={{ width: "100%", height: "100%", background: "#FAF8EC", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                      <div style={{ color: "#7a1c1c", fontWeight: 600, fontSize: 16, marginBottom: 8, fontFamily: "Archia, sans-serif" }}>Couldn't load reveal image</div>
+                      <button type="button" onClick={() => {
+                        cachedBlobRef.current = null;
+                        generationPromiseRef.current = null;
+                        cacheKeyRef.current = "";
+                        setRetryTrigger(prev => prev + 1);
+                      }} style={{ background: "#050505", color: "#FAF8EC", border: "none", borderRadius: 999, padding: "10px 20px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: "Archia, sans-serif" }}>
+                        Retry
+                      </button>
                     </div>
-                    <div style={{ width: 44, height: 2, marginTop: 18, background: "linear-gradient(90deg, rgba(208,160,54,0), #D0A036, rgba(208,160,54,0))" }} />
-                    {data.senderName ? (
-                      <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontWeight: 500, fontSize: 12,
-                        letterSpacing: "0.08em", color: "rgba(238,232,220,0.82)", marginTop: 14, textShadow: "0 1px 4px rgba(5,5,5,0.8)" }}>{data.senderName}</div>
-                    ) : null}
-                  </div>
+                  )}
                 </div>
 
                 {/* Puzzle Reveal Transition beat — plays over the card exactly, then dissolves */}
