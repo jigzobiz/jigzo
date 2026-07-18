@@ -178,7 +178,9 @@ function FloatingPieceOverlay({ dx = 0, dy = 0, rot = 0, scale = 1, opacity, fla
 // Flat 2D phone silhouette — matte silver back or bezeled front, no 3D box/side panels.
 function Phone2D({ scaleX = 1, scaleVal = 1, screenView = 'front', screen }) {
   const W = PHONE_W, H = PHONE_H;
-  const bezelGrad = 'linear-gradient(175deg, #d0d1d4 0%, #c3c4c8 45%, #cfd0d3 100%)';
+  // Warm champagne silver — matches the silver phone in the hero photo (warm
+  // light silver with a soft champagne tone), not a cool/pure grey and not dark.
+  const bezelGrad = 'linear-gradient(158deg, #efe8d8 0%, #ded5c3 44%, #d1c7b4 72%, #e7dfcd 100%)';
   const lensGrad = 'radial-gradient(circle at 35% 30%, #4a4a50, #0d0d0f 70%)';
   return (
     <div style={{ position: 'absolute', left: '50%', top: '50%', width: W, height: H, marginLeft: -W / 2, marginTop: -H / 2, transform: `scale(${scaleVal}) scaleX(${scaleX})`, transformOrigin: 'center' }}>
