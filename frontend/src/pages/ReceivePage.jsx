@@ -468,11 +468,6 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
       ctx.fillStyle = CREAM;
       ctx.fillRect(0, 0, CW, CH);
 
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(0, 0, CW, CH, 14 * S);
-      else ctx.rect(0, 0, CW, CH);
-      ctx.clip();
-
       if (img && img.width) {
         const s = Math.max(CW / img.width, CH / img.height);
         const dw = img.width * s, dh = img.height * s;
@@ -508,7 +503,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
       msgLines.forEach((ln, i) => rows.push({ type: "text", t: ln, f: `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`, color: "#F3ECDD", lh: 20 * S * 1.32, shadow: true, gap: i === msgLines.length - 1 ? 18 * S : 0 }));
       rows.push({ type: "rule", h: 2 * S, w: 44 * S, gap: data.senderName ? 14 * S : 0 });
       if (data.senderName) {
-        rows.push({ type: "text", t: `From ${data.senderName}`, f: `500 ${12 * S}px "JetBrains Mono", monospace`, color: "rgba(238,232,220,0.82)", ls: 0.08 * 12 * S, lh: 12 * S * 1.3, gap: 0 });
+        rows.push({ type: "text", t: data.senderName, f: `500 ${12 * S}px "JetBrains Mono", monospace`, color: "rgba(238,232,220,0.82)", ls: 0.08 * 12 * S, lh: 12 * S * 1.3, gap: 0 });
       }
 
       const total = rows.reduce((s, r) => s + (r.h || r.lh) + r.gap, 0);
@@ -532,7 +527,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
         y += rowH + r.gap;
       });
 
-      canvas.toBlob((blob) => { onBlob(blob || null); }, "image/png");
+      canvas.toBlob((blob) => { onBlob(blob || null); }, "image/jpeg", 0.82);
     };
 
     const run = () => {
@@ -560,7 +555,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
   const saveAsFile = (file) => {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(file);
-    a.download = "jigzo-reveal.png";
+    a.download = "jigzo-reveal.jpg";
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1500);
   };
@@ -571,7 +566,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
         alert('Failed to generate image for saving.');
         return;
       }
-      const file = new File([blob], "jigzo-reveal.png", { type: "image/png" });
+      const file = new File([blob], "jigzo-reveal.jpg", { type: "image/jpeg" });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         navigator.share({ files: [file], title: "Your JIGZO reveal" }).catch((err) => {
           if (err && err.name === "AbortError") return;
@@ -688,7 +683,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
                     <div style={{ width: 44, height: 2, marginTop: 18, background: "linear-gradient(90deg, rgba(208,160,54,0), #D0A036, rgba(208,160,54,0))" }} />
                     {data.senderName ? (
                       <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontWeight: 500, fontSize: 12,
-                        letterSpacing: "0.08em", color: "rgba(238,232,220,0.82)", marginTop: 14, textShadow: "0 1px 4px rgba(5,5,5,0.8)" }}>{`From ${data.senderName}`}</div>
+                        letterSpacing: "0.08em", color: "rgba(238,232,220,0.82)", marginTop: 14, textShadow: "0 1px 4px rgba(5,5,5,0.8)" }}>{data.senderName}</div>
                     ) : null}
                   </div>
                 </div>
