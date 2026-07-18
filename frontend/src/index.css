@@ -682,17 +682,16 @@ a { color:inherit; text-decoration:none; }
      covered and the rising piece passes behind the headline. */
   z-index: 1;
   pointer-events: none;
-  aspect-ratio: 1080 / 1920;
-  /* MOBILE position: anchored by `top` (a fixed offset below the CTA), NOT by
-     `bottom`. `bottom`-anchoring rose into the CTA on short viewports (real
-     phones with browser chrome shrink the hero). `top` is measured from the
-     hero's top, where the CTA sits at a fixed offset, so the phone stays below
-     the CTA at every viewport height. Sized to also clear the trust line. */
-  width: var(--hpa-w, 72vw);
-  left: 42%;
-  top: 220px;
-  bottom: auto;
-  transform: translateX(-50%);
+  /* MOBILE: the box is anchored by BOTH `top` (below the CTA) and `bottom`
+     (above the trust line), so its height IS the available gap. Both are fixed
+     offsets from the hero edges (CTA sits at a fixed offset from the top, trust
+     strip at the bottom), so the gap — and the phone, which scales to ~90% of it
+     in HeroPhonePuzzle.jsx — track every viewport height and always clear both.
+     Full width; the canvas centres inside and overflows transparently. */
+  left: 0;
+  right: 0;
+  top: 366px;
+  bottom: 44px;
   overflow: visible;
   /* Soft warm-WHITE glow matching the hero's floating puzzle pieces — their
      glow reads as warm white light, not gold. Colour sampled from the pieces'
@@ -719,20 +718,23 @@ a { color:inherit; text-decoration:none; }
 }
 .landing-page .hero-phone-anim__canvas {
   position: absolute;
-  top: 0;
-  left: 0;
-  transform-origin: top left;
+  top: 50%;
+  left: 50%;
+  transform-origin: center;   /* canvas centres in the box (inline translate(-50%,-50%) scale) */
   will-change: transform;
 }
 
-/* Desktop: on the right image side, over the held phone; clear of the
-   left copy column. Separately tuned size/position/travel. */
+/* Desktop: on the right image side, over the held phone; clear of the left copy
+   column. Width-anchored box (aspect-ratio gives its height), bottom-anchored —
+   there is no trust line on desktop. The canvas fills this box exactly (its
+   aspect matches), so the centred canvas lands identically to before. */
 @media (min-width: 761px) {
   .landing-page .hero-phone-anim {
     left: 44%;
     right: auto;
-    top: auto;            /* desktop keeps bottom-anchoring (there is no trust line) */
+    top: auto;
     bottom: -20%;
+    aspect-ratio: 1080 / 1920;
     transform: translateX(-50%);
     width: var(--hpa-w, 46vw);
     max-width: 560px;

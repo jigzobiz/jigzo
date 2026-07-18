@@ -27,7 +27,11 @@ const SIDE_BEZEL = 6;
 const TOP_BEZEL = 6;
 const SCREEN_W = PHONE_W - SIDE_BEZEL * 2, SCREEN_H = PHONE_H - TOP_BEZEL * 2;
 const CELL_W = SCREEN_W / COLS, CELL_H = SCREEN_H / ROWS;
-const FLOAT_DX = 480;
+// Piece parks/drifts from this far to the right of the slot (canvas px). Reduced
+// from the design's 480 so that, at the larger mobile phone size (which scales
+// the canvas wider than the viewport), the parked piece still sits on-screen on
+// the right rather than being clipped off the edge.
+const FLOAT_DX = 300;
 const FLOAT_DY_HOLD = -30;
 const FLOAT_ROT = -10;
 const FR = 3, FC = 1;
@@ -187,7 +191,15 @@ function Phone2D({ scaleX = 1, scaleVal = 1, screenView = 'front', screen }) {
       {screenView === 'front' ? (
         <React.Fragment>
           <div style={{ position: 'absolute', inset: 0, borderRadius: 52, background: '#050506', opacity: BODY_FADE, boxShadow: '0 30px 70px rgba(0,0,0,0.22), inset 0 0 0 1.5px rgba(255,255,255,0.12)', filter: SOFT_BLUR }} />
-          <div style={{ position: 'absolute', left: SIDE_BEZEL, top: TOP_BEZEL, width: SCREEN_W, height: SCREEN_H, borderRadius: 34, overflow: 'hidden', background: '#000' }}>
+          {/* iOS Safari fix: WebKit fails to clip descendants to `border-radius`
+              once they are promoted to their own compositing layer (by filter,
+              transform or animation) — the layer's straight rectangular edges
+              leak past the rounded corners as a frame/border over the puzzle.
+              `translateZ(0)` promotes THIS container to a compositing layer and
+              `isolation:isolate` gives it its own stacking context, so WebKit
+              applies the rounded clip at composite time to all children. Chrome/
+              Firefox already clip correctly, hence invisible in desktop preview. */}
+          <div style={{ position: 'absolute', left: SIDE_BEZEL, top: TOP_BEZEL, width: SCREEN_W, height: SCREEN_H, borderRadius: 34, overflow: 'hidden', background: '#000', isolation: 'isolate', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)', contain: 'paint' }}>
             {screen}
           </div>
           <div style={{ position: 'absolute', left: '50%', top: TOP_BEZEL + 16, width: 84, height: 24, marginLeft: -42, borderRadius: 12, background: '#0a0a0c', opacity: BODY_FADE }} />
@@ -309,15 +321,26 @@ export default function HeroPhonePuzzle() {
   const [scale, setScale] = useState(0);
   const [time, setTime] = useState(0);
 
-  // Responsive: scale the fixed 1080×1920 canvas to the host width.
+  // Responsive scaling of the fixed 1080×1920 canvas.
+  //  · Mobile: the box is anchored between the CTA and the trust line, so its
+  //    height IS the available gap. Scale the PHONE (not the whole tall canvas)
+  //    to fill ~90% of that gap — big and proportional, scaling with the gap at
+  //    every viewport height. Capped by width as a safety.
+  //  · Desktop: fit the canvas to the box width (unchanged).
   useLayoutEffect(() => {
     const el = hostRef.current;
     if (!el) return undefined;
-    const measure = () => setScale(el.clientWidth / CANVAS_W);
+    const measure = () => {
+      const w = el.clientWidth, h = el.clientHeight;
+      const mobile = window.matchMedia('(max-width: 760px)').matches;
+      setScale(mobile ? Math.min(0.92 * h / PHONE_H, 0.92 * w / PHONE_W) : w / CANVAS_W);
+    };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
+    const mq = window.matchMedia('(max-width: 760px)');
+    mq.addEventListener('change', measure);
+    return () => { ro.disconnect(); mq.removeEventListener('change', measure); };
   }, []);
 
   // Loop continuously (design's OM_PLAYBACK is {mode:loop}); run the rAF only
@@ -361,7 +384,7 @@ export default function HeroPhonePuzzle() {
       <div className="hero-phone-anim__bob">
         <div
           className="hero-phone-anim__canvas"
-          style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${scale})` }}
+          style={{ width: CANVAS_W, height: CANVAS_H, transform: `translate(-50%, -50%) scale(${scale})` }}
         >
           <SceneContext.Provider value={ctx}>
             {Comp ? <Comp /> : null}
