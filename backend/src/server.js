@@ -35,6 +35,20 @@ app.use(cors({
 }));
 
 // Rate Limiter
+app.use(
+  '/api/webhooks/whatsapp',
+  express.raw({ type: 'application/json', limit: '256kb' }),
+  async (req, res, next) => {
+    try {
+      await connectDB();
+      next();
+    } catch (error) {
+      res.status(500).json({ error: 'Database connection failed' });
+    }
+  },
+  whatsappWebhookRouter
+);
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   limit: 100, // Limit each IP to 100 requests per window
@@ -42,9 +56,8 @@ const limiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' }
 });
-app.use('/api/', limiter);
 
-app.use('/api/webhooks/whatsapp', express.raw({ type: 'application/json' }), whatsappWebhookRouter);
+app.use('/api/', limiter);
 
 // Increase body parser limit to support base64 image strings (15MB cap)
 app.use(express.json({ limit: '15mb' }));
