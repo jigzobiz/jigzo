@@ -275,12 +275,12 @@ export default function HeroPhonePuzzle() {
         p1.src = PHOTO;
         const p2 = new Image();
         p2.src = REVEAL;
-        
+
         await Promise.all([
           p1.decode ? p1.decode() : new Promise(r => p1.onload = r),
           p2.decode ? p2.decode() : new Promise(r => p2.onload = r)
         ]);
-        
+
         if (active) setAssetsLoaded(true);
       } catch (err) {
         console.error('Image pre-decoding failed, using fallback:', err);
