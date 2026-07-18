@@ -266,27 +266,32 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
 
   const cachedBlobRef = useRef(null);
   const generationPromiseRef = useRef(null);
-  const lastDepsRef = useRef({});
+  const cacheKeyRef = useRef("");
   const [exportLoading, setExportLoading] = useState(false);
 
-  useEffect(() => {
-    if (showReveal && data) {
-      const currentDeps = {
-        url: data.cropImageUrl,
-        msg: data.message,
-        sender: data.senderName,
-        recName: data.recipient?.name || data.toName || ''
-      };
-      const depsChanged =
-        currentDeps.url !== lastDepsRef.current.url ||
-        currentDeps.msg !== lastDepsRef.current.msg ||
-        currentDeps.sender !== lastDepsRef.current.sender ||
-        currentDeps.recName !== lastDepsRef.current.recName;
+  const getExportKey = () => {
+    const recName = data?.recipient?.name || data?.toName || '';
+    return [
+      publicId,
+      rIndex,
+      data?.message || '',
+      recName,
+      data?.senderName || '',
+      data?.cropImageUrl || ''
+    ].join('|');
+  };
 
-      if (depsChanged) {
+  useEffect(() => {
+    const hasMessage = data?.message && typeof data.message === 'string' && data.message.trim() !== '';
+    const hasRecipient = !!(data?.recipient?.name || data?.toName);
+    const hasSender = !!data?.senderName;
+
+    if (showReveal && data && hasMessage && hasRecipient && hasSender) {
+      const currentKey = getExportKey();
+      if (currentKey !== cacheKeyRef.current) {
         cachedBlobRef.current = null;
         generationPromiseRef.current = null;
-        lastDepsRef.current = currentDeps;
+        cacheKeyRef.current = currentKey;
         buildRevealPng().catch(err => {
           console.error('[ReceivePage] Background pre-generation failed:', err);
         });
@@ -499,6 +504,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     if (generationPromiseRef.current) {
       return generationPromiseRef.current;
     }
+    const generationKey = getExportKey();
     const promise = new Promise((resolve, reject) => {
       const CW = 1080, CH = 1920;
       const cardW = 340;
@@ -574,6 +580,10 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
           });
 
           canvas.toBlob((blob) => {
+            if (cacheKeyRef.current !== generationKey) {
+              resolve(null);
+              return;
+            }
             if (blob) {
               cachedBlobRef.current = blob;
               resolve(blob);
