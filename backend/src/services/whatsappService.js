@@ -35,7 +35,26 @@ class WhatsAppService {
       if (puzzle && puzzle.recipients[recipientIndex]) {
         const rec = puzzle.recipients[recipientIndex];
         
-        if (fields.status) rec.whatsappSendStatus = fields.status;
+        // Monotonic mapping priority
+        const priority = {
+          'pending': 0,
+          'disabled': 0,
+          'claimed': 1,
+          'sending': 2,
+          'accepted': 3,
+          'sent': 4,
+          'delivered': 5,
+          'read': 6
+        };
+
+        if (fields.status) {
+          const currentPriority = priority[rec.whatsappSendStatus] || 0;
+          const incomingPriority = priority[fields.status] || 0;
+          if (incomingPriority > currentPriority) {
+            rec.whatsappSendStatus = fields.status;
+          }
+        }
+        
         if (fields.providerMessageId) rec.providerMessageId = fields.providerMessageId;
         
         // Strict event semantics: Only set status-specific fields on webhook events
@@ -49,15 +68,21 @@ class WhatsAppService {
         } else if (fields.status === 'read') {
           rec.whatsappReadAt = fields.occurredAt || new Date();
           rec.deliveryStatus = 'delivered';
-        } else if (fields.status === 'failed') {
-          rec.whatsappFailedAt = fields.occurredAt || new Date();
-          // Only downgrade deliveryStatus if current state is not sent/delivered/read
-          if (rec.deliveryStatus !== 'delivered' && rec.deliveryStatus !== 'sent') {
-            rec.deliveryStatus = 'failed';
-          }
+        }
+        
+        // Failure tracking fields can be updated independently of status transitions
+        if (fields.failedAt || fields.status === 'failed') {
+          rec.whatsappFailedAt = fields.failedAt || fields.occurredAt || new Date();
           rec.whatsappLastErrorCode = fields.errorCode || '';
           rec.whatsappLastErrorMessage = fields.errorMessage || '';
           rec.lastError = fields.errorMessage || '';
+          
+          // Only update whatsappSendStatus to failed if not already sent/delivered/read
+          const currentPriority = priority[rec.whatsappSendStatus] || 0;
+          if (currentPriority < priority['sent']) {
+            rec.whatsappSendStatus = 'failed';
+            rec.deliveryStatus = 'failed';
+          }
         }
 
         if (fields.lastStatusAt) rec.whatsappLastStatusAt = fields.lastStatusAt;

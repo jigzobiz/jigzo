@@ -101,7 +101,14 @@ router.post('/payment', async (req, res, next) => {
       // Reload puzzle to integrate all database updates made by the delivery service
       const reloadedPuzzle = await Puzzle.findById(puzzle._id);
       const total = reloadedPuzzle.recipients.length;
-      const deliveredCount = reloadedPuzzle.recipients.filter(r => r.deliveryStatus === 'delivered' || r.deliveryStatus === 'sent' || r.whatsappSendStatus === 'accepted').length;
+      const deliveredCount = reloadedPuzzle.recipients.filter(rec => {
+        const method = rec.deliveryMethod === 'email' ? 'email' : 'whatsapp';
+        if (method === 'email') {
+          return rec.deliveryStatus === 'sent' || rec.deliveryStatus === 'delivered';
+        } else {
+          return rec.whatsappSendStatus === 'delivered' || rec.whatsappSendStatus === 'read';
+        }
+      }).length;
       if (total > 0 && deliveredCount === total) {
         reloadedPuzzle.status = 'delivered';
       } else if (deliveredCount > 0) {

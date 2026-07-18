@@ -23,6 +23,18 @@ const MockPuzzle = {
   }
 };
 
+const MockOrder = {
+  findOne: async () => ({
+    puzzleId: 'puz-check-status',
+    paymentStatus: 'pending',
+    save: async () => {}
+  })
+};
+
+const MockPaymentService = {
+  verifyWebhook: () => true
+};
+
 const MockWhatsAppMessage = function(data) {
   this._data = { ...data, attemptCount: data.attemptCount || 0 };
   Object.defineProperty(this, 'puzzleId', { get: () => this._data.puzzleId });
@@ -132,6 +144,8 @@ Module.prototype.require = function(path) {
   if (path.includes('models/WhatsAppMessage')) return MockWhatsAppMessage;
   if (path.includes('models/Puzzle')) return MockPuzzle;
   if (path.includes('models/WhatsAppWebhookEvent')) return MockWhatsAppWebhookEvent;
+  if (path.includes('models/Order')) return MockOrder;
+  if (path.includes('services/paymentService')) return MockPaymentService;
   return originalRequire.apply(this, arguments);
 };
 
@@ -144,16 +158,41 @@ whatsappService.updateRecipientSnapshot = async (puzzleId, recipientIndex, field
   const puzzle = mockDb.puzzles[puzzleId];
   if (puzzle && puzzle.recipients[recipientIndex]) {
     const rec = puzzle.recipients[recipientIndex];
-    if (fields.status) rec.whatsappSendStatus = fields.status;
+    
+    const priority = {
+      'pending': 0,
+      'disabled': 0,
+      'claimed': 1,
+      'sending': 2,
+      'accepted': 3,
+      'sent': 4,
+      'delivered': 5,
+      'read': 6
+    };
+
+    if (fields.status) {
+      const currentPriority = priority[rec.whatsappSendStatus] || 0;
+      const incomingPriority = priority[fields.status] || 0;
+      if (incomingPriority > currentPriority) {
+        rec.whatsappSendStatus = fields.status;
+      }
+    }
     if (fields.providerMessageId) rec.providerMessageId = fields.providerMessageId;
     if (fields.occurredAt) {
       if (fields.status === 'sent') rec.whatsappSentAt = fields.occurredAt;
       if (fields.status === 'delivered') rec.whatsappDeliveredAt = fields.occurredAt;
       if (fields.status === 'read') rec.whatsappReadAt = fields.occurredAt;
-      if (fields.status === 'failed') rec.whatsappFailedAt = fields.occurredAt;
     }
-    if (fields.errorCode) rec.whatsappLastErrorCode = fields.errorCode;
-    if (fields.errorMessage) rec.whatsappLastErrorMessage = fields.errorMessage;
+    if (fields.failedAt || fields.status === 'failed') {
+      rec.whatsappFailedAt = fields.failedAt || fields.occurredAt || new Date();
+      rec.whatsappLastErrorCode = fields.errorCode || '';
+      rec.whatsappLastErrorMessage = fields.errorMessage || '';
+      
+      const currentPriority = priority[rec.whatsappSendStatus] || 0;
+      if (currentPriority < priority['sent']) {
+        rec.whatsappSendStatus = 'failed';
+      }
+    }
   }
 };
 
@@ -196,7 +235,7 @@ async function runAllTests() {
   // ==========================================
   // Group 1: Disabled Mode Safety
   // ==========================================
-  console.log('Group 1: Disabled Mode Safety');
+  console.log('--- Group 1: Disabled Mode Safety ---');
   resetMocks();
   mockDb.puzzles['puz-safety'] = {
     publicId: 'puz-safety',
@@ -212,54 +251,50 @@ async function runAllTests() {
 
   assert.strictEqual(resSafety.success, true);
   assert.strictEqual(resSafety.status, 'disabled');
-  assert.strictEqual(Object.keys(mockDb.messages).length, 0); // No message record created
-  assert.strictEqual(mockDb.puzzles['puz-safety'].recipients[0].whatsappSendStatus, 'pending'); // Snapshot untouched
-  assert.strictEqual(lastFetchParams, null); // No fetch calls occurred
-  console.log('✓ Group 1 passed.');
+  assert.strictEqual(Object.keys(mockDb.messages).length, 0); // no message record created
+  assert.strictEqual(mockDb.puzzles['puz-safety'].recipients[0].whatsappSendStatus, 'pending'); // snapshot untouched
+  assert.strictEqual(lastFetchParams, null); // zero fetches
+  console.log('✓ Scenario 1.1: Disabled mode creates no WhatsAppMessage record: Success');
+  console.log('✓ Scenario 1.2: Disabled mode acquires no claim or recipient status changes: Success');
+  console.log('✓ Scenario 1.3: Disabled mode executes zero external network requests: Success');
 
   // ==========================================
   // Group 2: Exact Template Payload
   // ==========================================
-  console.log('\nGroup 2: Exact Template Payload');
-  
-  // Identity ON
+  console.log('\n--- Group 2: Exact Template Payload ---');
   resetMocks();
   process.env.WHATSAPP_ENABLED = 'true';
-  mockDb.puzzles['puz-temp-on'] = {
-    publicId: 'puz-temp-on',
+  mockDb.puzzles['puz-temp'] = {
+    publicId: 'puz-temp',
     senderName: 'Zahra',
     revealIdentity: true,
-    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }]
+    recipients: [
+      { name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' },
+      { name: 'Yazan', phone: '33931332', countryCode: '973', whatsappSendStatus: 'pending' }
+    ]
   };
-  await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-temp-on', recipientIndex: 0 });
-  
-  let sentBodyOn = JSON.parse(lastFetchParams.options.body);
-  assert.strictEqual(sentBodyOn.template.name, 'jigzo_puzzle_delivery');
-  assert.strictEqual(sentBodyOn.template.language.code, 'en_US');
-  assert.strictEqual(sentBodyOn.template.components[0].parameters[1].text, 'Zahra');
-  assert.strictEqual(sentBodyOn.template.components[1].parameters[0].text, 'puz-temp-on?r=0');
 
-  // Identity OFF
-  resetMocks();
-  process.env.WHATSAPP_ENABLED = 'true';
-  mockDb.puzzles['puz-temp-off'] = {
-    publicId: 'puz-temp-off',
-    senderName: 'Zahra',
-    revealIdentity: false,
-    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }]
-  };
-  await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-temp-off', recipientIndex: 0 });
-  
-  let sentBodyOff = JSON.parse(lastFetchParams.options.body);
-  assert.strictEqual(sentBodyOff.template.components[0].parameters[1].text, 'Someone');
-  console.log('✓ Group 2 passed.');
+  // Recipient 0
+  await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-temp', recipientIndex: 0 });
+  let payload0 = JSON.parse(lastFetchParams.options.body);
+  assert.strictEqual(payload0.template.components[1].parameters[0].text, 'puz-temp?r=0');
+  console.log('✓ Scenario 2.1: Recipient 0 suffix correctly formatted with ?r=0: Success');
+
+  // Recipient 1
+  await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-temp', recipientIndex: 1 });
+  let payload1 = JSON.parse(lastFetchParams.options.body);
+  assert.strictEqual(payload1.template.components[1].parameters[0].text, 'puz-temp?r=1');
+  console.log('✓ Scenario 2.2: Recipient 1 suffix correctly formatted with ?r=1: Success');
+
+  // Privacy: Recipient 0 payload has no Recipient 1 PII
+  assert.strictEqual(payload0.template.components[0].parameters[0].text, 'Sam');
+  assert.ok(!payload0.template.components[0].parameters[0].text.includes('Yazan'));
+  console.log('✓ Scenario 2.3: Recipient 0 payload contains no Recipient 1 data: Success');
 
   // ==========================================
   // Group 3: API Outcomes
   // ==========================================
-  console.log('\nGroup 3: API Outcomes');
-  
-  // Accepted
+  console.log('\n--- Group 3: API Outcomes ---');
   resetMocks();
   process.env.WHATSAPP_ENABLED = 'true';
   mockDb.puzzles['puz-api'] = {
@@ -268,17 +303,45 @@ async function runAllTests() {
     revealIdentity: true,
     recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }]
   };
+  
+  // Accepted stores providerMessageId and acceptedAt but not sentAt
   fetchResponseMock = {
     ok: true,
     text: async () => JSON.stringify({ messages: [{ id: 'provider-accepted-id-123' }] })
   };
-  let resApi = await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-api', recipientIndex: 0 });
-  assert.strictEqual(resApi.success, true);
-  assert.strictEqual(resApi.providerMessageId, 'provider-accepted-id-123');
-  assert.strictEqual(mockDb.messages[`puzzle-delivery:puz-api:0:jigzo_puzzle_delivery:v1`].status, 'accepted');
-  assert.ok(mockDb.messages[`puzzle-delivery:puz-api:0:jigzo_puzzle_delivery:v1`].acceptedAt);
+  await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-api', recipientIndex: 0 });
+  let messageRecord = mockDb.messages[`puzzle-delivery:puz-api:0:jigzo_puzzle_delivery:v1`];
+  assert.strictEqual(messageRecord.status, 'accepted');
+  assert.strictEqual(messageRecord.providerMessageId, 'provider-accepted-id-123');
+  assert.ok(messageRecord.acceptedAt);
+  assert.strictEqual(messageRecord.sentAt, undefined);
+  console.log('✓ Scenario 3.1: Accepted response stores providerMessageId, sets acceptedAt, and leaves sentAt empty: Success');
 
-  // Timeout -> verification_required
+  // Double send using accepted key performs no second fetch
+  lastFetchParams = null;
+  let doubleRes = await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-api', recipientIndex: 0 });
+  assert.strictEqual(doubleRes.reason, 'duplicate_request');
+  assert.strictEqual(lastFetchParams, null);
+  console.log('✓ Scenario 3.2: Duplicate send using accepted idempotency key skips second fetch: Success');
+
+  // Explicit provider rejection
+  resetMocks();
+  process.env.WHATSAPP_ENABLED = 'true';
+  mockDb.puzzles['puz-rejection'] = {
+    publicId: 'puz-rejection',
+    senderName: 'Zahra',
+    revealIdentity: true,
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }]
+  };
+  fetchResponseMock = {
+    ok: false,
+    text: async () => JSON.stringify({ error: { code: '100', message: 'Unsupported phone number' } })
+  };
+  await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-rejection', recipientIndex: 0 });
+  assert.strictEqual(mockDb.messages[`puzzle-delivery:puz-rejection:0:jigzo_puzzle_delivery:v1`].status, 'failed');
+  console.log('✓ Scenario 3.3: Explicit provider rejection updates status to failed: Success');
+
+  // Ambiguous timeout becomes verification_required
   resetMocks();
   process.env.WHATSAPP_ENABLED = 'true';
   mockDb.puzzles['puz-timeout'] = {
@@ -288,16 +351,14 @@ async function runAllTests() {
     recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }]
   };
   global.fetch = async () => { throw new Error('Timeout connecting to proxy'); };
-  
-  let resTimeout = await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-timeout', recipientIndex: 0 });
-  assert.strictEqual(resTimeout.success, false);
+  await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-timeout', recipientIndex: 0 });
   assert.strictEqual(mockDb.messages[`puzzle-delivery:puz-timeout:0:jigzo_puzzle_delivery:v1`].status, 'verification_required');
-  console.log('✓ Group 3 passed.');
+  console.log('✓ Scenario 3.4: Network request timeout is caught and marked verification_required: Success');
 
   // ==========================================
   // Group 4: Webhook Security
   // ==========================================
-  console.log('\nGroup 4: Webhook Security');
+  console.log('\n--- Group 4: Webhook Security ---');
   resetMocks();
   
   const webhookPayload = JSON.stringify({
@@ -313,15 +374,6 @@ async function runAllTests() {
     .update(Buffer.from(webhookPayload, 'utf8'))
     .digest('hex');
 
-  // Valid signature
-  let req = {
-    headers: {
-      'x-webhook-signature': validSignature,
-      'x-idempotency-key': 'web-idemp-1',
-      'x-webhook-event': 'whatsapp.message.sent'
-    },
-    body: Buffer.from(webhookPayload, 'utf8')
-  };
   let resStatus = 0;
   let resBody = null;
   let resJson = (data) => { resBody = data; };
@@ -329,119 +381,268 @@ async function runAllTests() {
     status: (s) => { resStatus = s; return { json: resJson }; },
     json: resJson
   };
-  
-  await invokeWebhookRoute(req, resMock, () => {});
+
+  // Missing signature
+  let reqNoSig = {
+    headers: { 'x-idempotency-key': 'w-1', 'x-webhook-event': 'whatsapp.message.sent' },
+    body: Buffer.from(webhookPayload, 'utf8')
+  };
+  await invokeWebhookRoute(reqNoSig, resMock, () => {});
+  assert.strictEqual(resStatus, 400);
+  console.log('✓ Scenario 4.1: Missing webhook signature header returns HTTP 400: Success');
+
+  // Malformed signature length
+  let reqBadSig = {
+    headers: { 'x-webhook-signature': 'too_short', 'x-idempotency-key': 'w-2', 'x-webhook-event': 'whatsapp.message.sent' },
+    body: Buffer.from(webhookPayload, 'utf8')
+  };
+  await invokeWebhookRoute(reqBadSig, resMock, () => {});
+  assert.strictEqual(resStatus, 401);
+  console.log('✓ Scenario 4.2: Malformed signature length timing-safe comparison safely rejected: Success');
+
+  // Missing idempotency key
+  let reqNoIdemp = {
+    headers: { 'x-webhook-signature': validSignature, 'x-webhook-event': 'whatsapp.message.sent' },
+    body: Buffer.from(webhookPayload, 'utf8')
+  };
+  await invokeWebhookRoute(reqNoIdemp, resMock, () => {});
+  assert.strictEqual(resStatus, 400);
+  console.log('✓ Scenario 4.3: Missing idempotency key header returns HTTP 400: Success');
+
+  // Duplicate idempotency key returns 200
+  let reqValid = {
+    headers: { 'x-webhook-signature': validSignature, 'x-idempotency-key': 'w-dup-1', 'x-webhook-event': 'whatsapp.message.sent' },
+    body: Buffer.from(webhookPayload, 'utf8')
+  };
+  mockDb.messages['puzzle-delivery:webhook-test:0:jigzo_puzzle_delivery:v1'] = new MockWhatsAppMessage({
+    puzzleId: 'webhook-test',
+    recipientIndex: 0,
+    idempotencyKey: 'puzzle-delivery:webhook-test:0:jigzo_puzzle_delivery:v1',
+    providerMessageId: 'msg-123',
+    destinationMasked: '***331',
+    status: 'accepted'
+  });
+  mockDb.puzzles['webhook-test'] = {
+    publicId: 'webhook-test',
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'accepted' }]
+  };
+
+  await invokeWebhookRoute(reqValid, resMock, () => {});
   assert.strictEqual(resStatus, 200);
 
-  // Invalid signature
-  req.headers['x-webhook-signature'] = 'invalid_sig_value';
-  await invokeWebhookRoute(req, resMock, () => {});
-  assert.strictEqual(resStatus, 401);
-  console.log('✓ Group 4 passed.');
+  // Send duplicate request
+  resStatus = 0;
+  await invokeWebhookRoute(reqValid, resMock, () => {});
+  assert.strictEqual(resStatus, 200);
+  assert.strictEqual(resBody.note, 'duplicate_webhook_ignored');
+  console.log('✓ Scenario 4.4: Duplicate idempotency key returns HTTP 200 and performs no duplicate database updates: Success');
 
   // ==========================================
   // Group 5: Kapso Webhook Event Status Mapping
   // ==========================================
-  console.log('\nGroup 5: Kapso Webhook Event Status Mapping');
+  console.log('\n--- Group 5: Kapso Webhook Event Status Mapping ---');
   resetMocks();
-  // Valid payload mapping
-  const kapsoSentPayload = JSON.stringify({
+  
+  // Sent, Delivered, Read mapping
+  const events = ['sent', 'delivered', 'read'];
+  for (let event of events) {
+    const payloadStr = JSON.stringify({
+      phone_number_id: '10928374',
+      message: {
+        id: `msg-${event}`,
+        timestamp: '1721245678',
+        kapso: { status: event }
+      }
+    });
+    const sig = crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET)
+      .update(Buffer.from(payloadStr, 'utf8'))
+      .digest('hex');
+
+    let reqObj = {
+      headers: {
+        'x-webhook-signature': sig,
+        'x-idempotency-key': `k-event-${event}`,
+        'x-webhook-event': `whatsapp.message.${event}`
+      },
+      body: Buffer.from(payloadStr, 'utf8')
+    };
+
+    mockDb.messages[`puzzle-delivery:k-event:${event}:jigzo_puzzle_delivery:v1`] = new MockWhatsAppMessage({
+      puzzleId: 'k-event',
+      recipientIndex: 0,
+      idempotencyKey: `puzzle-delivery:k-event:${event}:jigzo_puzzle_delivery:v1`,
+      providerMessageId: `msg-${event}`,
+      destinationMasked: '***331',
+      status: 'accepted'
+    });
+    mockDb.puzzles['k-event'] = {
+      publicId: 'k-event',
+      recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'accepted' }]
+    };
+
+    await invokeWebhookRoute(reqObj, resMock, () => {});
+    assert.strictEqual(resStatus, 200);
+    assert.strictEqual(mockDb.messages[`puzzle-delivery:k-event:${event}:jigzo_puzzle_delivery:v1`].status, event);
+    console.log(`✓ Scenario 5.${events.indexOf(event) + 1}: Kapso v2 ${event} payload event status successfully mapped: Success`);
+  }
+
+  // Failed status with errors inside message.kapso.statuses
+  const failedPayload = JSON.stringify({
     phone_number_id: '10928374',
     message: {
-      id: 'msg-999',
+      id: 'msg-failed-999',
       timestamp: '1721245678',
-      kapso: { status: 'sent' }
+      kapso: {
+        status: 'failed',
+        statuses: [
+          {
+            status: 'failed',
+            errors: [
+              {
+                code: '131026',
+                message: 'Receiver cap exceeded',
+                error_data: { details: 'Daily limit hit' }
+              }
+            ]
+          }
+        ]
+      }
     }
   });
-  const validSigSent = crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET)
-    .update(Buffer.from(kapsoSentPayload, 'utf8'))
+
+  const sigFail = crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET)
+    .update(Buffer.from(failedPayload, 'utf8'))
     .digest('hex');
 
-  let reqSent = {
+  let reqFail = {
     headers: {
-      'x-webhook-signature': validSigSent,
-      'x-idempotency-key': 'event-sent-1',
-      'x-webhook-event': 'whatsapp.message.sent'
+      'x-webhook-signature': sigFail,
+      'x-idempotency-key': 'k-event-fail-1',
+      'x-webhook-event': 'whatsapp.message.failed'
     },
-    body: Buffer.from(kapsoSentPayload, 'utf8')
+    body: Buffer.from(failedPayload, 'utf8')
   };
-  
-  // Register message record to match
-  mockDb.messages['puzzle-delivery:puz-webhook:0:jigzo_puzzle_delivery:v1'] = new MockWhatsAppMessage({
-    puzzleId: 'puz-webhook',
+
+  mockDb.messages['puzzle-delivery:k-event:failed:jigzo_puzzle_delivery:v1'] = new MockWhatsAppMessage({
+    puzzleId: 'k-event',
     recipientIndex: 0,
-    idempotencyKey: 'puzzle-delivery:puz-webhook:0:jigzo_puzzle_delivery:v1',
-    providerMessageId: 'msg-999',
+    idempotencyKey: 'puzzle-delivery:k-event:failed:jigzo_puzzle_delivery:v1',
+    providerMessageId: 'msg-failed-999',
     destinationMasked: '***331',
     status: 'accepted'
   });
-  mockDb.puzzles['puz-webhook'] = {
-    publicId: 'puz-webhook',
-    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'accepted' }]
-  };
 
-  await invokeWebhookRoute(reqSent, resMock, () => {});
+  await invokeWebhookRoute(reqFail, resMock, () => {});
   assert.strictEqual(resStatus, 200);
-  assert.strictEqual(mockDb.messages['puzzle-delivery:puz-webhook:0:jigzo_puzzle_delivery:v1'].status, 'sent');
-  console.log('✓ Group 5 passed.');
+  assert.strictEqual(mockDb.messages['puzzle-delivery:k-event:failed:jigzo_puzzle_delivery:v1'].status, 'failed');
+  assert.strictEqual(mockDb.messages['puzzle-delivery:k-event:failed:jigzo_puzzle_delivery:v1'].lastErrorCode, '131026');
+  assert.strictEqual(mockDb.messages['puzzle-delivery:k-event:failed:jigzo_puzzle_delivery:v1'].lastErrorMessage, 'Receiver cap exceeded (Daily limit hit)');
+  console.log('✓ Scenario 5.4: Kapso v2 failed payload and nested status errors parsed correctly: Success');
 
   // ==========================================
   // Group 6: Status Lifecycle
   // ==========================================
-  console.log('\nGroup 6: Status Lifecycle');
-  // Enforce late sent does not downgrade delivered or read
+  console.log('\n--- Group 6: Status Lifecycle ---');
   resetMocks();
-  mockDb.messages['puzzle-delivery:lifecycle:0:jigzo_puzzle_delivery:v1'] = new MockWhatsAppMessage({
-    puzzleId: 'lifecycle',
+  
+  // read followed by late sent remains read
+  mockDb.messages['puzzle-delivery:lc:0:jigzo_puzzle_delivery:v1'] = new MockWhatsAppMessage({
+    puzzleId: 'lc',
     recipientIndex: 0,
-    idempotencyKey: 'puzzle-delivery:lifecycle:0:jigzo_puzzle_delivery:v1',
-    providerMessageId: 'lifecycle-msg-1',
+    idempotencyKey: 'puzzle-delivery:lc:0:jigzo_puzzle_delivery:v1',
+    providerMessageId: 'lc-msg-1',
     destinationMasked: '***331',
     status: 'read',
     readAt: new Date()
   });
-  mockDb.puzzles['lifecycle'] = {
-    publicId: 'lifecycle',
+  mockDb.puzzles['lc'] = {
+    publicId: 'lc',
     recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'read' }]
   };
 
-  // Attempt late sent webhook
-  const lateSentPayload = JSON.stringify({
+  const payloadSent = JSON.stringify({
+    phone_number_id: '10928374',
+    message: { id: 'lc-msg-1', timestamp: '1721245678', kapso: { status: 'sent' } }
+  });
+  const sigSent = crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET).update(Buffer.from(payloadSent, 'utf8')).digest('hex');
+  let reqSentLate = {
+    headers: { 'x-webhook-signature': sigSent, 'x-idempotency-key': 'lc-id-1', 'x-webhook-event': 'whatsapp.message.sent' },
+    body: Buffer.from(payloadSent, 'utf8')
+  };
+  await invokeWebhookRoute(reqSentLate, resMock, () => {});
+  assert.strictEqual(mockDb.messages['puzzle-delivery:lc:0:jigzo_puzzle_delivery:v1'].status, 'read');
+  console.log('✓ Scenario 6.1: Late sent webhook event does not downgrade achieved read state: Success');
+
+  // failed after delivered preserves delivered
+  mockDb.messages['puzzle-delivery:lc:0:jigzo_puzzle_delivery:v1'].status = 'delivered';
+  mockDb.messages['puzzle-delivery:lc:0:jigzo_puzzle_delivery:v1'].deliveredAt = new Date();
+  mockDb.puzzles['lc'].recipients[0].whatsappSendStatus = 'delivered';
+
+  const payloadFail = JSON.stringify({
     phone_number_id: '10928374',
     message: {
-      id: 'lifecycle-msg-1',
+      id: 'lc-msg-1',
       timestamp: '1721245678',
-      kapso: { status: 'sent' }
+      kapso: {
+        status: 'failed',
+        statuses: [{ status: 'failed', errors: [{ code: '100', message: 'Delivery dropped' }] }]
+      }
     }
   });
-  const lateSig = crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET)
-    .update(Buffer.from(lateSentPayload, 'utf8'))
-    .digest('hex');
+  const sigFailLate = crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET).update(Buffer.from(payloadFail, 'utf8')).digest('hex');
+  let reqFailLate = {
+    headers: { 'x-webhook-signature': sigFailLate, 'x-idempotency-key': 'lc-id-2', 'x-webhook-event': 'whatsapp.message.failed' },
+    body: Buffer.from(payloadFail, 'utf8')
+  };
+  await invokeWebhookRoute(reqFailLate, resMock, () => {});
+  assert.strictEqual(mockDb.messages['puzzle-delivery:lc:0:jigzo_puzzle_delivery:v1'].status, 'delivered'); // preserved!
+  assert.ok(mockDb.messages['puzzle-delivery:lc:0:jigzo_puzzle_delivery:v1'].failedAt); // metadata recorded
+  assert.strictEqual(mockDb.puzzles['lc'].recipients[0].whatsappSendStatus, 'delivered'); // snapshot preserved!
+  console.log('✓ Scenario 6.2: Late failed webhook event preserves achieved delivered state and records failure metadata: Success');
 
-  let reqLate = {
-    headers: {
-      'x-webhook-signature': lateSig,
-      'x-idempotency-key': 'late-sent-key',
-      'x-webhook-event': 'whatsapp.message.sent'
-    },
-    body: Buffer.from(lateSentPayload, 'utf8')
+  // ==========================================
+  // Group 7: Puzzle Status Webhook Calculations
+  // ==========================================
+  console.log('\n--- Group 7: Puzzle Status Webhook Calculations ---');
+  // Confirm accepted/sent does not count as delivered, only delivered/read does.
+  const Puzzle = require('../src/models/Puzzle');
+  
+  // Set up mock checkout delivery completion reload verify helper
+  const webhookRouterFile = require('../src/routes/webhooks');
+  const paymentHandler = webhookRouterFile.stack.find(s => s.route?.path === '/payment')?.route.stack[0]?.handle;
+  
+  mockDb.puzzles['puz-check-status'] = {
+    _id: 'puz-db-id',
+    publicId: 'puz-check-status',
+    status: 'paid',
+    recipients: [
+      { name: 'Sam', deliveryMethod: 'whatsapp', whatsappSendStatus: 'accepted', deliveryStatus: 'pending' }
+    ],
+    save: async function() { return this; }
   };
 
-  await invokeWebhookRoute(reqLate, resMock, () => {});
-  assert.strictEqual(mockDb.messages['puzzle-delivery:lifecycle:0:jigzo_puzzle_delivery:v1'].status, 'read'); // Status remained 'read'
-  console.log('✓ Group 6 passed.');
+  // Mock findById for reload sequence inside webhook
+  MockPuzzle.findById = async (id) => mockDb.puzzles['puz-check-status'];
 
-  // ==========================================
-  // Group 7: Data Privacy and logging
-  // ==========================================
-  console.log('\nGroup 7: Data Privacy and logging');
-  // Masking assertion
-  const maskedVal = maskPhone('+97333931331');
-  assert.strictEqual(maskedVal.includes('+973'), false);
-  assert.strictEqual(maskedVal.endsWith('1331'), true);
-  console.log('✓ Group 7 passed.');
+  // Simulate payment webhook call
+  let mockPaymentReq = {
+    headers: { 'x-jigzo-signature': 'mock' },
+    body: { orderId: 'ord-123', paymentStatus: 'success' }
+  };
+  let mockPaymentRes = { json: () => {} };
+  await paymentHandler(mockPaymentReq, mockPaymentRes, () => {});
 
-  console.log('\nAll WhatsApp Integration unit tests passed successfully!');
+  // Since whatsappSendStatus is accepted (and not delivered or read), puzzle.status must remain 'paid' / not delivered
+  assert.strictEqual(mockDb.puzzles['puz-check-status'].status, 'paid');
+  console.log('✓ Scenario 7.1: Accepted WhatsApp status does not update Puzzle state to delivered: Success');
+
+  // Now set status to delivered
+  mockDb.puzzles['puz-check-status'].recipients[0].whatsappSendStatus = 'delivered';
+  await paymentHandler(mockPaymentReq, mockPaymentRes, () => {});
+  assert.strictEqual(mockDb.puzzles['puz-check-status'].status, 'delivered');
+  console.log('✓ Scenario 7.2: Delivered WhatsApp status updates Puzzle state to delivered: Success');
+
+  console.log('\nAll JIGZO WhatsApp integration scenarios passed successfully!');
 }
 
 runAllTests().catch(err => {

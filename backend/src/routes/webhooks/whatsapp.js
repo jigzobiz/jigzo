@@ -107,6 +107,7 @@ router.post('/', async (req, res, next) => {
 
     const priority = {
       'pending': 0,
+      'disabled': 0,
       'claimed': 1,
       'sending': 2,
       'accepted': 3,
@@ -119,23 +120,31 @@ router.post('/', async (req, res, next) => {
     const incomingPriority = priority[eventStatus] || 0;
 
     if (eventStatus === 'failed') {
-      // Record failure independently without deleting earlier timestamps
+      // Parse v2 errors array inside payload.message.kapso.statuses
+      const statusesArray = kapsoObj.statuses || [];
+      const failedStatus = statusesArray.find(s => s.status === 'failed') || {};
+      const errorObj = failedStatus.errors?.[0] || {};
+      
       messageRecord.failedAt = occurredAt || new Date();
-      messageRecord.lastErrorCode = kapsoObj.errors?.[0]?.code || 'PROVIDER_FAILED';
-      messageRecord.lastErrorMessage = kapsoObj.errors?.[0]?.message || 'Message delivery failed';
+      messageRecord.lastErrorCode = errorObj.code || 'PROVIDER_FAILED';
+      let errorMsg = errorObj.message || 'Message delivery failed';
+      if (errorObj.error_data?.details) {
+        errorMsg += ` (${errorObj.error_data.details})`;
+      }
+      messageRecord.lastErrorMessage = String(errorMsg).slice(0, 500);
       
       if (currentPriority < priority['sent']) {
         messageRecord.status = 'failed';
         await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, {
           status: 'failed',
-          occurredAt,
+          failedAt: messageRecord.failedAt,
           errorCode: messageRecord.lastErrorCode,
           errorMessage: messageRecord.lastErrorMessage
         });
       } else {
-        // Just record failure snapshots without altering status
+        // Just record failure snapshots without altering achievements
         await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, {
-          occurredAt,
+          failedAt: messageRecord.failedAt,
           errorCode: messageRecord.lastErrorCode,
           errorMessage: messageRecord.lastErrorMessage
         });
