@@ -667,6 +667,97 @@ a { color:inherit; text-decoration:none; }
   animation-play-state: paused !important;
 }
 
+/* =========================================================
+   HERO PHONE PUZZLE — Claude Design "Phone Puzzle Reveal"
+   (HeroPhonePuzzle.jsx). Absolutely-positioned decorative
+   layer over the photo, above the hero image/veil but BELOW
+   the copy (z-index:10) and trust strip (z-index:20) so the
+   headline, subtext, CTA and the rising piece never cover
+   the text. pointer-events:none keeps the CTA clickable.
+   ========================================================= */
+.landing-page .hero-phone-anim {
+  position: absolute;
+  /* z-index:1 sits above the hero photo/veil (foreground) but below the copy
+     container (z-index:2) and trust strip (z-index:20), so text is never
+     covered and the rising piece passes behind the headline. */
+  z-index: 1;
+  pointer-events: none;
+  /* MOBILE: the box is anchored by BOTH `top` (below the CTA) and `bottom`
+     (above the trust line), so its height IS the available gap. Both are fixed
+     offsets from the hero edges (CTA sits at a fixed offset from the top, trust
+     strip at the bottom), so the gap — and the phone, which scales to ~90% of it
+     in HeroPhonePuzzle.jsx — track every viewport height and always clear both.
+     Full width; the canvas centres inside and overflows transparently. */
+  left: 0;
+  right: 0;
+  top: 366px;
+  bottom: 44px;
+  overflow: visible;
+  /* NO filter here. A `filter: drop-shadow` on this element used to draw the
+     glow, but on real iOS Safari it applied to the whole animated, GPU-composited,
+     rAF-driven 1080×1920 canvas subtree (will-change + translateZ(0) + isolation
+     inside) and WebKit silently dropped it → no glow on iPhone. The glow is now a
+     separate static, non-composited silhouette element (.hero-phone-anim__glow)
+     BEHIND the canvas — see below and HeroPhonePuzzle.jsx. */
+}
+/* Static warm-WHITE glow silhouette, behind the animated canvas. A childless
+   rounded rectangle matching the phone's resting size (set inline from the JS
+   scale). box-shadow is a PAINT operation (not a filter) on a simple static
+   element with no composited descendants, so iOS Safari renders it reliably —
+   unlike a filter over the live animated subtree. Colour rgba(255,250,231)
+   matches the floating pieces (warm white light, not gold). */
+.landing-page .hero-phone-anim__glow {
+  position: absolute;
+  inset: 0;
+  margin: auto;          /* centres in the box (matches the centred phone), no transform */
+  pointer-events: none;
+}
+/* Gentle continuous vertical bob so the phone floats like the other hero
+   elements instead of sitting static (a few px, ease-in-out). Kept on its own
+   wrapper so it never fights the canvas's inline scale transform. */
+.landing-page .hero-phone-anim__bob {
+  position: absolute;
+  inset: 0;
+  animation: hpa-bob 6.5s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes hpa-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-9px); }
+}
+.landing-page .hero-phone-anim__canvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center;   /* canvas centres in the box (inline translate(-50%,-50%) scale) */
+  will-change: transform;
+}
+
+/* Desktop: on the right image side, over the held phone; clear of the left copy
+   column. Width-anchored box (aspect-ratio gives its height), bottom-anchored —
+   there is no trust line on desktop. The canvas fills this box exactly (its
+   aspect matches), so the centred canvas lands identically to before. */
+@media (min-width: 761px) {
+  .landing-page .hero-phone-anim {
+    left: 44%;
+    right: auto;
+    top: auto;
+    bottom: -20%;
+    aspect-ratio: 1080 / 1920;
+    transform: translateX(-50%);
+    width: var(--hpa-w, 46vw);
+    max-width: 560px;
+    min-width: 340px;
+  }
+}
+@media (min-width: 1200px) {
+  .landing-page .hero-phone-anim {
+    left: 46%;
+    bottom: -22%;
+    width: 38vw;
+  }
+}
+
 /* Spacing after hero */
 .landing-page .occasions-section {
   padding-top: clamp(64px, 10vh, 88px) !important;
@@ -952,6 +1043,9 @@ a { color:inherit; text-decoration:none; }
 @media (prefers-reduced-motion: reduce) {
   .landing-page .hero-piece {
     opacity: 1 !important;
+    animation: none !important;
+  }
+  .landing-page .hero-phone-anim__bob {
     animation: none !important;
   }
 }
@@ -1368,30 +1462,11 @@ a { color:inherit; text-decoration:none; }
   animation: fadeUp 0.3s ease;
 }
 
-@media (max-width: 760px) {
-  .create-page .footer-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: #FAF8EC;
-    border-top: 1px solid rgba(5, 5, 5, 0.08);
-    padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
-    display: flex;
-    gap: 12px;
-    z-index: 100;
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.05);
-  }
-  .create-page #root {
-    padding-bottom: calc(80px + env(safe-area-inset-bottom));
-  }
-}
-@media (min-width: 761px) {
-  .create-page .footer-nav {
-    display: flex;
-    gap: 12px;
-    margin-top: 32px;
-  }
+.create-page .footer-nav {
+  display: flex;
+  gap: 12px;
+  margin-top: 32px;
+  margin-bottom: 20px;
 }
 
 /* =========================================================

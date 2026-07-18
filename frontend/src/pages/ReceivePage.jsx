@@ -23,23 +23,40 @@ const SETTLE = "transform 0.28s cubic-bezier(0.25, 1, 0.2, 1), filter 0.24s ease
 export default function ReceivePage() {
   const { publicId } = useParams();
   const [searchParams] = useSearchParams();
-  const rIndex = parseInt(searchParams.get("r")) || 0;
+  
+  const rQueryValue = searchParams.get("r");
+  const rIndexParsed = rQueryValue !== null && rQueryValue !== "" ? parseInt(rQueryValue, 10) : undefined;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [puzzleData, setPuzzleData] = useState(null);
+  const [resolvedRIndex, setResolvedRIndex] = useState(0);
+  const [retryTrigger, setRetryTrigger] = useState(0);
 
   const startTimeRef = useRef(null);
+
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+    setRetryTrigger(prev => prev + 1);
+  };
 
   // Fetch puzzle details on mount
   useEffect(() => {
     if (!publicId) return;
+    let active = true;
+
     const loadPuzzle = async () => {
       try {
         setLoading(true);
-        const res = await api.getPuzzle(publicId);
+        setError(null);
+        const res = await api.getPuzzle(publicId, rIndexParsed);
+        if (!active) return;
         
         const puzzle = res.puzzle;
+        const finalRIndex = puzzle.recipient?.index ?? 0;
+        setResolvedRIndex(finalRIndex);
+
         if (puzzle && puzzle.cropImageUrl && puzzle.cropImageUrl.startsWith('/uploads')) {
           // Uploads are served same-origin via the /uploads route (see vercel.json)
           // and the Vite dev proxy, so a relative URL is correct in every
@@ -48,21 +65,95 @@ export default function ReceivePage() {
           puzzle.cropImageUrl = `${apiBase}${puzzle.cropImageUrl}`;
         }
         
-        setPuzzleData(puzzle);
-        startTimeRef.current = Date.now();
-        
-        // Log open event
-        await api.recordOpen(publicId, rIndex);
-        analytics.track('puzzle_opened', { puzzleId: publicId, recipientIndex: rIndex });
+        // Log open event asynchronously
+        api.recordOpen(publicId, finalRIndex).catch(console.error);
+        analytics.track('puzzle_opened', { puzzleId: publicId, recipientIndex: finalRIndex });
+
+        if (puzzle.cropImageUrl) {
+          const img = new Image();
+          
+          let completed = false;
+          const handleSuccess = () => {
+            if (!active || completed) return;
+            completed = true;
+            setPuzzleData(puzzle);
+            startTimeRef.current = Date.now();
+            setLoading(false);
+          };
+
+          const handleFailure = (err) => {
+            if (!active || completed) return;
+            completed = true;
+            console.error('[ReceivePage] Image loading/decoding failed:', err);
+            setError('Failed to load JIGZO puzzle image.');
+            setLoading(false);
+          };
+
+          img.onload = () => {
+            if (!active || completed) return;
+            if (typeof img.decode === 'function') {
+              img.decode()
+                .then(() => {
+                  handleSuccess();
+                })
+                .catch((decodeErr) => {
+                  console.warn('[ReceivePage] decode() rejected, falling back to dimensions check:', decodeErr);
+                  if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                    handleSuccess();
+                  } else {
+                    handleFailure(decodeErr);
+                  }
+                });
+            } else {
+              if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                handleSuccess();
+              } else {
+                handleFailure(new Error('Invalid image dimensions'));
+              }
+            }
+          };
+
+          img.onerror = (err) => {
+            handleFailure(err);
+          };
+
+          img.src = puzzle.cropImageUrl;
+
+          // Handle cached images
+          if (img.complete) {
+            if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+              if (typeof img.decode === 'function') {
+                img.decode()
+                  .then(() => {
+                    handleSuccess();
+                  })
+                  .catch((decodeErr) => {
+                    console.warn('[ReceivePage] Cached image decode() rejected, continuing:', decodeErr);
+                    handleSuccess();
+                  });
+              } else {
+                handleSuccess();
+              }
+            }
+          }
+        } else {
+          setPuzzleData(puzzle);
+          startTimeRef.current = Date.now();
+          setLoading(false);
+        }
       } catch (err) {
+        if (!active) return;
         console.error(err);
         setError(err.response?.data?.error || err.message || 'Failed to load JIGZO puzzle.');
-      } finally {
         setLoading(false);
       }
     };
     loadPuzzle();
-  }, [publicId, rIndex]);
+
+    return () => {
+      active = false;
+    };
+  }, [publicId, rIndexParsed, retryTrigger]);
 
   if (loading) {
     return (
@@ -80,17 +171,21 @@ export default function ReceivePage() {
           <p style={{ fontSize: 14.5, lineHeight: 1.6, color: "rgba(5,5,5,0.6)", margin: "0 0 22px" }}>
             {error || 'The puzzle link might be expired or invalid.'}
           </p>
-          <a href="/" style={{ display: "inline-block", background: "#050505", color: "#FAF8EC", textDecoration: "none",
-            fontWeight: 600, fontSize: 14, borderRadius: 999, padding: "13px 26px" }}>Go Home</a>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+            <button type="button" onClick={handleRetry} style={{ display: "inline-block", background: "#050505", color: "#FAF8EC", border: "none",
+              fontWeight: 600, fontSize: 14, borderRadius: 999, padding: "13px 26px", cursor: "pointer" }}>Retry</button>
+            <a href="/" style={{ display: "inline-block", background: "transparent", color: "#050505", border: "1.5px solid #050505", textDecoration: "none",
+              fontWeight: 600, fontSize: 14, borderRadius: 999, padding: "12px 26px" }}>Go Home</a>
+          </div>
         </div>
       </div>
     );
   }
 
-  return <Receiver data={puzzleData} publicId={publicId} rIndex={rIndex} startTimeRef={startTimeRef} />;
+  return <Receiver data={puzzleData} setData={setPuzzleData} publicId={publicId} rIndex={resolvedRIndex} startTimeRef={startTimeRef} />;
 }
 
-function Receiver({ data, publicId, rIndex, startTimeRef }) {
+function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
   const g = GRID_FOR[data.pieceCount] || { cols: 3, rows: 6 };
   const cols = g.cols, rows = g.rows;
   const BW = 288, BH = 512, PAD = 46;
@@ -140,7 +235,25 @@ function Receiver({ data, publicId, rIndex, startTimeRef }) {
       // Calculate and report solve duration
       if (startTimeRef.current) {
         const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-        api.recordComplete(publicId, rIndex, elapsed).catch(console.error);
+        api.recordComplete(publicId, rIndex, elapsed)
+          .then((res) => {
+            if (res && res.success) {
+              setData(prev => ({
+                ...prev,
+                message: res.message,
+                completedAt: res.completedAt,
+                completionRecorded: res.completionRecorded,
+                recipient: prev.recipient ? {
+                  ...prev.recipient,
+                  completedAt: res.completedAt
+                } : undefined
+              }));
+            }
+          })
+          .catch(err => {
+            console.error('[ReceivePage] Completion recording failed:', err);
+            alert('Failed to register solve. Message may not unlock correctly.');
+          });
         analytics.track('puzzle_completed', { puzzleId: publicId, recipientIndex: rIndex, durationSeconds: elapsed });
       }
 
@@ -151,31 +264,132 @@ function Receiver({ data, publicId, rIndex, startTimeRef }) {
     }
   }, [showReveal, publicId, rIndex, startTimeRef]);
 
-  const [scale, setScale] = useState(1);
-  const wrapRef = useRef(null), stageRef = useRef(null), cardRef = useRef(null);
-  const pieceRefs = useRef([]);
+  const cachedBlobRef = useRef(null);
+  const generationPromiseRef = useRef(null);
+  const cacheKeyRef = useRef("");
+  const [exportLoading, setExportLoading] = useState(false);
+  const [revealObjectUrl, setRevealObjectUrl] = useState("");
+  const [retryTrigger, setRetryTrigger] = useState(0);
+
+  const getExportKey = () => {
+    const recName = data?.recipient?.name || data?.toName || '';
+    return [
+      publicId,
+      rIndex,
+      data?.message || '',
+      recName,
+      data?.senderName || '',
+      data?.cropImageUrl || ''
+    ].join('|');
+  };
 
   useEffect(() => {
+    return () => {
+      if (revealObjectUrl) {
+        URL.revokeObjectURL(revealObjectUrl);
+      }
+    };
+  }, [revealObjectUrl]);
+
+  useEffect(() => {
+    const hasMessage = data?.message && typeof data.message === 'string' && data.message.trim() !== '';
+    const hasRecipient = !!(data?.recipient?.name || data?.toName);
+    const hasSender = !!data?.senderName;
+
+    if (showReveal && data && hasMessage && hasRecipient && hasSender) {
+      const currentKey = getExportKey();
+      if (currentKey !== cacheKeyRef.current) {
+        if (revealObjectUrl) {
+          URL.revokeObjectURL(revealObjectUrl);
+          setRevealObjectUrl("");
+        }
+        cachedBlobRef.current = null;
+        generationPromiseRef.current = null;
+        cacheKeyRef.current = currentKey;
+        buildRevealPng().then(blob => {
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            setRevealObjectUrl(url);
+          }
+        }).catch(err => {
+          console.error('[ReceivePage] Background pre-generation failed:', err);
+        });
+      } else if (!cachedBlobRef.current && !generationPromiseRef.current) {
+        buildRevealPng().then(blob => {
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            setRevealObjectUrl(url);
+          }
+        }).catch(err => {
+          console.error('[ReceivePage] Background pre-generation failed:', err);
+        });
+      } else if (cachedBlobRef.current && !revealObjectUrl) {
+        const url = URL.createObjectURL(cachedBlobRef.current);
+        setRevealObjectUrl(url);
+      }
+    }
+  }, [
+    showReveal,
+    data?.cropImageUrl,
+    data?.message,
+    data?.senderName,
+    data?.recipient?.name,
+    data?.toName,
+    retryTrigger
+  ]);
+
+  const [scale, setScale] = useState(1);
+  const wrapRef = useRef(null), stageRef = useRef(null), cardRef = useRef(null);
+  const headerRef = useRef(null);
+  const actionsRef = useRef(null);
+  const pieceRefs = useRef([]);
+
+  const fit = useCallback(() => {
     const wrap = wrapRef.current;
     if (!wrap) return;
-    const fit = () => {
-      const availW = wrap.clientWidth;
-      const offsetHeight = showReveal ? 240 : 130;
-      const availH = Math.max(240, window.innerHeight - offsetHeight);
-      
-      const scaleW = availW / stageW;
-      const scaleH = availH / stageH;
-      setScale(Math.min(1, scaleW, scaleH));
-    };
+    const availW = wrap.parentElement ? wrap.parentElement.clientWidth : wrap.clientWidth;
+    const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    
+    let measuredHeaderHeight = 0;
+    if (headerRef.current) {
+      measuredHeaderHeight = headerRef.current.getBoundingClientRect().height;
+    }
+    
+    let measuredActionHeight = 0;
+    if (actionsRef.current) {
+      measuredActionHeight = actionsRef.current.getBoundingClientRect().height;
+    }
+    
+    const safetySpacing = 32;
+    const availH = Math.max(280, viewportHeight - measuredHeaderHeight - measuredActionHeight - safetySpacing);
+    
+    const scaleW = availW / stageW;
+    const scaleH = availH / stageH;
+    setScale(Math.min(1, scaleW, scaleH));
+  }, [stageW, stageH]);
+
+  useEffect(() => {
     fit();
+    const wrap = wrapRef.current;
+    if (!wrap) return;
     const ro = new ResizeObserver(fit);
     ro.observe(wrap);
     window.addEventListener("resize", fit);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", fit);
+    }
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", fit);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", fit);
+      }
     };
-  }, [stageW, stageH, showReveal]);
+  }, [fit]);
+
+  useEffect(() => {
+    fit();
+  }, [showReveal, loaderRunning, fit]);
 
   const gridNeighbors = (i) => {
     const h = homes[i], res = [];
@@ -314,117 +528,126 @@ function Receiver({ data, publicId, rIndex, startTimeRef }) {
   };
 
   const replay = () => { setShowReveal(false); setPlaced(homes.map(() => false)); setGid(homes.map((_, i) => i)); setPositions(scatter()); };
-
-  const buildRevealPng = (onBlob) => {
-    const W = BW, H = BH;
-    const dpr = window.devicePixelRatio || 1;
-    const scr = window.screen || {};
-    const sw = scr.width || 0, sh = scr.height || 0;
-    let CW, CH;
-    if (sh > sw && sw && sh) {
-      CW = Math.max(1080, Math.round(sw * dpr));
-      CH = Math.max(1920, Math.round(sh * dpr));
-    } else {
-      CW = 1080; CH = 1920;
+  const buildRevealPng = () => {
+    if (generationPromiseRef.current) {
+      return generationPromiseRef.current;
     }
-    const S = Math.min(CW / W, CH / H);
-    const CREAM = "rgb(250,248,236)";
+    const generationKey = getExportKey();
+    const promise = new Promise((resolve, reject) => {
+      const CW = 1080, CH = 1920;
+      const cardW = 340;
+      const S = CW / cardW;
+      const CREAM = "rgb(250,248,236)";
 
-    const paint = (img) => {
-      const canvas = document.createElement("canvas");
-      canvas.width = CW; canvas.height = CH;
-      const ctx = canvas.getContext("2d");
+      const paint = (img) => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = CW; canvas.height = CH;
+          const ctx = canvas.getContext("2d");
 
-      // Fill canvas background with cream color before clipping
-      ctx.fillStyle = CREAM;
-      ctx.fillRect(0, 0, CW, CH);
+          ctx.fillStyle = CREAM;
+          ctx.fillRect(0, 0, CW, CH);
 
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(0, 0, CW, CH, 14 * S);
-      else ctx.rect(0, 0, CW, CH);
-      ctx.clip();
+          if (img && img.width) {
+            const s = Math.max(CW / img.width, CH / img.height);
+            const dw = img.width * s, dh = img.height * s;
+            ctx.drawImage(img, (CW - dw) / 2, (CH - dh) / 2, dw, dh);
+          } else { ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, CW, CH); }
 
-      if (img && img.width) {
-        const s = Math.max(CW / img.width, CH / img.height);
-        const dw = img.width * s, dh = img.height * s;
-        ctx.drawImage(img, (CW - dw) / 2, (CH - dh) / 2, dw, dh);
-      } else { ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, CW, CH); }
+          const cx = CW * 0.5, cy = CH * 0.42;
+          const R = Math.hypot(Math.max(cx, CW - cx), Math.max(cy, CH - cy)) * 1.02;
+          const vg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+          vg.addColorStop(0, "rgba(23,19,13,0.34)");
+          vg.addColorStop(0.78, "rgba(5,5,5,0.76)");
+          vg.addColorStop(1, "rgba(5,5,5,0.76)");
+          ctx.fillStyle = vg; ctx.fillRect(0, 0, CW, CH);
 
-      const cx = CW * 0.5, cy = CH * 0.42;
-      const R = Math.hypot(Math.max(cx, CW - cx), Math.max(cy, CH - cy)) * 1.02;
-      const vg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
-      vg.addColorStop(0, "rgba(23,19,13,0.34)");
-      vg.addColorStop(0.78, "rgba(5,5,5,0.76)");
-      vg.addColorStop(1, "rgba(5,5,5,0.76)");
-      ctx.fillStyle = vg; ctx.fillRect(0, 0, CW, CH);
+          const contentW = 842;
+          ctx.font = `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`;
+          const msgLines = [];
+          (data.message || "").split("\n").forEach((para) => {
+            let line = "";
+            para.split(" ").forEach((w) => {
+              const test = line ? line + " " + w : w;
+              if (ctx.measureText(test).width > contentW && line) { msgLines.push(line); line = w; }
+              else line = test;
+            });
+            msgLines.push(line);
+          });
 
-      const contentW = (W * 0.78) * S;
-      ctx.font = `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`;
-      const msgLines = [];
-      (data.message || "").split("\n").forEach((para) => {
-        let line = "";
-        para.split(" ").forEach((w) => {
-          const test = line ? line + " " + w : w;
-          if (ctx.measureText(test).width > contentW && line) { msgLines.push(line); line = w; }
-          else line = test;
-        });
-        msgLines.push(line);
-      });
+          const rows = [];
+          const recipientName = data.recipient?.name || data.toName || '';
+          if (recipientName) {
+            rows.push({ type: "text", t: recipientName, f: `500 ${12.5 * S}px "JetBrains Mono", monospace`, color: "#E6C67F", ls: 0.1 * 12.5 * S, lh: 12.5 * S * 1.3, gap: 18 * S });
+          }
+          msgLines.forEach((ln, i) => rows.push({ type: "text", t: ln, f: `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`, color: "#F3ECDD", lh: 20 * S * 1.32, shadow: true, gap: i === msgLines.length - 1 ? 18 * S : 0 }));
+          rows.push({ type: "rule", h: 2 * S, w: 44 * S, gap: data.senderName ? 14 * S : 0 });
+          if (data.senderName) {
+            rows.push({ type: "text", t: data.senderName, f: `500 ${12 * S}px "JetBrains Mono", monospace`, color: "rgba(238,232,220,0.82)", ls: 0.08 * 12 * S, lh: 12 * S * 1.3, gap: 0 });
+          }
 
-      const rows = [];
-      if (data.toName) rows.push({ type: "text", t: data.toName, f: `500 ${12.5 * S}px "JetBrains Mono", monospace`, color: "#E6C67F", ls: 0.1 * 12.5 * S, lh: 12.5 * S * 1.3, gap: 18 * S });
-      msgLines.forEach((ln, i) => rows.push({ type: "text", t: ln, f: `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`, color: "#F3ECDD", lh: 20 * S * 1.32, shadow: true, gap: i === msgLines.length - 1 ? 18 * S : 0 }));
-      rows.push({ type: "rule", h: 2 * S, w: 44 * S, gap: data.fromName ? 14 * S : 0 });
-      if (data.fromName) rows.push({ type: "text", t: data.fromName, f: `500 ${12 * S}px "JetBrains Mono", monospace`, color: "rgba(238,232,220,0.82)", ls: 0.08 * 12 * S, lh: 12 * S * 1.3, gap: 0 });
+          const total = rows.reduce((s, r) => s + (r.h || r.lh) + r.gap, 0);
+          let y = (CH - total) / 2;
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          rows.forEach((r) => {
+            const rowH = r.h || r.lh;
+            if (r.type === "rule") {
+              const gr = ctx.createLinearGradient(CW / 2 - r.w / 2, 0, CW / 2 + r.w / 2, 0);
+              gr.addColorStop(0, "rgba(208,160,54,0)"); gr.addColorStop(0.5, "#D0A036"); gr.addColorStop(1, "rgba(208,160,54,0)");
+              ctx.fillStyle = gr; ctx.fillRect(CW / 2 - r.w / 2, y + rowH / 2 - r.h / 2, r.w, r.h);
+            } else {
+              ctx.save();
+              ctx.font = r.f; ctx.fillStyle = r.color;
+              if ("letterSpacing" in ctx) ctx.letterSpacing = (r.ls || 0) + "px";
+              if (r.shadow) { ctx.shadowColor = "rgba(5,5,5,0.92)"; ctx.shadowBlur = 9 * S; ctx.shadowOffsetY = 2 * S; }
+              else { ctx.shadowColor = "rgba(5,5,5,0.8)"; ctx.shadowBlur = 5 * S; ctx.shadowOffsetY = 1 * S; }
+              ctx.fillText(r.t, CW / 2, y + rowH / 2);
+              ctx.restore();
+            }
+            y += rowH + r.gap;
+          });
 
-      const total = rows.reduce((s, r) => s + (r.h || r.lh) + r.gap, 0);
-      let y = (CH - total) / 2;
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      rows.forEach((r) => {
-        const rowH = r.h || r.lh;
-        if (r.type === "rule") {
-          const gr = ctx.createLinearGradient(CW / 2 - r.w / 2, 0, CW / 2 + r.w / 2, 0);
-          gr.addColorStop(0, "rgba(208,160,54,0)"); gr.addColorStop(0.5, "#D0A036"); gr.addColorStop(1, "rgba(208,160,54,0)");
-          ctx.fillStyle = gr; ctx.fillRect(CW / 2 - r.w / 2, y + rowH / 2 - r.h / 2, r.w, r.h);
-        } else {
-          ctx.save();
-          ctx.font = r.f; ctx.fillStyle = r.color;
-          if ("letterSpacing" in ctx) ctx.letterSpacing = (r.ls || 0) + "px";
-          if (r.shadow) { ctx.shadowColor = "rgba(5,5,5,0.92)"; ctx.shadowBlur = 9 * S; ctx.shadowOffsetY = 2 * S; }
-          else { ctx.shadowColor = "rgba(5,5,5,0.8)"; ctx.shadowBlur = 5 * S; ctx.shadowOffsetY = 1 * S; }
-          ctx.fillText(r.t, CW / 2, y + rowH / 2);
-          ctx.restore();
+          canvas.toBlob((blob) => {
+            if (cacheKeyRef.current !== generationKey) {
+              resolve(null);
+              return;
+            }
+            if (blob) {
+              cachedBlobRef.current = blob;
+              resolve(blob);
+            } else {
+              reject(new Error("Canvas conversion to blob returned null"));
+            }
+          }, "image/jpeg", 0.82);
+        } catch (e) {
+          reject(e);
         }
-        y += rowH + r.gap;
-      });
+      };
 
-      canvas.toBlob((blob) => { onBlob(blob || null); }, "image/jpeg", 0.85);
-    };
-
-    const run = () => {
-      if (data.cropImageUrl) {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => paint(img);
-        img.onerror = () => paint(null);
-        img.src = data.cropImageUrl;
-      } else paint(null);
-    };
-    if (document.fonts && document.fonts.ready) {
-      Promise.all([
-        'italic 400 20px "Playfair Display"',
-        '500 11px "JetBrains Mono"',
-        '500 10px "JetBrains Mono"',
-      ].map((w) => document.fonts.load(w).catch(() => {})))
-        .then(() => document.fonts.ready).then(run, run);
-    } else run();
+      const run = () => {
+        if (data && data.cropImageUrl) {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => paint(img);
+          img.onerror = () => paint(null);
+          img.src = data.cropImageUrl;
+          if (img.complete) {
+            paint(img);
+          }
+        } else paint(null);
+      };
+      if (document.fonts && document.fonts.ready) {
+        Promise.all([
+          'italic 400 20px "Playfair Display"',
+          '500 11px "JetBrains Mono"',
+          '500 10px "JetBrains Mono"',
+        ].map((w) => document.fonts.load(w).catch(() => {})))
+          .then(() => document.fonts.ready).then(run, run);
+      } else run();
+    });
+    generationPromiseRef.current = promise;
+    return promise;
   };
-
-  const sharedFileRef = useRef(null);
-  useEffect(() => {
-    if (!showReveal) { sharedFileRef.current = null; return; }
-    buildRevealPng((blob) => { if (blob) sharedFileRef.current = new File([blob], "jigzo-reveal.jpg", { type: "image/jpeg" }); });
-  }, [showReveal]);
 
   const saveAsFile = (file) => {
     const a = document.createElement("a");
@@ -434,20 +657,37 @@ function Receiver({ data, publicId, rIndex, startTimeRef }) {
     setTimeout(() => URL.revokeObjectURL(a.href), 1500);
   };
 
-  const onSaveOrShare = () => {
-    const file = sharedFileRef.current;
-    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], title: "Your JIGZO reveal" }).catch((err) => {
-        if (err && err.name === "AbortError") return;
+  const onSaveOrShare = async () => {
+    if (exportLoading) return;
+    setExportLoading(true);
+    try {
+      let blob = cachedBlobRef.current;
+      if (!blob) {
+        blob = await buildRevealPng();
+      }
+      if (!blob) {
+        throw new Error("Blob is null or undefined");
+      }
+      const file = new File([blob], "jigzo-reveal.jpg", { type: "image/jpeg" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Your JIGZO reveal" });
+      } else {
         saveAsFile(file);
-      });
-      return;
+      }
+    } catch (err) {
+      if (err && err.name === "AbortError") return;
+      console.error('[ReceivePage] Export failed:', err);
+      alert('Failed to generate image for saving. Please try again.');
+      generationPromiseRef.current = null;
+      cachedBlobRef.current = null;
+    } finally {
+      setExportLoading(false);
     }
-    if (file) saveAsFile(file);
-    else buildRevealPng((blob) => { if (blob) saveAsFile(new File([blob], "jigzo-reveal.jpg", { type: "image/jpeg" })); });
   };
 
   const placedCount = placed.filter(Boolean).length;
+
+  const recipientName = data.recipient?.name || data.toName || '';
 
   return (
     <div className="receive-page" style={{ fontFamily: "Archia,sans-serif", color: "#1C1913",
@@ -458,7 +698,7 @@ function Receiver({ data, publicId, rIndex, startTimeRef }) {
       <div style={showReveal ? { width: "100%", display: "flex", flexDirection: "column", alignItems: "center" } : { width: "100%", maxWidth: 440 }}>
         {/* above the puzzle — heading + live piece counter */}
         {!showReveal && (
-          <div style={{ textAlign: "center", marginBottom: 12 }}>
+          <div ref={headerRef} style={{ textAlign: "center", marginBottom: 12 }}>
             <h1 style={{ fontSize: 19, fontWeight: 600, margin: "0 0 4px", letterSpacing: "-0.015em", color: "#050505" }}>
               Solve to reveal your message
             </h1>
@@ -522,7 +762,7 @@ function Receiver({ data, publicId, rIndex, startTimeRef }) {
               <div ref={cardRef} id="revealCard" className="reveal-card-wrapper"
                 style={{
                   position: "relative",
-                  width: "min(100%, 440px)",
+                  height: "100%",
                   aspectRatio: "9 / 16",
                   marginInline: "auto",
                   display: "flex",
@@ -534,25 +774,21 @@ function Receiver({ data, publicId, rIndex, startTimeRef }) {
                   animation: "jzFade 0.6s ease"
                 }}>
                 <div className="reveal-card" style={{ width: "100%", height: "100%", position: "relative", display: "block", marginInline: "auto", left: "auto", right: "auto", transform: "none" }}>
-                  <img src={data.cropImageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  <div style={{ position: "absolute", inset: 0, background: "radial-gradient(120% 100% at 50% 42%, rgba(23,19,13,0.34), rgba(5,5,5,0.76) 78%)" }} />
-                  <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center",
-                    justifyContent: "center", textAlign: "center", padding: "9% 11%" }}>
-                    {data.toName || data.recipients?.[rIndex]?.name ? (
-                      <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontWeight: 500, fontSize: 12.5,
-                        letterSpacing: "0.1em", color: "#E6C67F", marginBottom: 18, textShadow: "0 1px 4px rgba(5,5,5,0.8)" }}>{data.toName || data.recipients?.[rIndex]?.name}</div>
-                    ) : null}
-                    <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontStyle: "italic", fontWeight: 400, fontSize: 20,
-                      lineHeight: 1.32, color: "#F3ECDD", whiteSpace: "pre-line", maxWidth: "22ch",
-                      textShadow: "0 1px 3px rgba(5,5,5,0.92), 0 2px 22px rgba(5,5,5,0.6)" }}>
-                      {data.message || ""}
+                  {revealObjectUrl ? (
+                    <img src={revealObjectUrl} alt="Completed JIGZO" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  ) : (
+                    <div style={{ width: "100%", height: "100%", background: "#FAF8EC", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                      <div style={{ color: "#7a1c1c", fontWeight: 600, fontSize: 16, marginBottom: 8, fontFamily: "Archia, sans-serif" }}>Couldn't load reveal image</div>
+                      <button type="button" onClick={() => {
+                        cachedBlobRef.current = null;
+                        generationPromiseRef.current = null;
+                        cacheKeyRef.current = "";
+                        setRetryTrigger(prev => prev + 1);
+                      }} style={{ background: "#050505", color: "#FAF8EC", border: "none", borderRadius: 999, padding: "10px 20px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: "Archia, sans-serif" }}>
+                        Retry
+                      </button>
                     </div>
-                    <div style={{ width: 44, height: 2, marginTop: 18, background: "linear-gradient(90deg, rgba(208,160,54,0), #D0A036, rgba(208,160,54,0))" }} />
-                    {data.fromName ? (
-                      <div style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontWeight: 500, fontSize: 12,
-                        letterSpacing: "0.08em", color: "rgba(238,232,220,0.82)", marginTop: 14, textShadow: "0 1px 4px rgba(5,5,5,0.8)" }}>{data.fromName}</div>
-                    ) : null}
-                  </div>
+                  )}
                 </div>
 
                 {/* Puzzle Reveal Transition beat — plays over the card exactly, then dissolves */}
@@ -564,12 +800,12 @@ function Receiver({ data, publicId, rIndex, startTimeRef }) {
 
         {/* solved controls */}
         {showReveal && !loaderRunning && (
-          <div style={{ textAlign: "center", marginTop: 18, animation: "jzFade 0.5s ease" }}>
+          <div ref={actionsRef} style={{ textAlign: "center", marginTop: 18, animation: "jzFade 0.5s ease" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
               {/* Primary: Save or Share */}
-              <button type="button" onClick={onSaveOrShare} style={{ background: "#050505", color: "#FAF8EC", border: "none", borderRadius: 999,
-                padding: "13px 26px", fontSize: 14.5, fontWeight: 700, fontFamily: "Archia,sans-serif", cursor: "pointer", width: "100%", maxWidth: 280 }}>
-                Save or Share
+              <button type="button" onClick={onSaveOrShare} disabled={exportLoading} style={{ background: "#050505", color: "#FAF8EC", border: "none", borderRadius: 999,
+                padding: "13px 26px", fontSize: 14.5, fontWeight: 700, fontFamily: "Archia,sans-serif", cursor: "pointer", width: "100%", maxWidth: 280, opacity: exportLoading ? 0.75 : 1 }}>
+                {exportLoading ? "Generating..." : "Save or Share"}
               </button>
               
               {/* Secondary: Create Your Puzzle */}

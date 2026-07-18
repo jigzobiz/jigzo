@@ -28,6 +28,10 @@ function ensureProtocol(value) {
  * @returns {string} origin with no trailing slash
  */
 function getFrontendOrigin() {
+  if (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_GIT_COMMIT_REF === 'staging') {
+    return 'https://staging.jigzo.biz';
+  }
+
   const explicit = process.env.FRONTEND_URL;
   if (explicit && explicit.trim()) {
     return stripTrailingSlash(ensureProtocol(explicit));

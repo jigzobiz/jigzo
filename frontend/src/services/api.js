@@ -73,11 +73,12 @@ export const api = {
     return response.data;
   },
 
-  getPuzzle: async (publicId) => {
+  getPuzzle: async (publicId, recipientIndex) => {
     if (isLocalTest && publicId.startsWith('test_')) {
       return mockLocalStorage.getPuzzle(publicId);
     }
-    const response = await API.get(`/api/puzzles/${publicId}`);
+    const rQuery = recipientIndex !== undefined && recipientIndex !== null ? `?r=${recipientIndex}` : '';
+    const response = await API.get(`/api/puzzles/${publicId}${rQuery}`);
     return response.data;
   },
 
@@ -139,6 +140,16 @@ export const api = {
       anonymousId,
       sessionId
     });
+    return response.data;
+  },
+
+  getTestStatus: async () => {
+    const response = await API.get('/api/test/status');
+    return response.data;
+  },
+
+  createTestReveal: async (data) => {
+    const response = await API.post('/api/test/reveals', data);
     return response.data;
   }
 };

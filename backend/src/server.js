@@ -15,6 +15,8 @@ const interestRouter = require('./routes/interest');
 const analyticsRouter = require('./routes/analytics');
 const adminRouter = require('./routes/admin');
 const { router: pricingRouter } = require('./routes/pricing');
+const testRouter = require('./routes/test');
+const whatsappWebhookRouter = require('./routes/webhooks/whatsapp');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,6 +35,20 @@ app.use(cors({
 }));
 
 // Rate Limiter
+app.use(
+  '/api/webhooks/whatsapp',
+  express.raw({ type: 'application/json', limit: '256kb' }),
+  async (req, res, next) => {
+    try {
+      await connectDB();
+      next();
+    } catch (error) {
+      res.status(500).json({ error: 'Database connection failed' });
+    }
+  },
+  whatsappWebhookRouter
+);
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   limit: 100, // Limit each IP to 100 requests per window
@@ -40,6 +56,7 @@ const limiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' }
 });
+
 app.use('/api/', limiter);
 
 // Increase body parser limit to support base64 image strings (15MB cap)
@@ -67,6 +84,7 @@ app.use('/api/interest', interestRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/pricing', pricingRouter);
+app.use('/api/test', testRouter);
 
 // Base Check
 app.get('/health', (req, res) => {

@@ -18,6 +18,16 @@ const RecipientSchema = new mongoose.Schema({
   providerMessageId: { type: String, default: '' },
   lastError: { type: String, default: '' },
 
+  // WhatsApp UI/Admin convenience status snapshot fields
+  whatsappSendStatus: { type: String, default: 'pending' },
+  whatsappSentAt: { type: Date, default: null },
+  whatsappDeliveredAt: { type: Date, default: null },
+  whatsappReadAt: { type: Date, default: null },
+  whatsappFailedAt: { type: Date, default: null },
+  whatsappLastStatusAt: { type: Date, default: null },
+  whatsappLastErrorCode: { type: String, default: '' },
+  whatsappLastErrorMessage: { type: String, default: '' },
+
   openedAt: { type: Date, default: null },
   completedAt: { type: Date, default: null },
   completionSeconds: { type: Number, default: null },
@@ -45,6 +55,9 @@ const PuzzleSchema = new mongoose.Schema({
     default: 'draft'
   },
   cropImageUrl: { type: String, required: true },
+  imageStorageId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  imageMimeType: { type: String, default: '' },
+  testMode: { type: Boolean, default: false },
   message: { type: String, default: '' },
   senderName: { type: String, default: '' },
   senderPhone: { type: String, default: '' },

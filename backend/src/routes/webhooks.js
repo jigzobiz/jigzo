@@ -84,45 +84,38 @@ router.post('/payment', async (req, res, next) => {
             rec.deliveryStatus = 'failed';
             rec.lastError = result.error || 'Email delivery failed.';
           }
-        } else if (whatsappEnabled) {
-          // Only attempt automated WhatsApp dispatch when the flag is on.
-          try {
-            const wa = await whatsappService.sendPuzzle(
-              rec.phoneE164 || `${rec.countryCode || ''}${rec.phone}`,
-              `${puzzle.publicId}?r=${i}`,
-              puzzle.senderName
-            );
-
-            if (wa && wa.status !== 'disabled') {
-              rec.deliveryStatus = 'delivered';
-              rec.sentAt = new Date();
-              rec.lastError = '';
-            } else {
-              rec.deliveryStatus = 'pending';
-              rec.lastError = 'Automated WhatsApp delivery is not enabled.';
-            }
-          } catch (waError) {
-            rec.deliveryStatus = 'failed';
-            rec.lastError = String(waError.message || 'WhatsApp delivery failed.').slice(0, 500);
-          }
         } else {
-          // WHATSAPP_ENABLED is false: never mark delivered. Keep it pending and
-          // record an internal note so an admin can provide the link manually.
-          rec.deliveryStatus = 'pending';
-          rec.lastError = 'Automated WhatsApp delivery is not enabled.';
+          if (process.env.WHATSAPP_ENABLED === 'true') {
+            try {
+              await whatsappService.claimAndSendPuzzleDelivery({
+                puzzleId: puzzle.publicId,
+                recipientIndex: i
+              });
+            } catch (waError) {
+              console.error('[PaymentWebhook] WhatsApp delivery error:', waError.message);
+            }
+          }
         }
       }
 
-      // Derive puzzle status from recipient delivery outcomes.
-      const total = puzzle.recipients.length;
-      const deliveredCount = puzzle.recipients.filter(r => r.deliveryStatus === 'delivered').length;
+      // Reload puzzle to integrate all database updates made by the delivery service
+      const reloadedPuzzle = await Puzzle.findById(puzzle._id);
+      const total = reloadedPuzzle.recipients.length;
+      const deliveredCount = reloadedPuzzle.recipients.filter(rec => {
+        const method = rec.deliveryMethod === 'email' ? 'email' : 'whatsapp';
+        if (method === 'email') {
+          return rec.deliveryStatus === 'sent' || rec.deliveryStatus === 'delivered';
+        } else {
+          return rec.whatsappSendStatus === 'delivered' || rec.whatsappSendStatus === 'read';
+        }
+      }).length;
       if (total > 0 && deliveredCount === total) {
-        puzzle.status = 'delivered';
+        reloadedPuzzle.status = 'delivered';
       } else if (deliveredCount > 0) {
-        puzzle.status = 'partially_delivered';
+        reloadedPuzzle.status = 'partially_delivered';
       }
 
-      await puzzle.save();
+      await reloadedPuzzle.save();
     }
 
     res.json({ success: true, message: 'Webhook processed, puzzle delivery triggered.' });
