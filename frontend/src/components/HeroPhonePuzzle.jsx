@@ -423,9 +423,8 @@ export default function HeroPhonePuzzle() {
               <div style={{ position: 'absolute', inset: 0 }}>
                 {/* Single Image Puzzle Base */}
                 <div style={{ position: 'absolute', inset: 0, opacity: baseOpacity, background: '#141416' }}>
-                  <div style={{ position: 'absolute', inset: 0, clipPath: `path('${CAVITY_D}')`, background: '#0e0e10' }}>
-                    <img src={PHOTO} style={{ ...imgStyle, opacity: 0.3 }} />
-                  </div>
+
+                  <div style={{ position: 'absolute', inset: 0, clipPath: `path('${CAVITY_D}')`, background: '#0e0e10' }} />
                   <div style={{ position: 'absolute', inset: 0, mask: 'url(#puzzle-screen-mask)', WebkitMask: 'url(#puzzle-screen-mask)' }}>
                     <img src={PHOTO} style={imgStyle} />
                   </div>
