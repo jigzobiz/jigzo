@@ -67,7 +67,7 @@ export default function ReceivePage() {
         
         // Log open event asynchronously
         api.recordOpen(publicId, finalRIndex).catch(console.error);
-        analytics.track('puzzle_opened', { puzzleId: publicId, recipientIndex: finalRIndex });
+        analytics.trackOnce('puzzle_opened', { pieceCount: puzzle.pieceCount }, publicId);
 
         if (puzzle.cropImageUrl) {
           const img = new Image();
@@ -254,8 +254,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
             console.error('[ReceivePage] Completion recording failed:', err);
             alert('Failed to register solve. Message may not unlock correctly.');
           });
-        analytics.track('puzzle_completed', { puzzleId: publicId, recipientIndex: rIndex, durationSeconds: elapsed });
-        analytics.track('reveal_viewed');
+        analytics.track('puzzle_completed', { pieceCount: data?.pieceCount, durationSeconds: elapsed });
       }
 
       const t = setTimeout(() => setLoaderRunning(false), 3000);
@@ -264,6 +263,12 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
       setLoaderRunning(false);
     }
   }, [showReveal, publicId, rIndex, startTimeRef]);
+
+  useEffect(() => {
+    if (showReveal && !loaderRunning && revealObjectUrl) {
+      analytics.trackOnce('reveal_viewed', {}, publicId);
+    }
+  }, [showReveal, loaderRunning, revealObjectUrl, publicId]);
 
   const cachedBlobRef = useRef(null);
   const generationPromiseRef = useRef(null);
@@ -406,7 +411,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     if (placed[i] || showReveal) return;
     if (!puzzleStartedTrackedRef.current) {
       puzzleStartedTrackedRef.current = true;
-      analytics.track('puzzle_started');
+      analytics.trackOnce('puzzle_started', { pieceCount: data?.pieceCount }, publicId);
     }
     e.preventDefault();
     const myGid = gid[i];
@@ -684,9 +689,10 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
       const file = new File([blob], "jigzo-reveal.jpg", { type: "image/jpeg" });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: "Your JIGZO reveal" });
-        analytics.track('share_completed');
+        analytics.track('share_completed', { method: "native_share" });
       } else {
         saveAsFile(file);
+        analytics.track('share_completed', { method: "download" });
       }
     } catch (err) {
       if (err && err.name === "AbortError") return;

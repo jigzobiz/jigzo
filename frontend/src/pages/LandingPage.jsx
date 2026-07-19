@@ -53,21 +53,17 @@ export default function LandingPage() {
   const shortPrice = `From ${price}`;
   const startingPrice = `Starting from ${price}`;
 
-  const mountTrackedRef = useRef(false);
   const pricingRef = useRef(null);
 
   useEffect(() => {
-    if (!mountTrackedRef.current) {
-      mountTrackedRef.current = true;
-      analytics.track('landing_viewed');
-    }
+    analytics.trackOnce('landing_viewed');
   }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
-          analytics.track('pricing_viewed');
+          analytics.trackOnce('pricing_viewed');
           observer.disconnect();
         }
       });

@@ -252,20 +252,21 @@ export default function CreatePage() {
     setRevealSimLoading(false);
   }, [currentStep]);
 
-  const mountTrackedRef = useRef(false);
   // Track create_started once on mount
   useEffect(() => {
-    if (!mountTrackedRef.current) {
-      mountTrackedRef.current = true;
-      analytics.track('create_started');
-      analytics.track('create_page_viewed');
-    }
+    analytics.trackOnce('create_started');
+    analytics.trackOnce('create_page_viewed');
   }, []);
 
   // Track review opened and checkout blocked when entering Step 4
   useEffect(() => {
     if (currentStep === 4) {
       analytics.track('review_opened', {
+        difficulty: pieceCount,
+        hasRevealAlert: selectedUpgrades.includes('insights'),
+        recipientsCount: recipients.length
+      });
+      analytics.trackOnce('checkout_viewed', {
         difficulty: pieceCount,
         hasRevealAlert: selectedUpgrades.includes('insights'),
         recipientsCount: recipients.length
@@ -596,10 +597,13 @@ export default function CreatePage() {
         };
       });
 
-      // 1. Create Draft Puzzle
+       // 1. Create Draft Puzzle
       analytics.track('checkout_started', {
         amount: grandTotal,
         recipientsCount: recipients.length
+      }, {
+        name: senderName,
+        phone: senderDial + senderPhone
       });
 
       const puzzleRes = await api.createPuzzle({
@@ -627,10 +631,13 @@ export default function CreatePage() {
       // 3. Environment Fallback checking
       const isLocalTest = import.meta.env.VITE_ENABLE_LOCAL_TEST === 'true';
       if (isLocalTest && checkoutUrl.includes('mock-payment.com')) {
-        analytics.track('payment_started', { orderId, isLocalTest: true });
+        analytics.track('payment_started', { isLocalTest: true });
         // Automatically verify payment via simulated webhook
         await api.triggerMockPayment(orderId, publicId);
-        analytics.track('payment_succeeded', { orderId, puzzleId: publicId });
+        analytics.track('payment_succeeded', { isLocalTest: true }, {
+          name: senderName,
+          phone: senderDial + senderPhone
+        });
 
         // Standard delay for orbiting animation feel
         setTimeout(() => {
@@ -639,7 +646,7 @@ export default function CreatePage() {
           setTestLink(`/p/${publicId}?r=0`);
         }, 2600);
       } else {
-        analytics.track('payment_started', { orderId, isLocalTest: false });
+        analytics.track('payment_started', { isLocalTest: false });
         // Redirect to production payment gateway checkout session
         window.location.href = checkoutUrl;
       }
@@ -751,7 +758,7 @@ export default function CreatePage() {
         analytics.getSessionId()
       );
       setInterestRegistered(true);
-      analytics.track('waitlist_joined', { interestType: 'jigzo_launch' });
+      analytics.track('waitlist_joined', { interestType: 'jigzo_launch' }, { email: interestEmail });
     } catch (err) {
       console.error(err);
       alert('Failed to register interest: ' + (err.response?.data?.error || err.message));
@@ -778,17 +785,19 @@ export default function CreatePage() {
   const handleStep2Continue = () => {
     if (primaryRecipientName.trim() && message.trim()) {
       analytics.track('occasion_selected', { occasion, tone });
+      analytics.trackOnce('message_written');
       setCurrentStep(3);
     } else {
-      analytics.track('create_validation_failed', { reason: 'step2_incomplete' });
+      analytics.track('create_validation_failed', { step: 2, reasonCode: 'step2_incomplete' });
     }
   };
 
   const handleStep3Continue = () => {
     if (step3Ready) {
+      analytics.trackOnce('sender_details_added');
       setCurrentStep(4);
     } else {
-      analytics.track('create_validation_failed', { reason: 'step3_incomplete' });
+      analytics.track('create_validation_failed', { step: 3, reasonCode: 'step3_incomplete' });
     }
   };
 
@@ -1083,7 +1092,7 @@ export default function CreatePage() {
                       {PIECE_OPTIONS.map((opt) => {
                         const isSel = opt.count === pieceCount;
                         return (
-                          <button type="button" key={opt.count} onClick={() => { setPieceCount(opt.count); setDifficultyOpen(false); analytics.track('difficulty_selected', { difficulty: opt.count }); }} className={`difficulty-option ${isSel ? "active" : ""}`}
+                          <button type="button" key={opt.count} onClick={() => { setPieceCount(opt.count); setDifficultyOpen(false); analytics.track('difficulty_selected', { pieceCount: opt.count }); }} className={`difficulty-option ${isSel ? "active" : ""}`}
                             style={{ display: "block", width: "100%", padding: "14px 16px" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 6 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1143,7 +1152,7 @@ export default function CreatePage() {
               <label style={{ display: "block", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50, marginBottom: 8 }}>Choose a tone</label>
               <div className={`tones-chips-wrapper ${tone ? "chips-container-has-selection" : ""}`} style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {TONES.map((t) => (
-                  <button type="button" key={t.id} onClick={() => { setTone(t.id); pickCombo(occasion, t.id); }}
+                  <button type="button" key={t.id} onClick={() => { setTone(t.id); pickCombo(occasion, t.id); analytics.track('tone_selected', { tone: t.id }); }}
                     className={`tone-chip ${t.id === tone ? "active" : ""}`}>{t.label}</button>
                 ))}
               </div>
@@ -1157,7 +1166,6 @@ export default function CreatePage() {
                 )}
               </div>
               <textarea placeholder="Write your hidden message here..." value={message} onChange={(e) => setMessage(e.target.value)}
-                onBlur={() => analytics.track('message_written')}
                 style={{ ...inputStyle, resize: "none", height: 110, lineHeight: 1.5, padding: 14 }} />
             </div>
 
@@ -1365,7 +1373,6 @@ export default function CreatePage() {
             <div style={{ padding: 18, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, margin: "16px 0" }}>
               <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 12 }}>Sender details</div>
               <input type="text" placeholder="Your name (as you want it shown)" value={senderName} onChange={(e) => setSenderName(e.target.value)}
-                onBlur={() => analytics.track('sender_details_added')}
                 style={{ ...inputStyle, marginBottom: 14 }}
                 autoComplete="name" />
               <div style={{ display: "flex", gap: 10 }}>
@@ -1381,7 +1388,6 @@ export default function CreatePage() {
                   placeholder="+973"
                 />
                 <input type="tel" placeholder="Your phone number" value={senderPhone} onChange={(e) => setSenderPhone(e.target.value)}
-                  onBlur={() => analytics.track('sender_details_added')}
                   inputMode="tel"
                   autoComplete="tel"
                   style={{ ...inputStyle, flex: 1 }} />
