@@ -80,6 +80,9 @@ app.use(
   async (req, res, next) => {
     try {
       await connectDB();
+      if (!isTestModeAllowed(req)) {
+        return res.status(404).json({ error: 'Not found' });
+      }
       return next();
     } catch (error) {
       return res.status(500).json({ error: 'Database connection failed' });
@@ -87,6 +90,8 @@ app.use(
   },
   testRouter
 );
+
+
 
 // Database connection middleware for Vercel Serverless
 app.use('/api', async (req, res, next) => {
