@@ -534,7 +534,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     }
     const generationKey = getExportKey();
     const promise = new Promise((resolve, reject) => {
-      const CW = 2160, CH = 3840;
+      const CW = 1080, CH = 1920;
       const cardW = 340;
       const S = CW / cardW;
       const CREAM = "rgb(250,248,236)";
@@ -562,7 +562,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
           vg.addColorStop(1, "rgba(5,5,5,0.76)");
           ctx.fillStyle = vg; ctx.fillRect(0, 0, CW, CH);
 
-          const contentW = 842 * (CW / 1080);
+          const contentW = 842;
           ctx.font = `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`;
           const msgLines = [];
           (data.message || "").split("\n").forEach((para) => {
@@ -618,7 +618,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
             } else {
               reject(new Error("Canvas conversion to blob returned null"));
             }
-          }, "image/jpeg", 0.95);
+          }, "image/jpeg", 0.82);
         } catch (e) {
           reject(e);
         }
