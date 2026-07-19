@@ -394,16 +394,6 @@ export default function HeroPhonePuzzle() {
 
   return (
     <div className="hero-phone-anim" ref={hostRef} aria-hidden="true">
-      {/* SVG Mask Definition */}
-      <svg width="0" height="0" style={{ position: 'absolute' }}>
-        <defs>
-          <mask id="puzzle-screen-mask">
-            <rect x="0" y="0" width={SCREEN_W} height={SCREEN_H} fill="white" />
-            <path d={CAVITY_D} fill="black" />
-          </mask>
-        </defs>
-      </svg>
-
       <div className="hero-phone-anim__bob">
         <div
           className="hero-phone-anim__canvas"
@@ -423,12 +413,57 @@ export default function HeroPhonePuzzle() {
               <div style={{ position: 'absolute', inset: 0 }}>
                 {/* Single Image Puzzle Base */}
                 <div style={{ position: 'absolute', inset: 0, opacity: baseOpacity, background: '#141416' }}>
-                  <div style={{ position: 'absolute', inset: 0, clipPath: `path('${CAVITY_D}')`, background: '#0e0e10' }}>
-                    <img src={PHOTO} style={{ ...imgStyle, opacity: 0.3 }} />
-                  </div>
-                  <div style={{ position: 'absolute', inset: 0, mask: 'url(#puzzle-screen-mask)', WebkitMask: 'url(#puzzle-screen-mask)' }}>
-                    <img src={PHOTO} style={imgStyle} />
-                  </div>
+                  <svg
+                    width={SCREEN_W}
+                    height={SCREEN_H}
+                    viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`}
+                    preserveAspectRatio="none"
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'block'
+                    }}
+                  >
+                    <defs>
+                      <mask
+                        id="hero-puzzle-cavity-mask"
+                        maskUnits="userSpaceOnUse"
+                        maskContentUnits="userSpaceOnUse"
+                        x="0"
+                        y="0"
+                        width={SCREEN_W}
+                        height={SCREEN_H}
+                      >
+                        <rect
+                          x="0"
+                          y="0"
+                          width={SCREEN_W}
+                          height={SCREEN_H}
+                          fill="white"
+                        />
+                        <path
+                          d={CAVITY_D}
+                          fill="black"
+                        />
+                      </mask>
+                    </defs>
+                    <rect
+                      x="0"
+                      y="0"
+                      width={SCREEN_W}
+                      height={SCREEN_H}
+                      fill="#0e0e10"
+                    />
+                    <image
+                      href={PHOTO}
+                      x="0"
+                      y="0"
+                      width={SCREEN_W}
+                      height={SCREEN_H}
+                      preserveAspectRatio="xMidYMid slice"
+                      mask="url(#hero-puzzle-cavity-mask)"
+                    />
+                  </svg>
                   <svg width={SCREEN_W} height={SCREEN_H} viewBox={`0 0 ${SCREEN_W} ${SCREEN_H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
                     {STATIC_PIECES.map((p) => (
                       <path key={`s-${p.r}-${p.c}`} d={p.d} fill="none" stroke="rgba(0,0,0,0.18)" strokeWidth="0.9" />
