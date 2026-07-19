@@ -39,9 +39,11 @@ function getCleanHost(req) {
  * @param {import('express').Request} req
  * @returns {boolean}
  */
+
+
 function isTestModeAllowed(req) {
-  // 1. Authoritative Database check: must be connected to 'jigzo_test'
-  if (!mongoose.connection || mongoose.connection.name !== 'jigzo_test') {
+  // 1. Authoritative Database check: if connected, must be connected to 'jigzo_test'
+  if (mongoose.connection && mongoose.connection.readyState !== 0 && mongoose.connection.name !== 'jigzo_test') {
     return false;
   }
 

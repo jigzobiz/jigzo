@@ -17,6 +17,8 @@ const adminRouter = require('./routes/admin');
 const { router: pricingRouter } = require('./routes/pricing');
 const testRouter = require('./routes/test');
 const whatsappWebhookRouter = require('./routes/webhooks/whatsapp');
+const { isTestModeAllowed } = require('./utils/testModeGuard');
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -66,6 +68,31 @@ app.use(express.urlencoded({ limit: '15mb', extended: true }));
 // Serve saved crop images statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Mount test route with explicit environment guard BEFORE database middleware
+app.use(
+  '/api/test',
+  (req, res, next) => {
+    if (!isTestModeAllowed(req)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    return next();
+  },
+  async (req, res, next) => {
+    try {
+      await connectDB();
+      if (!isTestModeAllowed(req)) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+      return next();
+    } catch (error) {
+      return res.status(500).json({ error: 'Database connection failed' });
+    }
+  },
+  testRouter
+);
+
+
+
 // Database connection middleware for Vercel Serverless
 app.use('/api', async (req, res, next) => {
   try {
@@ -84,7 +111,8 @@ app.use('/api/interest', interestRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/pricing', pricingRouter);
-app.use('/api/test', testRouter);
+
+
 
 // Base Check
 app.get('/health', (req, res) => {
