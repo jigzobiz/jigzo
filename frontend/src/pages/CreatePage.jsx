@@ -252,9 +252,14 @@ export default function CreatePage() {
     setRevealSimLoading(false);
   }, [currentStep]);
 
+  const mountTrackedRef = useRef(false);
   // Track create_started once on mount
   useEffect(() => {
-    analytics.track('create_started');
+    if (!mountTrackedRef.current) {
+      mountTrackedRef.current = true;
+      analytics.track('create_started');
+      analytics.track('create_page_viewed');
+    }
   }, []);
 
   // Track review opened and checkout blocked when entering Step 4
@@ -746,7 +751,7 @@ export default function CreatePage() {
         analytics.getSessionId()
       );
       setInterestRegistered(true);
-      analytics.track('waitlist_joined', { email: interestEmail, interestType: 'jigzo_launch' });
+      analytics.track('waitlist_joined', { interestType: 'jigzo_launch' });
     } catch (err) {
       console.error(err);
       alert('Failed to register interest: ' + (err.response?.data?.error || err.message));
@@ -774,12 +779,16 @@ export default function CreatePage() {
     if (primaryRecipientName.trim() && message.trim()) {
       analytics.track('occasion_selected', { occasion, tone });
       setCurrentStep(3);
+    } else {
+      analytics.track('create_validation_failed', { reason: 'step2_incomplete' });
     }
   };
 
   const handleStep3Continue = () => {
     if (step3Ready) {
       setCurrentStep(4);
+    } else {
+      analytics.track('create_validation_failed', { reason: 'step3_incomplete' });
     }
   };
 
@@ -1074,7 +1083,7 @@ export default function CreatePage() {
                       {PIECE_OPTIONS.map((opt) => {
                         const isSel = opt.count === pieceCount;
                         return (
-                          <button type="button" key={opt.count} onClick={() => { setPieceCount(opt.count); setDifficultyOpen(false); }} className={`difficulty-option ${isSel ? "active" : ""}`}
+                          <button type="button" key={opt.count} onClick={() => { setPieceCount(opt.count); setDifficultyOpen(false); analytics.track('difficulty_selected', { difficulty: opt.count }); }} className={`difficulty-option ${isSel ? "active" : ""}`}
                             style={{ display: "block", width: "100%", padding: "14px 16px" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 6 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1148,6 +1157,7 @@ export default function CreatePage() {
                 )}
               </div>
               <textarea placeholder="Write your hidden message here..." value={message} onChange={(e) => setMessage(e.target.value)}
+                onBlur={() => analytics.track('message_written')}
                 style={{ ...inputStyle, resize: "none", height: 110, lineHeight: 1.5, padding: 14 }} />
             </div>
 
@@ -1342,8 +1352,7 @@ export default function CreatePage() {
                   const nextRecipients = [...recipients, { name: "", phone: "", dial: defaultDialCode, dialEdited: false, deliveryMethod: "whatsapp", email: "" }];
                   setRecipients(nextRecipients);
                   analytics.track('recipient_added', {
-                    recipientCount: nextRecipients.length,
-                    recipients: nextRecipients.map(r => ({ name: r.name, country: getCountryCodeFromDial(r.dial) }))
+                    recipientCount: nextRecipients.length
                   });
                 }}
                 className="add-recipient-btn"
@@ -1356,6 +1365,7 @@ export default function CreatePage() {
             <div style={{ padding: 18, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, margin: "16px 0" }}>
               <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 12 }}>Sender details</div>
               <input type="text" placeholder="Your name (as you want it shown)" value={senderName} onChange={(e) => setSenderName(e.target.value)}
+                onBlur={() => analytics.track('sender_details_added')}
                 style={{ ...inputStyle, marginBottom: 14 }}
                 autoComplete="name" />
               <div style={{ display: "flex", gap: 10 }}>
@@ -1371,6 +1381,7 @@ export default function CreatePage() {
                   placeholder="+973"
                 />
                 <input type="tel" placeholder="Your phone number" value={senderPhone} onChange={(e) => setSenderPhone(e.target.value)}
+                  onBlur={() => analytics.track('sender_details_added')}
                   inputMode="tel"
                   autoComplete="tel"
                   style={{ ...inputStyle, flex: 1 }} />

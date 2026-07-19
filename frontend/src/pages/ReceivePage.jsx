@@ -255,6 +255,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
             alert('Failed to register solve. Message may not unlock correctly.');
           });
         analytics.track('puzzle_completed', { puzzleId: publicId, recipientIndex: rIndex, durationSeconds: elapsed });
+        analytics.track('reveal_viewed');
       }
 
       const t = setTimeout(() => setLoaderRunning(false), 3000);
@@ -267,6 +268,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
   const cachedBlobRef = useRef(null);
   const generationPromiseRef = useRef(null);
   const cacheKeyRef = useRef("");
+  const puzzleStartedTrackedRef = useRef(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [revealObjectUrl, setRevealObjectUrl] = useState("");
   const [retryTrigger, setRetryTrigger] = useState(0);
@@ -402,6 +404,10 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
 
   const onDown = (i, e) => {
     if (placed[i] || showReveal) return;
+    if (!puzzleStartedTrackedRef.current) {
+      puzzleStartedTrackedRef.current = true;
+      analytics.track('puzzle_started');
+    }
     e.preventDefault();
     const myGid = gid[i];
     const members = [];
@@ -527,7 +533,13 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     window.addEventListener("pointerup", up);
   };
 
-  const replay = () => { setShowReveal(false); setPlaced(homes.map(() => false)); setGid(homes.map((_, i) => i)); setPositions(scatter()); };
+  const replay = () => {
+    analytics.track('replay_clicked');
+    setShowReveal(false);
+    setPlaced(homes.map(() => false));
+    setGid(homes.map((_, i) => i));
+    setPositions(scatter());
+  };
   const buildRevealPng = () => {
     if (generationPromiseRef.current) {
       return generationPromiseRef.current;
@@ -659,6 +671,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
 
   const onSaveOrShare = async () => {
     if (exportLoading) return;
+    analytics.track('save_share_clicked');
     setExportLoading(true);
     try {
       let blob = cachedBlobRef.current;
@@ -671,6 +684,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
       const file = new File([blob], "jigzo-reveal.jpg", { type: "image/jpeg" });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: "Your JIGZO reveal" });
+        analytics.track('share_completed');
       } else {
         saveAsFile(file);
       }
@@ -809,7 +823,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
               </button>
               
               {/* Secondary: Create Your Puzzle */}
-              <button type="button" onClick={() => window.location.href = "/create"} style={{ background: "transparent", color: "#050505", border: "1.5px solid #050505",
+              <button type="button" onClick={() => { analytics.track('create_your_puzzle_clicked'); window.location.href = "/create"; }} style={{ background: "transparent", color: "#050505", border: "1.5px solid #050505",
                 borderRadius: 999, padding: "13px 26px", fontSize: 14.5, fontWeight: 600, fontFamily: "Archia,sans-serif", cursor: "pointer", width: "100%", maxWidth: 280 }}>
                 Create Your Puzzle
               </button>

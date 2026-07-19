@@ -26,15 +26,59 @@ const getSessionId = () => {
 // only when a different API origin is deliberately required.
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
+const ALLOWED_EVENTS = new Set([
+  'landing_viewed', 'hero_cta_clicked', 'pricing_viewed', 'create_page_viewed',
+  'create_started', 'photo_uploaded', 'difficulty_selected', 'occasion_selected',
+  'tone_selected', 'message_written', 'recipient_added', 'sender_details_added',
+  'create_validation_failed', 'checkout_viewed', 'checkout_blocked', 'checkout_started',
+  'payment_succeeded', 'payment_failed', 'payment_cancelled', 'puzzle_created',
+  'whatsapp_accepted', 'whatsapp_sent', 'whatsapp_delivered', 'whatsapp_read', 'whatsapp_failed',
+  'puzzle_opened', 'puzzle_started', 'puzzle_completed', 'reveal_viewed',
+  'save_share_clicked', 'share_completed', 'replay_clicked', 'create_your_puzzle_clicked'
+]);
+
+const ALLOWED_METADATA_KEYS = new Set([
+  'occasion', 'tone', 'difficulty', 'hasRevealAlert', 'recipientsCount',
+  'recipientCount', 'amount', 'orderId', 'isLocalTest', 'durationSeconds',
+  'reason', 'interestType', 'currency'
+]);
+
+const sanitizeMetadata = (metadata) => {
+  const sanitized = {};
+  if (metadata && typeof metadata === 'object') {
+    for (const key of Object.keys(metadata)) {
+      if (ALLOWED_METADATA_KEYS.has(key)) {
+        sanitized[key] = metadata[key];
+      }
+    }
+  }
+  return sanitized;
+};
+
 export const analytics = {
   getAnonymousId,
   getSessionId,
   
   track: async (eventType, metadata = {}) => {
     try {
+      if (!ALLOWED_EVENTS.has(eventType)) {
+        console.warn(`[JIGZO Analytics] Rejected disallowed eventType: ${eventType}`);
+        return;
+      }
+
       const anonymousId = getAnonymousId();
       const sessionId = getSessionId();
-      const pageUrl = window.location.href;
+
+      const getNormalizedPath = () => {
+        const path = window.location.pathname;
+        if (path.startsWith('/p/')) {
+          return '/p/:publicId';
+        }
+        return path;
+      };
+
+      const pageUrl = getNormalizedPath();
+      const sanitizedMeta = sanitizeMetadata(metadata);
 
       // In local testing, if base URL points to local server, bypass remote
       const baseUrl = import.meta.env.VITE_ENABLE_LOCAL_TEST === 'true' ? 'http://localhost:5000' : API_BASE;
@@ -44,7 +88,7 @@ export const analytics = {
         sessionId,
         eventType,
         pageUrl,
-        metadata
+        metadata: sanitizedMeta
       });
     } catch (err) {
       console.warn('[JIGZO Analytics] Failed to log event:', eventType, err.message);

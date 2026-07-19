@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import RevealMock from '../components/RevealMock';
 import HeroPhonePuzzle from '../components/HeroPhonePuzzle';
@@ -28,6 +28,8 @@ const OCCASIONS = [
   { data: 'just-because', title: 'Just Because', img: 'occasion-just-because.jpg', alt: 'Single puzzle piece casting a shadow', to: '/create?occasion=justbecause' },
 ];
 
+
+
 const STEPS = [
   { num: '01', title: 'Upload your photo', body: 'It becomes their puzzle.' },
   { num: '02', title: 'Add your message', body: 'Your words stay hidden until the final piece.' },
@@ -51,8 +53,29 @@ export default function LandingPage() {
   const shortPrice = `From ${price}`;
   const startingPrice = `Starting from ${price}`;
 
+  const mountTrackedRef = useRef(false);
+  const pricingRef = useRef(null);
+
   useEffect(() => {
-    analytics.track('landing_viewed');
+    if (!mountTrackedRef.current) {
+      mountTrackedRef.current = true;
+      analytics.track('landing_viewed');
+    }
+  }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          analytics.track('pricing_viewed');
+          observer.disconnect();
+        }
+      });
+    }, { threshold: 0.1 });
+    if (pricingRef.current) {
+      observer.observe(pricingRef.current);
+    }
+    return () => observer.disconnect();
   }, []);
 
   return (
@@ -96,7 +119,7 @@ export default function LandingPage() {
               </h1>
               <p className="hero__lede">Turn any photo and message into a puzzle surprise delivered through WhatsApp.</p>
               <div className="hero__cta-wrap">
-                <Link className="btn btn-dark" id="hero-cta-btn" to="/create">Create Your Surprise &middot; {price}</Link>
+                <Link className="btn btn-dark" id="hero-cta-btn" to="/create" onClick={() => analytics.track('hero_cta_clicked')}>Create Your Surprise &middot; {price}</Link>
               </div>
             </div>
           </div>
@@ -166,7 +189,7 @@ export default function LandingPage() {
         </section>
 
         {/* ===================== TIERS ===================== */}
-        <section className="wrap sec">
+        <section className="wrap sec" ref={pricingRef}>
           <div className="sec__head">
             <span className="eyebrow">Pricing</span>
             <h2>Start with the one that's ready today.</h2>
