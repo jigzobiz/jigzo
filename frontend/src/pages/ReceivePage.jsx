@@ -67,7 +67,7 @@ export default function ReceivePage() {
         
         // Log open event asynchronously
         api.recordOpen(publicId, finalRIndex).catch(console.error);
-        analytics.trackOnce('puzzle_opened', { pieceCount: puzzle.pieceCount }, publicId);
+        analytics.track('puzzle_opened', { puzzleId: publicId, recipientIndex: finalRIndex });
 
         if (puzzle.cropImageUrl) {
           const img = new Image();
@@ -254,7 +254,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
             console.error('[ReceivePage] Completion recording failed:', err);
             alert('Failed to register solve. Message may not unlock correctly.');
           });
-        analytics.track('puzzle_completed', { pieceCount: data?.pieceCount, durationSeconds: elapsed });
+        analytics.track('puzzle_completed', { puzzleId: publicId, recipientIndex: rIndex, durationSeconds: elapsed });
       }
 
       const t = setTimeout(() => setLoaderRunning(false), 3000);
@@ -264,16 +264,9 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     }
   }, [showReveal, publicId, rIndex, startTimeRef]);
 
-  useEffect(() => {
-    if (showReveal && !loaderRunning && revealObjectUrl) {
-      analytics.trackOnce('reveal_viewed', {}, publicId);
-    }
-  }, [showReveal, loaderRunning, revealObjectUrl, publicId]);
-
   const cachedBlobRef = useRef(null);
   const generationPromiseRef = useRef(null);
   const cacheKeyRef = useRef("");
-  const puzzleStartedTrackedRef = useRef(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [revealObjectUrl, setRevealObjectUrl] = useState("");
   const [retryTrigger, setRetryTrigger] = useState(0);
@@ -409,10 +402,6 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
 
   const onDown = (i, e) => {
     if (placed[i] || showReveal) return;
-    if (!puzzleStartedTrackedRef.current) {
-      puzzleStartedTrackedRef.current = true;
-      analytics.trackOnce('puzzle_started', { pieceCount: data?.pieceCount }, publicId);
-    }
     e.preventDefault();
     const myGid = gid[i];
     const members = [];
@@ -538,13 +527,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     window.addEventListener("pointerup", up);
   };
 
-  const replay = () => {
-    analytics.track('replay_clicked');
-    setShowReveal(false);
-    setPlaced(homes.map(() => false));
-    setGid(homes.map((_, i) => i));
-    setPositions(scatter());
-  };
+  const replay = () => { setShowReveal(false); setPlaced(homes.map(() => false)); setGid(homes.map((_, i) => i)); setPositions(scatter()); };
   const buildRevealPng = () => {
     if (generationPromiseRef.current) {
       return generationPromiseRef.current;
@@ -676,7 +659,6 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
 
   const onSaveOrShare = async () => {
     if (exportLoading) return;
-    analytics.track('save_share_clicked');
     setExportLoading(true);
     try {
       let blob = cachedBlobRef.current;
@@ -689,10 +671,8 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
       const file = new File([blob], "jigzo-reveal.jpg", { type: "image/jpeg" });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: "Your JIGZO reveal" });
-        analytics.track('share_completed', { method: "native_share" });
       } else {
         saveAsFile(file);
-        analytics.track('share_completed', { method: "download" });
       }
     } catch (err) {
       if (err && err.name === "AbortError") return;
@@ -829,7 +809,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
               </button>
               
               {/* Secondary: Create Your Puzzle */}
-              <button type="button" onClick={() => { analytics.track('create_your_puzzle_clicked'); window.location.href = "/create"; }} style={{ background: "transparent", color: "#050505", border: "1.5px solid #050505",
+              <button type="button" onClick={() => window.location.href = "/create"} style={{ background: "transparent", color: "#050505", border: "1.5px solid #050505",
                 borderRadius: 999, padding: "13px 26px", fontSize: 14.5, fontWeight: 600, fontFamily: "Archia,sans-serif", cursor: "pointer", width: "100%", maxWidth: 280 }}>
                 Create Your Puzzle
               </button>

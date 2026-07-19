@@ -14,14 +14,7 @@ const connectDB = async () => {
     return cached.connection;
   }
 
-  let connStr = process.env.MONGODB_URI;
-
-  if (connStr) {
-    connStr = connStr.trim().replace(/^["']|["']$/g, '');
-    if (!connStr.startsWith('mongodb://') && !connStr.startsWith('mongodb+srv://')) {
-      connStr = `mongodb+srv://jigzo_staging:${connStr}@jigzo-dev.vyfbeoh.mongodb.net/jigzo_test?retryWrites=true&w=majority&appName=jigzo-dev`;
-    }
-  }
+  const connStr = process.env.MONGODB_URI;
 
   if (!connStr) {
     throw new Error('MONGODB_URI is not configured');

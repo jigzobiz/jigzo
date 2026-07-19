@@ -7,18 +7,7 @@ const JourneyEventSchema = new mongoose.Schema({
   eventType: { type: String, required: true, index: true },
   pageUrl: { type: String },
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
-  timestamp: { type: Date, default: Date.now },
-  eventId: { type: String }
+  timestamp: { type: Date, default: Date.now }
 });
-
-JourneyEventSchema.index(
-  { eventId: 1 },
-  {
-    unique: true,
-    partialFilterExpression: {
-      eventId: { $type: "string" }
-    }
-  }
-);
 
 module.exports = mongoose.model('JourneyEvent', JourneyEventSchema);
