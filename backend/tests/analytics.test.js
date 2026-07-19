@@ -7,7 +7,7 @@ const DraftPuzzle = require('../src/models/DraftPuzzle');
 const AnonymousSession = require('../src/models/AnonymousSession');
 const analyticsRouter = require('../src/routes/analytics');
 
-const MONGODB_URI = 'mongodb+srv://jigzo_staging:ivnczAEwEBVgSRxN@jigzo-dev.vyfbeoh.mongodb.net/jigzo_test?retryWrites=true&w=majority&appName=jigzo-dev';
+const MONGODB_URI = process.env.MONGODB_TEST_URI;
 
 // Mock frontend globals for testing the frontend analytics service logic
 global.window = {
