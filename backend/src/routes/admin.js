@@ -230,15 +230,11 @@ router.get('/dashboard', authenticateAdmin, async (req, res, next) => {
 // --- LIST QUERIES & SENSITIVE ACTION MASKING ---
 
 const maskEmail = (email) => {
-  if (!email) return '';
-  const [name, domain] = email.split('@');
-  if (!domain) return email;
-  return `${name[0]}***@${domain[0]}***.${domain.split('.').pop()}`;
+  return email || '';
 };
 
 const maskPhone = (phone) => {
-  if (!phone) return '';
-  return phone.slice(0, 4) + ' ***** ' + phone.slice(-2);
+  return phone || '';
 };
 
 // Get masked Customer lists

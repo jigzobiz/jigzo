@@ -587,23 +587,11 @@ export default function AdminPortal() {
                   </thead>
                   <tbody>
                     {customers.map(c => {
-                      const emailKey = `Customer-${c._id}-email`;
-                      const phoneKey = `Customer-${c._id}-phone`;
                       return (
                         <tr key={c._id} style={{ borderBottom: T.border }}>
                           <td style={{ padding: 14, fontWeight: 600 }}>{c.name || 'Anonymous'}</td>
-                          <td style={{ padding: 14 }}>
-                            {unmaskedValues[emailKey] || c.email}
-                            {!unmaskedValues[emailKey] && c.email && (
-                              <button onClick={() => handleUnmask('Customer', c._id, 'email')} style={{ marginLeft: 8, fontSize: 11, padding: "2px 6px", cursor: "pointer" }}>Show</button>
-                            )}
-                          </td>
-                          <td style={{ padding: 14 }}>
-                            {unmaskedValues[phoneKey] || c.phone}
-                            {!unmaskedValues[phoneKey] && c.phone && (
-                              <button onClick={() => handleUnmask('Customer', c._id, 'phone')} style={{ marginLeft: 8, fontSize: 11, padding: "2px 6px", cursor: "pointer" }}>Show</button>
-                            )}
-                          </td>
+                          <td style={{ padding: 14 }}>{c.email}</td>
+                          <td style={{ padding: 14 }}>{c.phone}</td>
                           <td style={{ padding: 14 }}>{c.converted ? '✅ Converted' : '❌ Draft'}</td>
                           <td style={{ padding: 14 }}>{new Date(c.createdAt).toLocaleDateString()}</td>
                         </tr>
@@ -687,16 +675,10 @@ export default function AdminPortal() {
                   </thead>
                   <tbody>
                     {orders.map(o => {
-                      const phoneKey = `Order-${o._id}-customerPhone`;
                       return (
                         <tr key={o._id} style={{ borderBottom: T.border }}>
                           <td style={{ padding: 14, fontFamily: "monospace" }}>{o._id.toString().slice(-8)}</td>
-                          <td style={{ padding: 14 }}>
-                            {unmaskedValues[phoneKey] || o.customerPhone}
-                            {!unmaskedValues[phoneKey] && o.customerPhone && (
-                              <button onClick={() => handleUnmask('Order', o._id, 'customerPhone')} style={{ marginLeft: 8, fontSize: 11, padding: "2px 6px", cursor: "pointer" }}>Show</button>
-                            )}
-                          </td>
+                          <td style={{ padding: 14 }}>{o.customerPhone}</td>
                           <td style={{ padding: 14 }}>{o.recipientCount}</td>
                           <td style={{ padding: 14, fontWeight: 600 }}>${o.amount}</td>
                           <td style={{ padding: 14 }}><span style={{ padding: "4px 8px", background: o.paymentStatus === 'paid' ? '#e1f5fe' : '#ffebee', color: o.paymentStatus === 'paid' ? '#0288d1' : '#c62828', borderRadius: 6, fontWeight: 700 }}>{o.paymentStatus}</span></td>
@@ -779,16 +761,10 @@ export default function AdminPortal() {
                   </thead>
                   <tbody>
                     {recipients.map(r => {
-                      const phoneKey = `Recipient-${r._id}-phone`;
                       return (
                         <tr key={r._id} style={{ borderBottom: T.border }}>
                           <td style={{ padding: 14, fontWeight: 600 }}>{r.name}</td>
-                          <td style={{ padding: 14 }}>
-                            {unmaskedValues[phoneKey] || r.phone}
-                            {!unmaskedValues[phoneKey] && r.phone && (
-                              <button onClick={() => handleUnmask('Recipient', r._id, 'phone')} style={{ marginLeft: 8, fontSize: 11, padding: "2px 6px", cursor: "pointer" }}>Show</button>
-                            )}
-                          </td>
+                          <td style={{ padding: 14 }}>{r.phone}</td>
                           <td style={{ padding: 14 }}><span style={{ padding: "4px 8px", background: r.status === 'completed' ? '#e8f5e9' : '#fff3e0', color: r.status === 'completed' ? '#2e7d32' : '#e65100', borderRadius: 6, fontWeight: 700 }}>{r.status}</span></td>
                           <td style={{ padding: 14 }}>{r.revealDurationSeconds ? `${r.revealDurationSeconds}s` : '−'}</td>
                         </tr>
@@ -813,15 +789,9 @@ export default function AdminPortal() {
                   </thead>
                   <tbody>
                     {whatsapp.map(w => {
-                      const phoneKey = `WhatsAppMessage-${w._id}-recipientPhone`;
                       return (
                         <tr key={w._id} style={{ borderBottom: T.border }}>
-                          <td style={{ padding: 14 }}>
-                            {unmaskedValues[phoneKey] || w.recipientPhone}
-                            {!unmaskedValues[phoneKey] && w.recipientPhone && (
-                              <button onClick={() => handleUnmask('WhatsAppMessage', w._id, 'recipientPhone')} style={{ marginLeft: 8, fontSize: 11, padding: "2px 6px", cursor: "pointer" }}>Show</button>
-                            )}
-                          </td>
+                          <td style={{ padding: 14 }}>{w.recipientPhone}</td>
                           <td style={{ padding: 14, fontFamily: "monospace" }}>{w.messageType}</td>
                           <td style={{ padding: 14 }}><span style={{ padding: "4px 8px", background: w.status === 'sent' || w.status === 'delivered' ? '#e8f5e9' : '#ffebee', color: w.status === 'sent' || w.status === 'delivered' ? '#2e7d32' : '#c62828', borderRadius: 6, fontWeight: 700 }}>{w.status}</span></td>
                           <td style={{ padding: 14 }}>{new Date(w.timestamp).toLocaleString()}</td>
