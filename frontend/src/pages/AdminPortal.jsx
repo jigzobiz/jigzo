@@ -401,7 +401,7 @@ export default function AdminPortal() {
       if (editingItem) {
         payload._id = editingItem._id;
       }
-      const res = await axios.post(`${getBaseUrl()}/api/admin/work-progress`, payload, getAxiosConfig());
+      const res = await axios.post(`${getBaseUrl()}/api/admin/work-items`, payload, getAxiosConfig());
       if (res.data.success) {
         setShowItemForm(false);
         setEditingItem(null);
