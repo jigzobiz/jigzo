@@ -10,7 +10,13 @@ const ar = {
     share: 'مشاركة',
     saved: 'تم الحفظ',
     ok: 'موافق',
-    loading: 'جاري التحميل...'
+    loading: 'جاري التحميل...',
+    recipientsCount_zero: 'لا مستلمين',
+    recipientsCount_one: 'مستلم واحد',
+    recipientsCount_two: 'مستلمان',
+    recipientsCount_few: '{{count}} مستلمين',
+    recipientsCount_many: '{{count}} مستلماً',
+    recipientsCount_other: '{{count}} مستلم'
   },
   landing: {
     nav: {
@@ -124,7 +130,11 @@ const ar = {
       change: 'تغيير',
       difficultyLabel: 'صعوبة الأحجية',
       selectDifficulty: 'اختر مستوى الصعوبة',
+      pieceCount_zero: '{{count}} قطعة',
       pieceCount_one: 'قطعة واحدة',
+      pieceCount_two: 'قطعتان',
+      pieceCount_few: '{{count}} قطع',
+      pieceCount_many: '{{count}} قطعة',
       pieceCount_other: '{{count}} قطعة',
       recommended: 'موصى به',
       uploadError: 'يرجى رفع ملف صورة صالح (JPG أو PNG، بحد أقصى 15 ميجابايت).',
@@ -138,14 +148,18 @@ const ar = {
     },
     recipient: {
       title: 'لمن هذه المفاجأة؟',
+      subtitle: 'خصّص المفاجأة. اختر المناسبة والنبرة واكتب رسالتك المخفية.',
       nameLabel: 'المستلم (إلى)',
       namePlaceholder: 'اسم المستلم',
+      recipientLabel: 'المستلم (إلى)',
+      recipientPlaceholder: 'اسم المستلم',
       occasionLabel: 'ما هي المناسبة؟',
       toneLabel: 'اختر النبرة',
       messageLabel: 'الرسالة المخفية',
       messagePlaceholder: 'اكتب رسالتك هنا... لن يتمكنوا من رؤيتها إلا بعد حل الأحجية بالكامل.',
       characterCounter: '{{current}} / {{max}} حرف',
       suggestedMessage: 'إدراج رسالة مقترحة',
+      suggestedInsert: 'إدراج رسالة مقترحة',
       useCustom: 'كتابة رسالة مخصصة',
       errors: {
         nameRequired: 'اسم المستلم مطلوب.',
@@ -154,26 +168,45 @@ const ar = {
     },
     delivery: {
       title: 'إعدادات التسليم',
+      subtitle: 'اختر باقتك وأخبرنا بمن سيستلم المفاجأة.',
       currentPlan: 'الباقة الحالية',
+      currentPackage: 'الباقة الحالية',
+      autoPlanSelection: 'تُختار باقتك تلقائياً بناءً على عدد المستلمين.',
       availablePlans: 'الباقات المتاحة',
       limitWording_one: 'لمستلم واحد فقط',
       limitWording_other: 'حتى {{count}} مستلمين',
+      recipientLimit_one: 'لمستلم واحد فقط',
+      recipientLimit_other: 'حتى {{count}} مستلمين',
       recipientHeader: 'المستلم (إلى) #{{index}}',
+      recipientTitle: 'المستلم رقم {{index}}',
+      recipientPlaceholder: 'اسم المستلم',
       removeRecipient: 'إزالة',
+      remove: 'إزالة',
       addRecipient: 'إضافة مستلم آخر',
       deliverVia: 'التسليم عبر',
       deliveryMethods: {
         whatsapp: 'WhatsApp',
         email: 'البريد الإلكتروني'
       },
+      emailPlaceholder: 'your@email.com',
+      emailInvalid: 'أدخل عنوان بريد إلكتروني صحيح.',
+      emailDuplicate: 'البريد الإلكتروني مكرر.',
+      phonePlaceholder: 'رقم الهاتف',
+      phoneInvalid: 'أدخل رقم هاتف صحيح.',
+      phoneDuplicate: 'رقم الهاتف مكرر.',
+      phoneFormatValid: 'رقم الهاتف يبدو صحيحاً.',
       senderHeader: 'تفاصيل المرسل',
+      senderDetailsTitle: 'تفاصيل المرسل',
       senderNameLabel: 'اسمك',
       senderNamePlaceholder: 'اسمك الكريم',
       senderPhoneLabel: 'رقم هاتفك',
+      senderPhonePlaceholder: 'رقم هاتفك',
       senderEmailLabel: 'عنوان بريدك الإلكتروني',
       senderEmailPlaceholder: 'your@email.com',
       revealIdentityLabel: 'أظهر من أرسل هذه الـ JIGZO',
+      revealIdentityHint: 'إذا لم يتم التحديد، فسيصلهم اللغز من مُرسِل مجهول الهوية.',
       identityDescription: 'إذا لم يتم التحديد، فسيصلهم اللغز كمستلم مجهول الهوية.',
+      previewTitle: 'معاينة WhatsApp',
       errors: {
         senderPhoneInvalid: 'أدخل رقم هاتف صحيح.',
         senderEmailInvalid: 'أدخل عنوان بريد إلكتروني صحيح.',
@@ -185,6 +218,27 @@ const ar = {
     },
     review: {
       title: 'المراجعة والإرسال',
+      subtitle: 'ألقِ نظرة أخيرة قبل إرسال مفاجأتك.',
+      recipientsLabel: 'المستلمون (إلى)',
+      messageLabel: 'الرسالة',
+      difficultyLabel: 'الصعوبة',
+      senderLabel: 'المرسل يظهر كـ',
+      senderYes: 'ظاهر باسم {{name}}',
+      senderNo: 'مجهول الهوية',
+      edit: 'تعديل',
+      previewTitle: 'معاينة الكشف',
+      tapToSolve: 'انقر للحل',
+      resetSim: 'إعادة المعاينة',
+      revealAlertAddon: 'تنبيه الكشف',
+      total: 'الإجمالي',
+      payAndSend: 'ادفع وأرسل',
+      launchingSoon: 'الإطلاق قريباً',
+      onTheList: 'أنت على القائمة! سنعلمك فور الإطلاق.',
+      leaveDetails: 'اترك بريدك الإلكتروني لتكون أول من يعرف عند فتح الدفع.',
+      emailPlaceholder: 'your@email.com',
+      notifyMe: 'أبلِغني',
+      noPayment: 'لا يتطلب أي دفع.',
+      createTestReveal: 'إنشاء أحجية اختبار مجانية',
       summary: {
         photo: 'الصورة',
         recipients: 'المستلمون (إلى)',
@@ -291,16 +345,46 @@ const ar = {
     DE: 'ألمانيا'
   },
   difficulties: {
-    extra_easy: { label: 'سهل جداً', pieces: '6 قطع', desc: 'مثالية لمفاجأة سريعة.' },
-    easy: { label: 'سهل', pieces: '15 قطعة', desc: 'تحدٍ خفيف مع كشف سريع.' },
-    classic: { label: 'كلاسيكي', pieces: '18 قطعة', desc: 'التوازن المثالي بين المتعة والتشويق.' },
-    challenging: { label: 'صعب', pieces: '28 قطعة', desc: 'لمن يفضلون جعل اللحظة تدوم أطول.' }
+    extra_easy: { label: 'سهل جداً', pieces: '6 قطع', copy: 'مثالية لمفاجأة سريعة.' },
+    easy: { label: 'سهل', pieces: '15 قطعة', copy: 'تحدٍ خفيف مع كشف سريع.' },
+    classic: { label: 'كلاسيكي', pieces: '18 قطعة', copy: 'التوازن المثالي بين المتعة والتشويق.' },
+    challenging: { label: 'صعب', pieces: '28 قطعة', copy: 'لمن يفضلون جعل اللحظة تدوم أطول.' }
   },
   packages: {
-    single: 'مفاجأة فردية',
-    small: 'مجموعة صغيرة',
-    friends: 'العائلة والأصدقاء',
-    celebration: 'باقة الاحتفالات'
+    active: 'مُختارة',
+    single: { label: 'مفاجأة فردية' },
+    small: { label: 'مجموعة صغيرة' },
+    friends: { label: 'العائلة والأصدقاء' },
+    celebration: { label: 'باقة الاحتفالات' }
+  },
+  occasions: {
+    love: 'حبّ',
+    birthday: 'عيد ميلاد',
+    anniversary: 'ذكرى سنوية',
+    congrats: 'تهنئة',
+    sorry: 'اعتذار',
+    missyou: 'اشتقت لك',
+    getwell: 'سلامتك',
+    thankyou: 'شكراً',
+    newbaby: 'مولود جديد',
+    justbecause: 'بلا مناسبة'
+  },
+  tones: {
+    romantic: 'رومانسي',
+    funny: 'طريف',
+    deep: 'عميق',
+    short: 'مختصر',
+    poetic: 'شاعري',
+    family: 'عائلي',
+    friendship: 'صداقة',
+    playful: 'مرِح'
+  },
+  upgrades: {
+    insights: {
+      name: 'إضافة تنبيه الكشف',
+      tagline: 'اعرف لحظة انتهائهم من الحل.',
+      description: 'احصل على رسالة عبر WhatsApp فور إكمالهم للأحجية، تشمل متى حلوها والوقت الذي استغرقوه.'
+    }
   },
   messages: {
     love: {
