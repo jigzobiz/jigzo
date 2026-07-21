@@ -429,15 +429,15 @@ export default function AdminPortal() {
           </div>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 8px" }}>JIGZO Admin</h1>
           <p style={{ fontSize: 13.5, color: T.ink66, marginBottom: 24 }}>Enter credentials to access the analytics portal.</p>
-          
+
           <form onSubmit={handleLogin}>
             <input type="text" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)}
               style={{ width: "100%", padding: 13, border: T.ink15, borderRadius: 10, background: T.bg, marginBottom: 14, fontSize: 14 }} />
             <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)}
               style={{ width: "100%", padding: 13, border: T.ink15, borderRadius: 10, background: T.bg, marginBottom: 20, fontSize: 14 }} />
-            
+
             {authError && <div style={{ fontSize: 12.5, color: '#b23b3b', fontWeight: 600, marginBottom: 14 }}>{authError}</div>}
-            
+
             <button type="submit" style={{ width: "100%", padding: "12px", background: T.gold, border: "none", color: "#FFF", borderRadius: 12, fontWeight: 700, cursor: "pointer" }}>
               Sign In
             </button>
@@ -474,7 +474,7 @@ export default function AdminPortal() {
           <span style={{ fontSize: 20, fontWeight: 800, color: T.gold }}>JIGZO</span>
           <span style={{ fontSize: 11, background: T.goldWarm, padding: "2px 6px", borderRadius: 4, fontWeight: 700 }}>ADMIN</span>
         </div>
-        
+
         <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
           {tabs.map(t => (
             <button
@@ -1536,7 +1536,7 @@ export default function AdminPortal() {
                   <pre style={{ background: T.bg, padding: 14, borderRadius: 8, whiteSpace: "pre-wrap", fontSize: 13.5, margin: 0, fontFamily: "monospace" }}>
                     {`Hey {{1}}! 🧩
 
-{{2}} sent you a JIGZO surprise. 
+{{2}} sent you a JIGZO surprise.
 
 Solve the puzzle to reveal their hidden message:
 👉 https://jigzo.biz/p/{{3}}?r={{4}}`}
@@ -1548,7 +1548,7 @@ Solve the puzzle to reveal their hidden message:
                   <pre style={{ background: T.bg, padding: 14, borderRadius: 8, whiteSpace: "pre-wrap", fontSize: 13.5, margin: 0, fontFamily: "monospace" }}>
                     {`Great news {{1}}! 🎉
 
-{{2}} just solved your JIGZO puzzle! 
+{{2}} just solved your JIGZO puzzle!
 
 They completed it in {{3}} seconds.`}
                   </pre>
