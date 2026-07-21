@@ -10,7 +10,9 @@ const en = {
     share: 'Share',
     saved: 'Saved',
     ok: 'OK',
-    loading: 'Loading...'
+    loading: 'Loading...',
+    recipientsCount_one: '{{count}} recipient',
+    recipientsCount_other: '{{count}} recipients'
   },
   landing: {
     nav: {
@@ -138,14 +140,18 @@ const en = {
     },
     recipient: {
       title: 'Who is this for?',
+      subtitle: 'Personalize the surprise. Choose the occasion, the tone, and write your hidden message.',
       nameLabel: 'Recipient (to)',
       namePlaceholder: 'Their name',
+      recipientLabel: 'Recipient (to)',
+      recipientPlaceholder: 'Their name',
       occasionLabel: "What's the occasion?",
       toneLabel: 'Choose a tone',
       messageLabel: 'Hidden Message',
       messagePlaceholder: 'Write your message here... They will only see this once the puzzle is solved.',
       characterCounter: '{{current}} / {{max}} characters',
       suggestedMessage: 'Insert suggested message',
+      suggestedInsert: 'Insert suggested message',
       useCustom: 'Use custom message',
       errors: {
         nameRequired: 'Recipient name is required.',
@@ -154,26 +160,45 @@ const en = {
     },
     delivery: {
       title: 'Set up delivery',
+      subtitle: 'Choose your package and tell us who will receive the surprise.',
       currentPlan: 'Current Package',
+      currentPackage: 'Current Package',
+      autoPlanSelection: 'Your package is selected automatically based on the number of recipients.',
       availablePlans: 'Available Plans',
       limitWording_one: 'Up to 1 recipient',
       limitWording_other: 'Up to {{count}} recipients',
+      recipientLimit_one: 'Up to 1 recipient',
+      recipientLimit_other: 'Up to {{count}} recipients',
       recipientHeader: 'Recipient (to) #{{index}}',
+      recipientTitle: 'Recipient #{{index}}',
+      recipientPlaceholder: 'Their name',
       removeRecipient: 'Remove',
+      remove: 'Remove',
       addRecipient: 'Add another recipient',
       deliverVia: 'Deliver via',
       deliveryMethods: {
         whatsapp: 'WhatsApp',
         email: 'Email'
       },
+      emailPlaceholder: 'your@email.com',
+      emailInvalid: 'Enter a valid email address.',
+      emailDuplicate: 'Duplicate email detected.',
+      phonePlaceholder: 'Phone number',
+      phoneInvalid: 'Enter a valid phone number.',
+      phoneDuplicate: 'Duplicate phone number detected.',
+      phoneFormatValid: 'Phone number looks good.',
       senderHeader: 'Sender details',
+      senderDetailsTitle: 'Sender details',
       senderNameLabel: 'Your Name',
       senderNamePlaceholder: 'Your name',
       senderPhoneLabel: 'Your Phone Number',
+      senderPhonePlaceholder: 'Your phone number',
       senderEmailLabel: 'Your Email Address',
       senderEmailPlaceholder: 'your@email.com',
       revealIdentityLabel: 'Show who this JIGZO is from',
+      revealIdentityHint: 'If unticked, they will receive the surprise from a mystery sender.',
       identityDescription: 'If unticked, they will receive the surprise as a mystery sender.',
+      previewTitle: 'WhatsApp Preview',
       errors: {
         senderPhoneInvalid: 'Enter a valid phone number.',
         senderEmailInvalid: 'Enter a valid email address.',
@@ -185,6 +210,27 @@ const en = {
     },
     review: {
       title: 'Review and send',
+      subtitle: 'Take a last look before your surprise goes out.',
+      recipientsLabel: 'Recipients (to)',
+      messageLabel: 'Message',
+      difficultyLabel: 'Difficulty',
+      senderLabel: 'Sender shown',
+      senderYes: 'Visible as {{name}}',
+      senderNo: 'Anonymous',
+      edit: 'Edit',
+      previewTitle: 'Reveal Preview',
+      tapToSolve: 'Tap to solve',
+      resetSim: 'Reset preview',
+      revealAlertAddon: 'Reveal Alert',
+      total: 'Total',
+      payAndSend: 'Pay & Send',
+      launchingSoon: 'Launching Soon',
+      onTheList: "You're on the list! We'll let you know the moment we launch.",
+      leaveDetails: 'Leave your email and be the first to know when checkout opens.',
+      emailPlaceholder: 'your@email.com',
+      notifyMe: 'Notify me',
+      noPayment: 'No payment required.',
+      createTestReveal: 'Create Free Test Puzzle',
       summary: {
         photo: 'Photo',
         recipients: 'Recipients (to)',
@@ -291,16 +337,46 @@ const en = {
     DE: 'Germany'
   },
   difficulties: {
-    extra_easy: { label: 'Extra Easy', pieces: '6 pieces', desc: 'Perfect for a quick surprise.' },
-    easy: { label: 'Easy', pieces: '15 pieces', desc: 'A light challenge with a quick reveal.' },
-    classic: { label: 'Classic', pieces: '18 pieces', desc: 'Just the right balance of fun and anticipation.' },
-    challenging: { label: 'Challenging', pieces: '28 pieces', desc: 'For those who enjoy making the moment last.' }
+    extra_easy: { label: 'Extra Easy', pieces: '6 pieces', copy: 'Perfect for a quick surprise.' },
+    easy: { label: 'Easy', pieces: '15 pieces', copy: 'A light challenge with a quick reveal.' },
+    classic: { label: 'Classic', pieces: '18 pieces', copy: 'Just the right balance of fun and anticipation.' },
+    challenging: { label: 'Challenging', pieces: '28 pieces', copy: 'For those who enjoy making the moment last.' }
   },
   packages: {
-    single: 'Single Surprise',
-    small: 'Small Group',
-    friends: 'Family & Friends',
-    celebration: 'Celebration Pack'
+    active: 'Selected',
+    single: { label: 'Single Surprise' },
+    small: { label: 'Small Group' },
+    friends: { label: 'Family & Friends' },
+    celebration: { label: 'Celebration Pack' }
+  },
+  occasions: {
+    love: 'Love',
+    birthday: 'Birthday',
+    anniversary: 'Anniversary',
+    congrats: 'Congrats',
+    sorry: 'Sorry',
+    missyou: 'Miss You',
+    getwell: 'Get Well',
+    thankyou: 'Thank You',
+    newbaby: 'New Baby',
+    justbecause: 'Just Because'
+  },
+  tones: {
+    romantic: 'Romantic',
+    funny: 'Funny',
+    deep: 'Deep',
+    short: 'Short',
+    poetic: 'Poetic',
+    family: 'Family',
+    friendship: 'Friendship',
+    playful: 'Playful'
+  },
+  upgrades: {
+    insights: {
+      name: 'Add a Reveal Alert',
+      tagline: 'Know the moment they finish.',
+      description: 'Get a WhatsApp when they complete the puzzle, including when it happened and how long it took.'
+    }
   },
   messages: {
     love: {

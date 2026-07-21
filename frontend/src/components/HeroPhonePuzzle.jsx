@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import RevealFace from './RevealFace';
 
 /*
  * HeroPhonePuzzle — Refactored with positive stacking context phone glow
@@ -261,6 +263,7 @@ const TOTAL = SCENES.reduce((s, x) => s + x.dur, 0);
 const STARTS = SCENES.reduce((acc, s) => { acc.push(acc[acc.length - 1] + s.dur); return acc; }, [0]);
 
 export default function HeroPhonePuzzle() {
+  const { t } = useTranslation();
   const hostRef = useRef(null);
   const [scale, setScale] = useState(0);
   const [time, setTime] = useState(0);
@@ -476,18 +479,26 @@ export default function HeroPhonePuzzle() {
                   <SettledPiece glowOpacity={settledGlowOpacity} />
                 </div>
 
-                {/* Crossfading Reveal */}
-                <img
-                  src={REVEAL}
+                {/* Crossfading Reveal — rendered live so the recipient name,
+                    sender name, message, font and RTL direction follow the
+                    active language instead of being baked into an English PNG.
+                    The puzzle photo artwork itself is never mirrored. */}
+                <div
                   style={{
                     position: 'absolute',
                     inset: 0,
                     width: '100%',
                     height: '100%',
-                    objectFit: 'cover',
                     opacity: revealOpacity
                   }}
-                />
+                >
+                  <RevealFace
+                    photo={PHOTO}
+                    toName={t('demo.toName')}
+                    fromName={t('demo.fromName')}
+                    message={t('demo.message')}
+                  />
+                </div>
               </div>
             }
           />

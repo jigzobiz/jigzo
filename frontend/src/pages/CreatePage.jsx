@@ -143,6 +143,11 @@ function emailValid(v) {
 export default function CreatePage() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+  // Active language flag, shared by every helper inside this component.
+  // Defined once here so all render branches (delivery, review, success)
+  // resolve the same value — previously only StepProgressBar had a local
+  // `isAr`, so references in CreatePage's body threw "isAr is not defined".
+  const isAr = i18n.language === 'ar';
 
   const [currency, setCurrency] = useState(resolveVisitorCurrency());
 
