@@ -4,8 +4,8 @@ const path = require('path');
 class ImageService {
   /**
    * Saves a base64 encoded crop image data string as a local file.
-   * @param {string} base64Data 
-   * @param {string} publicId 
+   * @param {string} base64Data
+   * @param {string} publicId
    * @returns {Promise<string>} Static asset URL route for the saved image.
    */
   async saveCropImage(base64Data, publicId) {
@@ -20,9 +20,9 @@ class ImageService {
 
     const ext = matches[1].split('/')[1] || 'jpg';
     const buffer = Buffer.from(matches[2], 'base64');
-    
+
     const storagePath = process.env.IMAGE_STORAGE_PATH || './uploads';
-    
+
     // Ensure upload directory exists
     if (!fs.existsSync(storagePath)) {
       fs.mkdirSync(storagePath, { recursive: true });
@@ -30,7 +30,7 @@ class ImageService {
 
     const filename = `${publicId}.${ext}`;
     const filePath = path.join(storagePath, filename);
-    
+
     await fs.promises.writeFile(filePath, buffer);
     console.log(`[ImageService] Saved uploaded file to ${filePath}`);
 

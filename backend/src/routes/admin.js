@@ -125,10 +125,10 @@ router.get('/dashboard', authenticateAdmin, async (req, res, next) => {
     const createStarts = await JourneyEvent.countDocuments({ eventType: 'create_started' });
     const paidOrders = await Order.find({ paymentStatus: 'paid' });
     const completedOrders = paidOrders.length;
-    
+
     const revenue = paidOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
     const averageOrderValue = completedOrders > 0 ? parseFloat((revenue / completedOrders).toFixed(2)) : 0;
-    
+
     const totalOrdersCount = await Order.countDocuments();
     const paymentConversion = totalOrdersCount > 0 ? parseFloat(((completedOrders / totalOrdersCount) * 100).toFixed(1)) : 0;
 
@@ -149,7 +149,7 @@ router.get('/dashboard', authenticateAdmin, async (req, res, next) => {
 
     // 3. Drop-offs & popularity parameters (from metadata)
     const activePuzzles = await Puzzle.find();
-    
+
     // Occasions, tones, package types frequencies
     const occasionPopularity = {};
     const tonePopularity = {};
@@ -832,7 +832,7 @@ router.post('/recommendations/:id/status', authenticateAdmin, async (req, res, n
   try {
     const { status } = req.body;
     const rec = await Recommendation.findByIdAndUpdate(req.params.id, { status }, { new: true });
-    
+
     // Log setting modification
     const log = new AuditLog({
       adminUserId: req.admin.id,
@@ -899,7 +899,7 @@ router.post('/work-items', authenticateAdmin, async (req, res, next) => {
   try {
     const { _id, area, priority, owner, targetDate, status, blockers, percentageComplete, description } = req.body;
     let item;
-    
+
     if (_id) {
       item = await WorkItem.findByIdAndUpdate(_id, {
         area, priority, owner, targetDate, status, blockers, percentageComplete, description

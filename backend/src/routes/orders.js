@@ -46,7 +46,7 @@ router.post('/', async (req, res, next) => {
 
     const count = parseInt(recipientCount) || puzzle.recipients.length || 1;
     const { packageId, basePrice, addOnPrice } = getPackageDetails(count);
-    
+
     const addOns = hasRevealAlert ? addOnPrice : 0;
     const usdTotal = basePrice + addOns;
 
@@ -98,7 +98,7 @@ router.post('/', async (req, res, next) => {
 
     // Request mock checkout URL
     const checkoutData = await paymentService.createCheckout(orderId, convertedTotal, currency);
-    
+
     // Save reference ID on the order
     order.paymentReference = checkoutData.reference;
     await order.save();

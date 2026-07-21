@@ -23,7 +23,8 @@ router.post('/', async (req, res, next) => {
       occasion,
       tone,
       pieceCount,
-      recipients
+      recipients,
+      experienceLanguage
     } = req.body;
 
     if (!cropData) {
@@ -137,6 +138,7 @@ router.post('/', async (req, res, next) => {
       occasion: occasion || '',
       tone: tone || '',
       pieceCount: parseInt(pieceCount) || 12,
+      experienceLanguage: (experienceLanguage === 'ar' || experienceLanguage === 'en') ? experienceLanguage : 'en',
       recipients: formattedRecipients
     });
 
@@ -220,6 +222,7 @@ router.get('/:publicId', async (req, res, next) => {
         senderName: puzzle.senderName,
         revealIdentity: puzzle.revealIdentity,
         pieceCount: puzzle.pieceCount,
+        experienceLanguage: puzzle.experienceLanguage || 'en',
         recipient: safeRecipient,
         recipients: safeRecipients
       }
@@ -269,7 +272,7 @@ router.get('/:publicId/image', async (req, res, next) => {
     if (puzzle.imageStorageId) {
       res.setHeader('Content-Type', puzzle.imageMimeType || 'image/jpeg');
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-      
+
       const stream = storageService.getImageStream(puzzle.imageStorageId);
       stream.on('error', (err) => {
         console.error('[ImageRoute] GridFS Stream error:', err);
@@ -308,13 +311,18 @@ router.patch('/:publicId', async (req, res, next) => {
       return res.status(400).json({ error: 'Only draft puzzles can be modified.' });
     }
 
-    const { message, senderName, senderPhone, revealIdentity, pieceCount, recipients } = req.body;
+    const { message, senderName, senderPhone, revealIdentity, pieceCount, recipients, experienceLanguage } = req.body;
 
     if (message !== undefined) puzzle.message = message;
     if (senderName !== undefined) puzzle.senderName = senderName;
     if (senderPhone !== undefined) puzzle.senderPhone = senderPhone;
     if (revealIdentity !== undefined) puzzle.revealIdentity = revealIdentity;
     if (pieceCount !== undefined) puzzle.pieceCount = parseInt(pieceCount) || puzzle.pieceCount;
+    if (experienceLanguage !== undefined) {
+      if (experienceLanguage === 'ar' || experienceLanguage === 'en') {
+        puzzle.experienceLanguage = experienceLanguage;
+      }
+    }
 
     if (recipients !== undefined) {
       puzzle.recipients = recipients.map(r => ({
@@ -336,7 +344,8 @@ router.patch('/:publicId', async (req, res, next) => {
         message: puzzle.message,
         senderName: puzzle.senderName,
         revealIdentity: puzzle.revealIdentity,
-        pieceCount: puzzle.pieceCount
+        pieceCount: puzzle.pieceCount,
+        experienceLanguage: puzzle.experienceLanguage || 'en'
       }
     });
   } catch (error) {
@@ -444,10 +453,12 @@ router.post('/:publicId/complete', async (req, res, next) => {
 
       if (hasRevealAlert && puzzle.senderPhone) {
         // Trigger Reveal Alert WhatsApp message
-        await whatsappService.sendRevealAlert(puzzle.senderPhone, {
+        await whatsappService.sendRevealAlert({
+          puzzleId: puzzle.publicId,
+          recipientIndex,
+          senderPhone: puzzle.senderPhone,
           recipientName: recipient.name,
-          durationSeconds: recipient.completionSeconds,
-          completedAt: recipient.completedAt
+          durationSeconds: recipient.completionSeconds
         });
       }
     }

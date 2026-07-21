@@ -60,7 +60,7 @@ router.post('/events', async (req, res, next) => {
         if (name && !customer.name) customer.name = name;
         if (email && !customer.email) customer.email = email;
         if (phone && !customer.phone) customer.phone = phone;
-        
+
         if (!customer.anonymousIds.includes(anonymousId)) {
           customer.anonymousIds.push(anonymousId);
         }

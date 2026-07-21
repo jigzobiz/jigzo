@@ -55,13 +55,13 @@ router.post('/', async (req, res, next) => {
 
     // Deduplicate webhook event atomically using WhatsAppWebhookEvent unique index
     const payloadHash = crypto.createHash('sha256').update(rawBodyString).digest('hex');
-    
+
     // Parse message metadata from Kapso-specific payload structure
     const providerMessageId = payload.message?.id;
     const kapsoObj = payload.message?.kapso || {};
     const eventStatus = kapsoObj.status; // sent, delivered, read, failed
     const occurredAt = payload.message?.timestamp ? new Date(parseInt(payload.message.timestamp) * 1000) : null;
-    
+
     if (!providerMessageId || !eventStatus) {
       return res.status(400).json({ error: 'Invalid payload structure: missing message status info' });
     }
@@ -150,7 +150,7 @@ router.post('/', async (req, res, next) => {
       webhookEvent.lastProcessingError = 'Unmatched providerMessageId';
       webhookEvent.processedAt = null;
       await webhookEvent.save();
-      
+
       // Return HTTP 500 so Kapso retries the delivery
       return res.status(500).json({ error: 'Unmatched providerMessageId retryable' });
     }
@@ -174,7 +174,7 @@ router.post('/', async (req, res, next) => {
         const statusesArray = kapsoObj.statuses || [];
         const failedStatus = statusesArray.find(s => s.status === 'failed') || {};
         const errorObj = failedStatus.errors?.[0] || {};
-        
+
         messageRecord.failedAt = occurredAt || new Date();
         messageRecord.lastErrorCode = errorObj.code || 'PROVIDER_FAILED';
         let errorMsg = errorObj.message || 'Message delivery failed';
@@ -182,7 +182,7 @@ router.post('/', async (req, res, next) => {
           errorMsg += ` (${errorObj.error_data.details})`;
         }
         messageRecord.lastErrorMessage = String(errorMsg).slice(0, 500);
-        
+
         if (currentPriority < priority['sent']) {
           messageRecord.status = 'failed';
           await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, {
@@ -220,7 +220,7 @@ router.post('/', async (req, res, next) => {
         }
 
         await messageRecord.save();
-        
+
         // Update Puzzle recipient snapshot
         await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, snapshotUpdate);
       }
