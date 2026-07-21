@@ -5,6 +5,7 @@ import { api } from '../services/api';
 import { buildEdgeMap, piecePath, mulberry32 } from '../puzzle/puzzle-shape';
 import RevealBeat from '../components/RevealBeat';
 import LoaderOrbit from '../components/LoaderOrbit';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 import { analytics } from '../services/analytics';
 
 const GRID_FOR = {
