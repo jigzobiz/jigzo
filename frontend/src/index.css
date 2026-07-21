@@ -1489,3 +1489,88 @@ a { color:inherit; text-decoration:none; }
 @keyframes jzOrbitSpin { to { transform:rotate(360deg); } }
 @keyframes jzBadgeSpin { 0%{ transform:rotate(0deg) scale(0.9); } 50%{ transform:rotate(180deg) scale(1.1); } 100%{ transform:rotate(360deg) scale(0.9); } }
 @media (prefers-reduced-motion: reduce){ .jz-orbit__ring,.jz-orbit__badge{ animation:none; } }
+
+/* =========================================================
+   i18n — language switcher, Arabic typography & targeted RTL
+   Added for Phase 1 (English + Arabic). English appearance is
+   unchanged: every rule below is scoped to .nav__actions/.lang-switch
+   or to html[dir="rtl"] so LTR rendering is untouched.
+   ========================================================= */
+
+/* Keep the language switch + Create CTA grouped on the right so the switch
+   never displaces the Create button (works on desktop and mobile). */
+.nav__actions { display:flex; align-items:center; gap:10px; }
+
+/* Compact, premium pill — visually consistent with .btn-ghost. */
+.lang-switch {
+  display:inline-flex; align-items:center; justify-content:center;
+  min-height:38px; padding:8px 14px;
+  font-family:inherit; font-weight:600; font-size:13px; line-height:1;
+  color:var(--ink); background:none;
+  border:1px solid var(--ink-28); border-radius:100px;
+  cursor:pointer; white-space:nowrap;
+  transition:background .2s ease, border-color .2s ease;
+}
+.lang-switch:hover { background:rgba(28,25,19,0.06); }
+.lang-switch:focus-visible { outline:2px solid var(--gold-deep); outline-offset:2px; }
+@media (max-width:760px) {
+  .nav__actions { gap:8px; }
+  .lang-switch { min-height:42px; padding:9px 13px; }
+}
+
+/* ---- Arabic typography (only when direction is rtl) ----
+   Per-glyph fallback keeps Latin brand words (JIGZO, WhatsApp, USD 5) in the
+   existing fonts while Arabic runs render in Noto. */
+html[dir="rtl"] body {
+  font-family:"Archia", "Noto Sans Arabic", sans-serif;
+}
+html[dir="rtl"] .lang-switch,
+html[dir="rtl"] .btn {
+  font-family:"Archia", "Noto Sans Arabic", sans-serif;
+}
+/* Elegant Naskh for Arabic display/headline text. */
+html[dir="rtl"] .landing-page .hero__headline,
+html[dir="rtl"] .landing-page .sec__head h2,
+html[dir="rtl"] .landing-page .reveal-band__text h2,
+html[dir="rtl"] .landing-page .buy__inner h2 {
+  font-family:"Noto Naskh Arabic", "Playfair Display", "Archia", serif;
+}
+/* Arabic script needs no negative tracking and a little more leading. */
+html[dir="rtl"] .landing-page .hero__headline {
+  font-weight:500 !important;
+  letter-spacing:normal !important;
+  line-height:1.18 !important;
+  max-width:none !important;
+}
+html[dir="rtl"] .landing-page .sec__head h2,
+html[dir="rtl"] .landing-page .reveal-band__text h2,
+html[dir="rtl"] .landing-page .buy__inner h2 {
+  letter-spacing:normal;
+  line-height:1.3;
+}
+
+/* ---- Targeted RTL layout (no global flex reversal) ---- */
+
+/* Hero: keep the container/photo/phone-animation in their existing LTR
+   positions (text column left, artwork + phone puzzle right), and only flip
+   the text flow inside the content column so Arabic reads right-to-left. */
+html[dir="rtl"] .landing-page .hero__container { direction:ltr; }
+html[dir="rtl"] .landing-page .hero__content {
+  direction:rtl;
+  text-align:right !important;
+}
+
+/* Walkthrough: keep the grid order (Arabic text left column, RevealMock right)
+   so the phone mock artwork is never mirrored; only the text flows RTL. */
+html[dir="rtl"] .landing-page .reveal-band__grid { direction:ltr; }
+html[dir="rtl"] .landing-page .reveal-band__text {
+  direction:rtl;
+  text-align:right;
+}
+
+/* Occasions carousel: flip the scroll-cue fade to the trailing (left) edge. */
+html[dir="rtl"] .landing-page .occasions-carousel-container::after {
+  right:auto;
+  left:-22px;
+  background:linear-gradient(to left, rgba(244, 237, 223, 0) 0%, rgba(244, 237, 223, 0.8) 100%);
+}

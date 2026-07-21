@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import RevealMock from '../components/RevealMock';
 import HeroPhonePuzzle from '../components/HeroPhonePuzzle';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 import { analytics } from '../services/analytics';
 import { getLocalizedPrice, resolveVisitorCurrency } from '../services/jigzoPricing';
 
@@ -11,30 +13,23 @@ const CHECK = (
   </svg>
 );
 
-const FEATURES = [
-  'Upload your photo',
-  'Write your hidden message',
-  'Delivered via WhatsApp',
-  'Works on any phone',
-  'Save & share after solving',
-];
-
+// Structural (non-translatable) occasion data. Analytics keys (`data`), image
+// file names and route targets stay in English/identifiers; the title + alt
+// text are resolved from the active locale via `landing.occasions.items.<data>`.
 const OCCASIONS = [
-  { data: 'birthday', title: 'Birthday', img: 'occasion-birthday.jpg', alt: 'Birthday candle flame on cake', to: '/create?occasion=birthday' },
-  { data: 'love', title: 'Love', img: 'occasion-love.jpg', alt: 'Handwritten love note and envelope', to: '/create?occasion=love' },
-  { data: 'friendship', title: 'Friendship', img: 'occasion-friendship.jpg', alt: 'Two coffee cups on a table', to: '/create?occasion=justbecause&tone=friendship' },
-  { data: 'new-baby', title: 'New Baby', img: 'occasion-newbaby.jpg', alt: 'Pair of tiny baby shoes', to: '/create?occasion=newbaby' },
-  { data: 'congratulations', title: 'Congrats', img: 'occasion-congratulations.jpg', alt: 'Graduation cap and tassel', to: '/create?occasion=congrats' },
-  { data: 'just-because', title: 'Just Because', img: 'occasion-just-because.jpg', alt: 'Single puzzle piece casting a shadow', to: '/create?occasion=justbecause' },
+  { data: 'birthday', img: 'occasion-birthday.jpg', to: '/create?occasion=birthday' },
+  { data: 'love', img: 'occasion-love.jpg', to: '/create?occasion=love' },
+  { data: 'friendship', img: 'occasion-friendship.jpg', to: '/create?occasion=justbecause&tone=friendship' },
+  { data: 'new-baby', img: 'occasion-newbaby.jpg', to: '/create?occasion=newbaby' },
+  { data: 'congratulations', img: 'occasion-congratulations.jpg', to: '/create?occasion=congrats' },
+  { data: 'just-because', img: 'occasion-just-because.jpg', to: '/create?occasion=justbecause' },
 ];
 
-const STEPS = [
-  { num: '01', title: 'Upload your photo', body: 'It becomes their puzzle.' },
-  { num: '02', title: 'Add your message', body: 'Your words stay hidden until the final piece.' },
-  { num: '03', title: 'Send the surprise', body: 'JIGZO delivers it through WhatsApp.' },
-];
+// Decorative step numbers (kept as identifiers, not translated).
+const STEP_NUMS = ['01', '02', '03'];
 
 export default function LandingPage() {
+  const { t } = useTranslation();
   const [currency, setCurrency] = useState(resolveVisitorCurrency());
 
   useEffect(() => {
@@ -48,8 +43,11 @@ export default function LandingPage() {
   }, []);
 
   const price = useMemo(() => getLocalizedPrice('digital', currency), [currency]); // e.g. "USD 5"
-  const shortPrice = `From ${price}`;
-  const startingPrice = `Starting from ${price}`;
+
+  // Translated content lists (returnObjects); prices interpolated where needed.
+  const steps = t('landing.steps.items', { returnObjects: true });
+  const features = t('landing.pricing.digital.features', { returnObjects: true });
+  const finalTrust = t('landing.finalCta.trust', { returnObjects: true, price });
 
   useEffect(() => {
     analytics.track('landing_viewed');
@@ -60,11 +58,14 @@ export default function LandingPage() {
       {/* ===================== NAV ===================== */}
       <header className="nav">
         <div className="nav__inner">
-          <Link to="/" aria-label="Jigzo home">
+          <Link to="/" aria-label={t('landing.nav.home')}>
             <img className="nav__logo" src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" />
           </Link>
-          <Link className="btn btn-ghost nav__btn" to="/create">Create a Surprise</Link>
-          <Link className="btn nav__btn-mobile" to="/create">Create</Link>
+          <div className="nav__actions">
+            <LanguageSwitcher location="landing_nav" />
+            <Link className="btn btn-ghost nav__btn" to="/create">{t('landing.nav.createFull')}</Link>
+            <Link className="btn nav__btn-mobile" to="/create">{t('landing.nav.create')}</Link>
+          </div>
         </div>
       </header>
 
@@ -74,7 +75,7 @@ export default function LandingPage() {
           {/* Campaign background layers (Mobile, Desktop clear) */}
           <div className="hero__bg-layer">
             <div className="hero__bg-image"></div>
-            <img className="hero__bg-image--desktop-clear" src="/assets/assetshomepagehero-composition-reference.png" alt="Two women smiling at a puzzle surprise on their phone" />
+            <img className="hero__bg-image--desktop-clear" src="/assets/assetshomepagehero-composition-reference.png" alt={t('landing.hero.bgAlt')} />
             <div className="hero__bg-veil"></div>
           </div>
 
@@ -89,32 +90,32 @@ export default function LandingPage() {
 
           <div className="wrap hero__container">
             <div className="hero__content">
-              <div className="eyebrow eyebrow--dot"><span></span>A surprise worth uncovering</div>
+              <div className="eyebrow eyebrow--dot"><span></span>{t('landing.hero.eyebrow')}</div>
               <h1 className="hero__headline">
-                <span className="hero__headline-line">Don&rsquo;t just send it.</span>
-                <span className="hero__headline-line hero__headline-line--italic-gold">Let them discover it.</span>
+                <span className="hero__headline-line">{t('landing.hero.headlinePrimary')}</span>
+                <span className="hero__headline-line hero__headline-line--italic-gold">{t('landing.hero.headlineAccent')}</span>
               </h1>
-              <p className="hero__lede">Turn any photo and message into a puzzle surprise delivered through WhatsApp.</p>
+              <p className="hero__lede">{t('landing.hero.description')}</p>
               <div className="hero__cta-wrap">
-                <Link className="btn btn-dark" id="hero-cta-btn" to="/create">Create Your Surprise &middot; {price}</Link>
+                <Link className="btn btn-dark" id="hero-cta-btn" to="/create">{t('landing.hero.cta', { price })}</Link>
               </div>
             </div>
           </div>
           <div className="hero__trust-strip">
-            <span>No app needed</span>
+            <span>{t('landing.trust.noApp')}</span>
             <span className="trust-dot">·</span>
-            <span>Ready in minutes</span>
+            <span>{t('landing.trust.readyInMinutes')}</span>
             <span className="trust-dot">·</span>
-            <span data-price-short>{shortPrice}</span>
+            <span data-price-short>{t('landing.trust.fromPrice', { price })}</span>
           </div>
         </section>
 
         {/* ===================== USE CASES / OCCASIONS ===================== */}
         <section className="wrap sec occasions-section">
           <div className="sec__head">
-            <span className="eyebrow">Occasions</span>
-            <h2>Who would you surprise?</h2>
-            <p className="sec__sub">Choose the moment. We&rsquo;ll make the reveal unforgettable.</p>
+            <span className="eyebrow">{t('landing.occasions.eyebrow')}</span>
+            <h2>{t('landing.occasions.title')}</h2>
+            <p className="sec__sub">{t('landing.occasions.subtitle')}</p>
           </div>
           <div className="occasions-carousel-container">
             <div className="occasions-carousel">
@@ -127,10 +128,10 @@ export default function LandingPage() {
                   onClick={() => analytics.track('occasion_card_click', { occasion: o.data })}
                 >
                   <div className="occasion-card__image-wrapper">
-                    <img className="occasion-card__image" src={`/assets/${o.img}`} alt={o.alt} loading="lazy" width="400" height="500" />
+                    <img className="occasion-card__image" src={`/assets/${o.img}`} alt={t(`landing.occasions.items.${o.data}.alt`)} loading="lazy" width="400" height="500" />
                   </div>
                   <div className="occasion-card__overlay">
-                    <div className="occasion-card__title">{o.title}</div>
+                    <div className="occasion-card__title">{t(`landing.occasions.items.${o.data}.title`)}</div>
                   </div>
                 </Link>
               ))}
@@ -142,12 +143,12 @@ export default function LandingPage() {
         <section className="reveal-band" id="demo">
           <div className="wrap reveal-band__grid">
             <div className="min0 reveal-band__text">
-              <div className="eyebrow">How JIGZO works</div>
-              <h2>Create it in minutes.<br />They&rsquo;ll remember forever.</h2>
+              <div className="eyebrow">{t('landing.steps.eyebrow')}</div>
+              <h2>{t('landing.steps.headingLine1')}<br />{t('landing.steps.headingLine2')}</h2>
               <div className="reveal-band__steps">
-                {STEPS.map((s) => (
-                  <div className="reveal-band__step" key={s.num}>
-                    <span className="reveal-band__step-num">{s.num}</span>
+                {steps.map((s, i) => (
+                  <div className="reveal-band__step" key={STEP_NUMS[i]}>
+                    <span className="reveal-band__step-num">{STEP_NUMS[i]}</span>
                     <div className="reveal-band__step-text">
                       <div className="reveal-band__step-title">{s.title}</div>
                       <p className="reveal-band__step-body">{s.body}</p>
@@ -156,7 +157,7 @@ export default function LandingPage() {
                 ))}
               </div>
               <div className="reveal-band__cta-wrap">
-                <Link className="btn btn-gold" to="/create">Create Your Surprise</Link>
+                <Link className="btn btn-gold" to="/create">{t('landing.steps.cta')}</Link>
               </div>
             </div>
             <div className="min0">
@@ -168,15 +169,15 @@ export default function LandingPage() {
         {/* ===================== TIERS ===================== */}
         <section className="wrap sec">
           <div className="sec__head">
-            <span className="eyebrow">Pricing</span>
-            <h2>Start with the one that's ready today.</h2>
+            <span className="eyebrow">{t('landing.pricing.eyebrow')}</span>
+            <h2>{t('landing.pricing.heading')}</h2>
           </div>
           <div className="tiers">
             <div className="tier tier--active">
-              <span className="tier__flag tier__flag--now" style={{ marginBottom: 16 }}>AVAILABLE NOW</span>
-              <div className="tier__name">Digital Surprise</div>
+              <span className="tier__flag tier__flag--now" style={{ marginBottom: 16 }}>{t('landing.pricing.availableNow')}</span>
+              <div className="tier__name">{t('landing.pricing.digital.title')}</div>
               <div className="tier__feats">
-                {FEATURES.map((f) => (
+                {features.map((f) => (
                   <div className="tier__feat" key={f}>
                     {CHECK}
                     <span>{f}</span>
@@ -184,24 +185,24 @@ export default function LandingPage() {
                 ))}
               </div>
               <div className="tier__price-block">
-                <div className="tier__price-from">Starting from</div>
+                <div className="tier__price-from">{t('landing.pricing.startingFrom')}</div>
                 <div className="tier__price-main" data-price-amt>{price}</div>
               </div>
-              <Link className="btn btn-gold" to="/create" style={{ width: '100%', marginTop: 0, padding: '16px 20px' }}>Create Your Surprise</Link>
+              <Link className="btn btn-gold" to="/create" style={{ width: '100%', marginTop: 0, padding: '16px 20px' }}>{t('landing.pricing.digital.cta')}</Link>
             </div>
 
             <div className="tier tier--locked">
-              <span className="tier__flag tier__flag--soon">Coming soon</span>
-              <div className="tier__name">Video Reveal</div>
-              <div className="tier__desc">The final piece plays your video: a face, a voice, a moment that moves.</div>
-              <button className="tier__notify" type="button">Notify me</button>
+              <span className="tier__flag tier__flag--soon">{t('landing.pricing.comingSoon')}</span>
+              <div className="tier__name">{t('landing.pricing.video.title')}</div>
+              <div className="tier__desc">{t('landing.pricing.video.desc')}</div>
+              <button className="tier__notify" type="button">{t('landing.pricing.video.notify')}</button>
             </div>
 
             <div className="tier tier--locked">
-              <span className="tier__flag tier__flag--soon">Coming soon</span>
-              <div className="tier__name">Luxury Physical Puzzle</div>
-              <div className="tier__desc">Real pieces, boxed and delivered. The reveal you can hold in your hands.</div>
-              <button className="tier__notify" type="button">Join the waitlist</button>
+              <span className="tier__flag tier__flag--soon">{t('landing.pricing.comingSoon')}</span>
+              <div className="tier__name">{t('landing.pricing.physical.title')}</div>
+              <div className="tier__desc">{t('landing.pricing.physical.desc')}</div>
+              <button className="tier__notify" type="button">{t('landing.pricing.physical.waitlist')}</button>
             </div>
           </div>
         </section>
@@ -209,17 +210,18 @@ export default function LandingPage() {
         {/* ===================== BUY / low friction ===================== */}
         <section className="wrap sec" id="buy">
           <div className="buy__inner">
-            <span className="eyebrow">Send a surprise</span>
-            <h2>Make the message something they experience.</h2>
-            <p>More memorable than a text. More personal than a greeting card. Ready in minutes.</p>
-            <Link className="btn btn-dark" to="/create">Create Your Surprise</Link>
-            <div className="buy__cta-fine"><span data-price-starting>{startingPrice}</span> · Delivered through WhatsApp</div>
+            <span className="eyebrow">{t('landing.finalCta.eyebrow')}</span>
+            <h2>{t('landing.finalCta.heading')}</h2>
+            <p>{t('landing.finalCta.description')}</p>
+            <Link className="btn btn-dark" to="/create">{t('landing.finalCta.cta')}</Link>
+            <div className="buy__cta-fine"><span data-price-starting>{t('landing.finalCta.startingFrom', { price })}</span> · {t('landing.finalCta.deliveredWhatsApp')}</div>
             <div className="buy__trust">
-              <div className="t"><span className="ck">✓</span>Private and personal</div>
-              <div className="t"><span className="ck">✓</span>Works on any phone</div>
-              <div className="t"><span className="ck">✓</span>Delivered through WhatsApp</div>
-              <div className="t"><span className="ck">✓</span><span data-price-starting>{startingPrice}</span></div>
-              <div className="t"><span className="ck">✓</span>Edit before sending</div>
+              {finalTrust.map((item, i) => (
+                <div className="t" key={i}>
+                  <span className="ck">✓</span>
+                  {i === 3 ? <span data-price-starting>{item}</span> : <span>{item}</span>}
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -230,11 +232,11 @@ export default function LandingPage() {
         <div className="footer__inner">
           <div className="footer__brand">
             <img className="footer__logo" src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" />
-            <span className="footer__by">Product by Jigpuzzle</span>
+            <span className="footer__by">{t('landing.footer.by')}</span>
           </div>
-          <div className="footer__tag">Every surprise deserves a memorable reveal.</div>
+          <div className="footer__tag">{t('landing.footer.tag')}</div>
           <div className="footer__links">
-            <Link className="footer__link" to="/terms">Terms of Service</Link>
+            <Link className="footer__link" to="/terms">{t('landing.footer.terms')}</Link>
           </div>
         </div>
       </footer>

@@ -7,6 +7,7 @@ import ReceivePage from './pages/ReceivePage';
 import TermsPage from './pages/TermsPage';
 import AdminPortal from './pages/AdminPortal';
 import ScrollConceptPage from './pages/ScrollConceptPage';
+import './i18n';
 import './index.css';
 
 // Configure standard client-side routing routes
