@@ -11,6 +11,7 @@ const ar = {
     saved: 'تم الحفظ',
     ok: 'موافق',
     loading: 'جاري التحميل...',
+    home: 'الرئيسية',
     recipientsCount_zero: 'لا مستلمين',
     recipientsCount_one: 'مستلم واحد',
     recipientsCount_two: 'مستلمان',

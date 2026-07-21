@@ -932,10 +932,10 @@ export default function CreatePage() {
       {/* ===================== NAV ===================== */}
       <header className="nav" style={{ marginBottom: 20 }}>
         <div className="nav__inner">
-          <Link to="/" aria-label="Jigzo home">
+          <Link to="/" aria-label={t('landing.nav.home')}>
             <img className="nav__logo" src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" />
           </Link>
-          <Link to="/" style={{
+          <Link to="/" aria-label={t('common.home')} style={{
             background: T.ink,
             color: T.bg,
             border: "none",
@@ -948,7 +948,7 @@ export default function CreatePage() {
             alignItems: "center",
             fontFamily: "Archia, sans-serif"
           }}>
-            Home
+            {t('common.home')}
           </Link>
         </div>
       </header>

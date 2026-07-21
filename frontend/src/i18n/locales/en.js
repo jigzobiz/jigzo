@@ -11,6 +11,7 @@ const en = {
     saved: 'Saved',
     ok: 'OK',
     loading: 'Loading...',
+    home: 'Home',
     recipientsCount_one: '{{count}} recipient',
     recipientsCount_other: '{{count}} recipients'
   },
