@@ -14,6 +14,7 @@ import RevealBeat from '../components/RevealBeat';
 import { buildEdgeMap, piecePath, mulberry32 } from '../puzzle/puzzle-shape';
 import { analytics } from '../services/analytics';
 import { isValidPhoneNumber } from 'libphonenumber-js';
+import { normalizePhoneInput } from '../utils/phone';
 
 const T = {
   bg: "#FAF8EC",
@@ -122,12 +123,14 @@ function StepProgressBar({ step }) {
   );
 }
 
-function phoneDigits(v) { return (v || "").replace(/\D/g, ""); }
+function phoneDigits(v) { return normalizePhoneInput(v).replace(/\D/g, ""); }
 // Strong format validation via libphonenumber-js. Accepts any structurally
 // valid number regardless of line type (we do not require it to classify as
-// mobile, and we never claim a number is "WhatsApp verified").
+// mobile, and we never claim a number is "WhatsApp verified"). The dial + phone
+// are normalized first so Arabic-Indic/Persian digits and RTL marks validate
+// identically to English input (and match the backend's normalized value).
 function phoneValid(dial, phone) {
-  const full = `${dial || ""}${phone || ""}`.trim();
+  const full = normalizePhoneInput(`${dial || ""}${phone || ""}`);
   if (!full) return false;
   try {
     return isValidPhoneNumber(full.startsWith("+") ? full : `+${full}`);
@@ -381,9 +384,12 @@ export default function CreatePage() {
   };
 
   const sanitizeDialCode = (val) => {
-    let sanitized = val.replace(/[^\d+]/g, '');
+    // Normalize first so an Arabic-Indic/Persian-typed dial code (e.g. +٩٧٣)
+    // and any RTL marks collapse to a clean "+973" before the digit filter.
+    const normalized = normalizePhoneInput(val);
+    let sanitized = normalized.replace(/[^\d+]/g, '');
     if (sanitized.includes('+')) {
-      const hasLeadingPlus = val.startsWith('+');
+      const hasLeadingPlus = normalized.startsWith('+');
       sanitized = sanitized.replace(/\+/g, '');
       if (hasLeadingPlus) {
         sanitized = '+' + sanitized;
@@ -603,8 +609,8 @@ export default function CreatePage() {
         return {
           name: r.name,
           deliveryMethod: "whatsapp",
-          countryCode: r.dial,
-          phone: r.phone
+          countryCode: normalizePhoneInput(r.dial),
+          phone: normalizePhoneInput(r.phone)
         };
       });
 
@@ -618,7 +624,7 @@ export default function CreatePage() {
         cropData,
         message,
         senderName,
-        senderPhone: senderDial + senderPhone,
+        senderPhone: normalizePhoneInput(`${senderDial}${senderPhone}`),
         revealIdentity,
         pieceCount,
         recipients: formattedRecipients,
@@ -678,8 +684,8 @@ export default function CreatePage() {
         return {
           name: r.name,
           deliveryMethod: "whatsapp",
-          countryCode: r.dial,
-          phone: r.phone
+          countryCode: normalizePhoneInput(r.dial),
+          phone: normalizePhoneInput(r.phone)
         };
       });
 
@@ -688,7 +694,7 @@ export default function CreatePage() {
         cropData,
         message,
         senderName,
-        senderPhone: senderDial + senderPhone,
+        senderPhone: normalizePhoneInput(`${senderDial}${senderPhone}`),
         revealIdentity,
         pieceCount,
         recipients: formattedRecipients,
@@ -1325,6 +1331,8 @@ export default function CreatePage() {
                               return next;
                             });
                           }}
+                          dir="ltr"
+                          inputMode="tel"
                           style={{ ...inputStyle, width: "80px", flex: "none", padding: "13px 8px", textAlign: "center" }}
                           placeholder="+973"
                         />
@@ -1338,9 +1346,10 @@ export default function CreatePage() {
                             });
                           }}
                           aria-invalid={rec.phone && !recValid ? "true" : "false"}
+                          dir="ltr"
                           inputMode="tel"
                           autoComplete="off"
-                          style={{ ...inputStyle, flex: 1 }}
+                          style={{ ...inputStyle, flex: 1, textAlign: "left" }}
                         />
                       </div>
 
@@ -1393,13 +1402,16 @@ export default function CreatePage() {
                     setSenderDial(val);
                     senderDialEditedRef.current = true;
                   }}
+                  dir="ltr"
+                  inputMode="tel"
                   style={{ ...inputStyle, width: "80px", flex: "none", padding: "13px 8px", textAlign: "center" }}
                   placeholder="+973"
                 />
                 <input type="tel" placeholder={t('create.delivery.senderPhonePlaceholder')} value={senderPhone} onChange={(e) => setSenderPhone(e.target.value)}
+                  dir="ltr"
                   inputMode="tel"
                   autoComplete="tel"
-                  style={{ ...inputStyle, flex: 1 }} />
+                  style={{ ...inputStyle, flex: 1, textAlign: "left" }} />
               </div>
 
               {senderPhone && !senderValid && (
