@@ -65,7 +65,8 @@ router.post('/reveals', async (req, res, next) => {
       occasion,
       tone,
       pieceCount,
-      recipients
+      recipients,
+      experienceLanguage
     } = req.body;
 
     // 2. Base Validation
@@ -204,6 +205,9 @@ router.post('/reveals', async (req, res, next) => {
       occasion: occasion || '',
       tone: tone || '',
       pieceCount: cleanPieceCount,
+      // Persist the sender's chosen experience language so ReceivePage and the
+      // WhatsApp template initialize correctly; unknown values default to 'en'.
+      experienceLanguage: (experienceLanguage === 'ar' || experienceLanguage === 'en') ? experienceLanguage : 'en',
       recipients: formattedRecipients,
       expiresAt
     });
