@@ -1,271 +1,243 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 export default function TermsPage() {
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
+
+  useEffect(() => {
+    document.title = isRtl ? "JIGZO | الشروط والأحكام وسياسة الخصوصية" : "JIGZO | Terms & Conditions & Privacy Policy";
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) {
+      metaDesc.setAttribute('content', isRtl ? "شروط الخدمة وسياسة الخصوصية لمنصة JIGZO." : "Terms of Service and Privacy Policy for JIGZO.");
+    }
+  }, [isRtl]);
+
+  const termsBullets2 = t('terms.sec2.bullets', { returnObjects: true }) || [];
+  const termsBullets3 = t('terms.sec3.bullets', { returnObjects: true }) || [];
+  const termsBullets4 = t('terms.sec4.bullets', { returnObjects: true }) || [];
+  const termsBullets5 = t('terms.sec5.bullets', { returnObjects: true }) || [];
+  const termsBullets7 = t('terms.sec7.bullets', { returnObjects: true }) || [];
+  const termsBullets10 = t('terms.sec10.bullets', { returnObjects: true }) || [];
+  const termsBullets12 = t('terms.sec12.bullets', { returnObjects: true }) || [];
+  const termsBullets13 = t('terms.sec13.bullets', { returnObjects: true }) || [];
+
+  const privSenderBullets = t('privacy.collect.senderBullets', { returnObjects: true }) || [];
+  const privRecipBullets = t('privacy.collect.recipientBullets', { returnObjects: true }) || [];
+  const privContentBullets = t('privacy.collect.contentBullets', { returnObjects: true }) || [];
+  const privTechBullets = t('privacy.collect.technicalBullets', { returnObjects: true }) || [];
+  const privWhyBullets = t('privacy.why.bullets', { returnObjects: true }) || [];
+  const privRecordsBullets = t('privacy.records.bullets', { returnObjects: true }) || [];
+  const privSharingBullets = t('privacy.sharing.bullets', { returnObjects: true }) || [];
+  const privCookiesBullets = t('privacy.cookies.bullets', { returnObjects: true }) || [];
+  const privRightsBullets = t('privacy.rights.bullets', { returnObjects: true }) || [];
+
   return (
-    <div className="terms-page">
+    <div className="terms-page" style={{ direction: isRtl ? 'rtl' : 'ltr', textAlign: isRtl ? 'right' : 'left' }}>
       {/* ===================== NAV ===================== */}
       <header className="nav">
         <div className="nav__inner">
-          <Link to="/" aria-label="Jigzo home">
+          <Link to="/" aria-label={t('landing.nav.home')}>
             <img className="nav__logo" src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" />
           </Link>
-          <Link className="btn btn-ghost" to="/create">Create your reveal</Link>
+          <div className="nav__actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <LanguageSwitcher location="terms_nav" />
+            <Link className="btn btn-ghost" to="/create">{t('landing.nav.createFull')}</Link>
+          </div>
         </div>
       </header>
 
       <main className="terms-container" style={{ maxWidth: 800, margin: "40px auto 80px", padding: "0 24px", fontFamily: "Archia, sans-serif", lineHeight: 1.7 }}>
-        <h1 style={{ fontWeight: 300, fontSize: "clamp(32px, 5vw, 48px)", letterSpacing: "-0.02em", marginBottom: 8 }}>Terms &amp; Conditions</h1>
-        <div className="terms-meta" style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12, color: "#A67C3D", marginBottom: 30 }}>Last Updated: July 2026</div>
+        <h1 style={{ fontWeight: 300, fontSize: "clamp(32px, 5vw, 48px)", letterSpacing: "-0.02em", marginBottom: 8 }}>{t('terms.title')}</h1>
+        <div className="terms-meta" style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12, color: "#A67C3D", marginBottom: 30 }}>{t('terms.lastUpdated')}</div>
 
-        <h2>Welcome to JIGZO</h2>
-        <p>Thank you for using JIGZO.</p>
-        <p>JIGZO is a digital platform that allows users to create personalized puzzle experiences that reveal hidden messages, photos, and memories.</p>
-        <p>By accessing or using JIGZO, you agree to these Terms &amp; Conditions. If you do not agree, please do not use the Service.</p>
+        <h2>{t('terms.intro.welcome')}</h2>
+        <p>{t('terms.intro.thanks')}</p>
+        <p>{t('terms.intro.desc')}</p>
+        <p>{t('terms.intro.agree')}</p>
 
-        <h2>1. Eligibility</h2>
-        <p>You must be at least 18 years old or have permission from a parent or legal guardian to use JIGZO.</p>
-        <p>By placing an order, you confirm that you have the legal capacity to enter into this agreement.</p>
+        <h2>{t('terms.sec1.title')}</h2>
+        <p>{t('terms.sec1.p1')}</p>
+        <p>{t('terms.sec1.p2')}</p>
 
-        <h2>2. Our Service</h2>
-        <p>JIGZO allows users to:</p>
-        <ul>
-          <li>Create personalized digital puzzles</li>
-          <li>Upload photos</li>
-          <li>Write custom messages</li>
-          <li>Send puzzle links to recipients</li>
-          <li>Receive puzzle completion insights (where available)</li>
+        <h2>{t('terms.sec2.title')}</h2>
+        <p>{t('terms.sec2.p1')}</p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {termsBullets2.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
-        <p>JIGZO provides the platform only and does not create, edit, or monitor every piece of user-generated content.</p>
+        <p>{t('terms.sec2.p2')}</p>
 
-        <h2>3. User Responsibilities</h2>
-        <p>You agree that all information you provide is accurate.</p>
-        <p>You are responsible for:</p>
-        <ul>
-          <li>Photos you upload</li>
-          <li>Messages you write</li>
-          <li>Recipient names</li>
-          <li>Recipient phone numbers</li>
-          <li>Ensuring you have permission to use uploaded content</li>
+        <h2>{t('terms.sec3.title')}</h2>
+        <p>{t('terms.sec3.p1')}</p>
+        <p>{t('terms.sec3.p2')}</p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {termsBullets3.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
-        <p>You are responsible for correcting any mistakes before placing your order.</p>
+        <p>{t('terms.sec3.p3')}</p>
 
-        <h2>4. Acceptable Use</h2>
-        <p>You agree NOT to use JIGZO for:</p>
-        <ul>
-          <li>Harassment</li>
-          <li>Bullying</li>
-          <li>Threats</li>
-          <li>Hate speech</li>
-          <li>Illegal activities</li>
-          <li>Copyright infringement</li>
-          <li>Sexual or explicit material</li>
-          <li>Defamation</li>
-          <li>Spam</li>
-          <li>Fraud</li>
-          <li>Malware or harmful links</li>
+        <h2>{t('terms.sec4.title')}</h2>
+        <p>{t('terms.sec4.p1')}</p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {termsBullets4.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
-        <p>JIGZO reserves the right to refuse service, suspend accounts, or remove content that violates these rules.</p>
+        <p>{t('terms.sec4.p2')}</p>
 
-        <h2>5. Intellectual Property</h2>
-        <p>You retain ownership of the content you upload.</p>
-        <p>By uploading content, you grant JIGZO a temporary license solely to:</p>
-        <ul>
-          <li>Store</li>
-          <li>Process</li>
-          <li>Display</li>
-          <li>Deliver</li>
+        <h2>{t('terms.sec5.title')}</h2>
+        <p>{t('terms.sec5.p1')}</p>
+        <p>{t('terms.sec5.p2')}</p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {termsBullets5.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
-        <p>your content for the purpose of providing the Service.</p>
-        <p>This license automatically ends when your uploaded content is permanently deleted from our systems.</p>
-        <p>All JIGZO branding, logos, software, website design, animations, graphics, and source code remain the property of JIGZO.</p>
+        <p>{t('terms.sec5.p3')}</p>
+        <p>{t('terms.sec5.p4')}</p>
+        <p>{t('terms.sec5.p5')}</p>
 
-        <h2>6. Temporary Storage</h2>
-        <p>To protect your privacy:</p>
-        <p>Photos, puzzle data, and messages are stored only for the time necessary to provide the Service.</p>
-        <p>Unless required by law or for fraud investigations, uploaded content is automatically deleted after the applicable retention period.</p>
-        <p>Deleted content cannot be recovered.</p>
+        <h2>{t('terms.sec6.title')}</h2>
+        <p>{t('terms.sec6.p1')}</p>
+        <p>{t('terms.sec6.p2')}</p>
+        <p>{t('terms.sec6.p3')}</p>
+        <p>{t('terms.sec6.p4')}</p>
 
-        <h2>7. Delivery</h2>
-        <p>JIGZO attempts to deliver puzzle links promptly.</p>
-        <p>Delivery depends on third-party services including:</p>
-        <ul>
-          <li>Internet providers</li>
-          <li>WhatsApp</li>
-          <li>Mobile networks</li>
-          <li>Device compatibility</li>
+        <h2>{t('terms.sec7.title')}</h2>
+        <p>{t('terms.sec7.p1')}</p>
+        <p>{t('terms.sec7.p2')}</p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {termsBullets7.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
-        <p>JIGZO cannot guarantee immediate delivery in every circumstance.</p>
+        <p>{t('terms.sec7.p3')}</p>
 
-        <h2>8. Recipient Privacy</h2>
-        <p>JIGZO respects the privacy of both senders and recipients.</p>
-        <p>If a recipient contacts JIGZO requesting the identity of the sender, JIGZO will not disclose that information except where legally required.</p>
+        <h2>{t('terms.sec8.title')}</h2>
+        <p>{t('terms.sec8.p1')}</p>
+        <p>{t('terms.sec8.p2')}</p>
 
-        <h2>9. Payments</h2>
-        <p>Payments are processed securely by trusted third-party payment providers.</p>
-        <p>JIGZO never stores your complete payment card details.</p>
-        <p>Prices displayed at checkout include any applicable charges shown before payment.</p>
+        <h2>{t('terms.sec9.title')}</h2>
+        <p>{t('terms.sec9.p1')}</p>
+        <p>{t('terms.sec9.p2')}</p>
+        <p>{t('terms.sec9.p3')}</p>
 
-        <h2>10. Refund Policy</h2>
-        <p>Because every JIGZO is personalized, orders generally cannot be cancelled or refunded after creation has started.</p>
-        <p>If a technical problem caused solely by JIGZO prevents successful delivery, we will investigate and may offer:</p>
-        <ul>
-          <li>a replacement,</li>
-          <li>a correction,</li>
-          <li>or a refund,</li>
+        <h2>{t('terms.sec10.title')}</h2>
+        <p>{t('terms.sec10.p1')}</p>
+        <p>{t('terms.sec10.p2')}</p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {termsBullets10.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
-        <p>at our discretion.</p>
+        <p>{t('terms.sec10.p3')}</p>
 
-        <h2>11. Service Availability</h2>
-        <p>We strive to provide uninterrupted service.</p>
-        <p>However, maintenance, technical failures, or third-party outages may occasionally affect availability.</p>
+        <h2>{t('terms.sec11.title')}</h2>
+        <p>{t('terms.sec11.p1')}</p>
+        <p>{t('terms.sec11.p2')}</p>
 
-        <h2>12. Limitation of Liability</h2>
-        <p>JIGZO is not responsible for:</p>
-        <ul>
-          <li>Emotional reactions to messages</li>
-          <li>Relationship disputes</li>
-          <li>Incorrect recipient details entered by the sender</li>
-          <li>Device compatibility issues</li>
-          <li>Network failures</li>
-          <li>Delays caused by third-party services</li>
+        <h2>{t('terms.sec12.title')}</h2>
+        <p>{t('terms.sec12.p1')}</p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {termsBullets12.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
-        <p>To the maximum extent permitted by applicable law, JIGZO's liability is limited to the amount paid for the affected order.</p>
+        <p>{t('terms.sec12.p2')}</p>
 
-        <h2>13. Fraud Prevention</h2>
-        <p>JIGZO may suspend or permanently block users suspected of:</p>
-        <ul>
-          <li>Fraud</li>
-          <li>Payment abuse</li>
-          <li>Repeated misuse</li>
-          <li>Illegal activity</li>
+        <h2>{t('terms.sec13.title')}</h2>
+        <p>{t('terms.sec13.p1')}</p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {termsBullets13.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
 
-        <h2>14. Law Enforcement</h2>
-        <p>Where required by law, court order, or other legal process, JIGZO may disclose information to the appropriate authorities.</p>
+        <h2>{t('terms.sec14.title')}</h2>
+        <p>{t('terms.sec14.p1')}</p>
 
-        <h2>15. Changes</h2>
-        <p>We may update these Terms from time to time.</p>
-        <p>The latest version will always be published on our website.</p>
+        <h2>{t('terms.sec15.title')}</h2>
+        <p>{t('terms.sec15.p1')}</p>
+        <p>{t('terms.sec15.p2')}</p>
 
-        <h2>16. Contact</h2>
-        <p>Questions about these Terms may be sent to: <a href="mailto:info@jigzo.biz">info@jigzo.biz</a></p>
+        <h2>{t('terms.sec16.title')}</h2>
+        <p>{t('terms.sec16.p1')}<a href="mailto:info@jigzo.biz">info@jigzo.biz</a></p>
 
         <hr style={{ border: "none", borderTop: "1px solid rgba(28,25,19,0.15)", margin: "60px 0 40px" }} />
 
-        <h1 style={{ fontWeight: 300, fontSize: "clamp(32px, 5vw, 48px)", letterSpacing: "-0.02em", marginBottom: 8 }}>Privacy Policy</h1>
-        <div className="terms-meta" style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12, color: "#A67C3D", marginBottom: 30 }}>Last Updated: July 2026</div>
+        {/* ===================== PRIVACY ===================== */}
+        <h1 style={{ fontWeight: 300, fontSize: "clamp(32px, 5vw, 48px)", letterSpacing: "-0.02em", marginBottom: 8 }}>{t('privacy.title')}</h1>
+        <div className="terms-meta" style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12, color: "#A67C3D", marginBottom: 30 }}>{t('terms.lastUpdated')}</div>
 
-        <h2>Your Privacy Matters</h2>
-        <p>JIGZO is built around personal memories.</p>
-        <p>Protecting those memories is one of our highest priorities.</p>
-        <p>This Privacy Policy explains what information we collect, why we collect it, and how we protect it.</p>
+        <h2>{t('privacy.intro.welcome')}</h2>
+        <p>{t('privacy.intro.p1')}</p>
+        <p>{t('privacy.intro.p2')}</p>
+        <p>{t('privacy.intro.p3')}</p>
 
-        <h2>Information We Collect</h2>
-        <p>When you create a JIGZO, we may collect:</p>
-        <p><strong>Sender information:</strong></p>
-        <ul>
-          <li>Name</li>
-          <li>Email address</li>
-          <li>Phone number</li>
+        <h2>{t('privacy.collect.title')}</h2>
+        <p>{t('privacy.collect.p1')}</p>
+        <p><strong>{t('privacy.collect.sender')}</strong></p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {privSenderBullets.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
-        <p><strong>Recipient information:</strong></p>
-        <ul>
-          <li>Name</li>
-          <li>Phone number</li>
+        <p><strong>{t('privacy.collect.recipient')}</strong></p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {privRecipBullets.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
-        <p><strong>Puzzle content:</strong></p>
-        <ul>
-          <li>Uploaded photos</li>
-          <li>Personal messages</li>
+        <p><strong>{t('privacy.collect.content')}</strong></p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {privContentBullets.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
-        <p><strong>Technical information:</strong></p>
-        <ul>
-          <li>Browser type</li>
-          <li>Device information</li>
-          <li>IP address</li>
-          <li>Country (derived from IP, if applicable)</li>
-          <li>Usage analytics</li>
-          <li>Puzzle interaction events (for example, when a puzzle is opened or completed)</li>
+        <p><strong>{t('privacy.collect.technical')}</strong></p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {privTechBullets.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
-        <p><strong>Payment information:</strong></p>
-        <p>Payments are securely processed by third-party providers. JIGZO does not store complete payment card details.</p>
+        <p><strong>{t('privacy.collect.payment')}</strong></p>
+        <p>{t('privacy.collect.paymentDesc')}</p>
 
-        <h2>Why We Collect Information</h2>
-        <p>We use your information to:</p>
-        <ul>
-          <li>Create puzzles</li>
-          <li>Deliver puzzle links</li>
-          <li>Process payments</li>
-          <li>Provide customer support</li>
-          <li>Prevent fraud</li>
-          <li>Improve the platform</li>
-          <li>Generate anonymous service analytics</li>
+        <h2>{t('privacy.why.title')}</h2>
+        <p>{t('privacy.why.p1')}</p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {privWhyBullets.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
 
-        <h2>Temporary Photo Storage</h2>
-        <p>Uploaded photos are stored temporarily. They are automatically deleted after the applicable retention period unless a longer period is required by law. Deleted photos cannot be restored.</p>
+        <h2>{t('privacy.storage.title')}</h2>
+        <p>{t('privacy.storage.p1')}</p>
 
-        <h2>Permanent Records</h2>
-        <p>For legal, accounting, fraud prevention, customer support, and loyalty features, JIGZO may retain limited information such as:</p>
-        <ul>
-          <li>Sender name</li>
-          <li>Sender email</li>
-          <li>Sender phone number</li>
-          <li>Purchase history</li>
-          <li>Order dates</li>
-          <li>Puzzle statistics</li>
+        <h2>{t('privacy.records.title')}</h2>
+        <p>{t('privacy.records.p1')}</p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {privRecordsBullets.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
-        <p>This allows features like: <em>"You've created 17 unforgettable moments."</em> without retaining the uploaded photos or messages.</p>
+        <p>{t('privacy.records.p2')}</p>
 
-        <h2>Sharing Information</h2>
-        <p>We do not sell your personal information. We may share information only with trusted providers that help us operate JIGZO, such as:</p>
-        <ul>
-          <li>Payment providers</li>
-          <li>WhatsApp delivery services</li>
-          <li>Website hosting providers</li>
-          <li>Analytics providers</li>
+        <h2>{t('privacy.sharing.title')}</h2>
+        <p>{t('privacy.sharing.p1')}</p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {privSharingBullets.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
-        <p>They may access only the information necessary to provide their services.</p>
+        <p>{t('privacy.sharing.p2')}</p>
 
-        <h2>Recipient Privacy</h2>
-        <p>Recipient information is used only to deliver the puzzle experience. We do not use recipient contact information for marketing without consent.</p>
+        <h2>{t('privacy.recipientPrivacy.title')}</h2>
+        <p>{t('privacy.recipientPrivacy.p1')}</p>
 
-        <h2>Cookies</h2>
-        <p>JIGZO may use cookies to:</p>
-        <ul>
-          <li>Keep the website functioning</li>
-          <li>Improve performance</li>
-          <li>Understand visitor behavior</li>
-          <li>Enhance the user experience</li>
+        <h2>{t('privacy.cookies.title')}</h2>
+        <p>{t('privacy.cookies.p1')}</p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {privCookiesBullets.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
 
-        <h2>Data Security</h2>
-        <p>We use reasonable administrative, technical, and organizational measures to help protect your information. However, no internet transmission or electronic storage method can be guaranteed to be completely secure.</p>
+        <h2>{t('privacy.security.title')}</h2>
+        <p>{t('privacy.security.p1')}</p>
 
-        <h2>Your Rights</h2>
-        <p>Depending on applicable laws where you live, you may have rights to:</p>
-        <ul>
-          <li>Access your information</li>
-          <li>Correct inaccurate information</li>
-          <li>Request deletion (subject to legal obligations)</li>
-          <li>Object to certain processing</li>
-          <li>Withdraw consent where applicable</li>
+        <h2>{t('privacy.rights.title')}</h2>
+        <p>{t('privacy.rights.p1')}</p>
+        <ul style={{ paddingRight: isRtl ? 20 : 0, paddingLeft: isRtl ? 0 : 20 }}>
+          {privRightsBullets.map((b, i) => <li key={i}>{b}</li>)}
         </ul>
-        <p>To exercise these rights, contact us at: <a href="mailto:info@jigzo.biz">info@jigzo.biz</a></p>
+        <p>{t('privacy.rights.p2')}<a href="mailto:info@jigzo.biz">info@jigzo.biz</a></p>
 
-        <h2>Children's Privacy</h2>
-        <p>JIGZO is not intended for children under 13. We do not knowingly collect personal information from children under 13.</p>
+        <h2>{t('privacy.children.title')}</h2>
+        <p>{t('privacy.children.p1')}</p>
 
-        <h2>International Users</h2>
-        <p>Your information may be processed in countries different from your own.</p>
-        <p>By using JIGZO, you understand that your information may be transferred and processed where our service providers operate, subject to applicable legal safeguards.</p>
+        <h2>{t('privacy.intl.title')}</h2>
+        <p>{t('privacy.intl.p1')}</p>
+        <p>{t('privacy.intl.p2')}</p>
 
-        <h2>Policy Updates</h2>
-        <p>We may update this Privacy Policy from time to time. The latest version will always appear on our website.</p>
+        <h2>{t('privacy.updates.title')}</h2>
+        <p>{t('privacy.updates.p1')}</p>
 
-        <h2>Contact</h2>
-        <p>For privacy-related questions, contact: <a href="mailto:info@jigzo.biz">info@jigzo.biz</a></p>
+        <h2>{t('privacy.contact.title')}</h2>
+        <p>{t('privacy.contact.p1')}<a href="mailto:info@jigzo.biz">info@jigzo.biz</a></p>
       </main>
     </div>
   );

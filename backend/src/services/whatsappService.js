@@ -34,7 +34,7 @@ class WhatsAppService {
       const puzzle = await Puzzle.findOne({ publicId: puzzleId });
       if (puzzle && puzzle.recipients[recipientIndex]) {
         const rec = puzzle.recipients[recipientIndex];
-        
+
         // Monotonic mapping priority
         const priority = {
           'pending': 0,
@@ -54,9 +54,9 @@ class WhatsAppService {
             rec.whatsappSendStatus = fields.status;
           }
         }
-        
+
         if (fields.providerMessageId) rec.providerMessageId = fields.providerMessageId;
-        
+
         // Strict event semantics: Only set status-specific fields on webhook events
         if (fields.status === 'sent') {
           rec.whatsappSentAt = fields.occurredAt || new Date();
@@ -69,14 +69,14 @@ class WhatsAppService {
           rec.whatsappReadAt = fields.occurredAt || new Date();
           rec.deliveryStatus = 'delivered';
         }
-        
+
         // Failure tracking fields can be updated independently of status transitions
         if (fields.failedAt || fields.status === 'failed') {
           rec.whatsappFailedAt = fields.failedAt || fields.occurredAt || new Date();
           rec.whatsappLastErrorCode = fields.errorCode || '';
           rec.whatsappLastErrorMessage = fields.errorMessage || '';
           rec.lastError = fields.errorMessage || '';
-          
+
           // Only update whatsappSendStatus to failed if not already sent/delivered/read
           const currentPriority = priority[rec.whatsappSendStatus] || 0;
           if (currentPriority < priority['sent']) {
@@ -176,6 +176,10 @@ class WhatsAppService {
     const senderDisplayName = puzzle.revealIdentity ? (puzzle.senderName || '').trim() : 'Someone';
     const suffix = `${puzzleId}?r=${recipientIndex}`;
 
+    // English Marketing versions are approved. Arabic templates are prepared but not enabled.
+    const isArabicConfirmed = false; // Set to true once verified
+    const langCode = (puzzle.experienceLanguage === 'ar' && isArabicConfirmed) ? 'ar' : 'en_US';
+
     const payload = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
@@ -184,7 +188,7 @@ class WhatsAppService {
       template: {
         name: 'jigzo_puzzle_delivery',
         language: {
-          code: 'en_US'
+          code: langCode
         },
         components: [
           {
@@ -236,7 +240,7 @@ class WhatsAppService {
 
       if (response.ok && resJson.messages && resJson.messages[0]) {
         const providerMessageId = resJson.messages[0].id;
-        
+
         messageRecord.status = 'accepted';
         messageRecord.providerMessageId = providerMessageId;
         messageRecord.acceptedAt = new Date();
@@ -252,7 +256,7 @@ class WhatsAppService {
       } else {
         const errCode = resJson.error?.code || 'API_ERROR';
         const errMsg = resJson.error?.message || 'Failed to send template message';
-        
+
         messageRecord.status = 'failed';
         messageRecord.lastErrorCode = String(errCode);
         messageRecord.lastErrorMessage = String(errMsg).slice(0, 500);
@@ -269,7 +273,7 @@ class WhatsAppService {
       }
     } catch (networkErr) {
       console.error('[WhatsAppService] Send request network exception:', networkErr.message);
-      
+
       messageRecord.status = 'verification_required';
       messageRecord.lastErrorCode = 'NETWORK_ERROR';
       messageRecord.lastErrorMessage = String(networkErr.message).slice(0, 500);
@@ -281,6 +285,160 @@ class WhatsAppService {
         errorCode: 'NETWORK_ERROR',
         errorMessage: String(networkErr.message).slice(0, 500)
       });
+
+      return { success: false, error: 'ambiguous_network_failure' };
+    }
+  }
+
+  /**
+   * Sends a reveal alert WhatsApp template message to the sender when a recipient solves the puzzle.
+   */
+  async sendRevealAlert({ puzzleId, recipientIndex, senderPhone, recipientName, durationSeconds }) {
+    // Phase 1 check: Keep WHATSAPP_ENABLED false check first to prevent any DB claims
+    const whatsappEnabled = process.env.WHATSAPP_ENABLED === 'true';
+    if (!whatsappEnabled) {
+      return { success: true, status: 'disabled' };
+    }
+
+    const destinationPhone = this.normalizePhone(senderPhone);
+    const destinationMasked = maskPhone(destinationPhone);
+
+    const idempotencyKey = `puzzle-solved:${puzzleId}:${recipientIndex}:jigzo_puzzle_solved:v1`;
+    let messageRecord;
+
+    try {
+      // Step 1: Create atomic claim using unique index
+      messageRecord = new WhatsAppMessage({
+        puzzleId,
+        recipientIndex,
+        idempotencyKey,
+        destinationMasked,
+        status: 'pending',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      await messageRecord.save();
+    } catch (err) {
+      if (err.code === 11000) {
+        // Already claimed or sent
+        const existing = await WhatsAppMessage.findOne({ idempotencyKey });
+        return { success: false, reason: 'duplicate_request', status: existing.status, providerMessageId: existing.providerMessageId };
+      }
+      throw err;
+    }
+
+    // Step 2: Acquire claim
+    messageRecord.status = 'claimed';
+    messageRecord.claimedAt = new Date();
+    await messageRecord.save();
+
+    // Validate environment variables
+    const apiKey = process.env.KAPSO_API_KEY;
+    const phoneId = process.env.KAPSO_PHONE_NUMBER_ID;
+    if (!apiKey || !phoneId) {
+      messageRecord.status = 'failed';
+      messageRecord.lastErrorCode = 'MISSING_CREDENTIALS';
+      messageRecord.lastErrorMessage = 'Staging environment is missing Kapso credentials.';
+      messageRecord.updatedAt = new Date();
+      await messageRecord.save();
+
+      return { success: false, error: 'MISSING_CREDENTIALS' };
+    }
+
+    // Step 4: Perform network request
+    messageRecord.status = 'sending';
+    messageRecord.attemptCount += 1;
+    messageRecord.requestStartedAt = new Date();
+    await messageRecord.save();
+
+    const m = Math.floor(durationSeconds / 60);
+    const s = durationSeconds % 60;
+    const durationText = m > 0 ? `${m}m ${s}s` : `${s}s`;
+
+    // English Marketing versions are approved. Arabic templates are prepared but not enabled.
+    const isArabicConfirmed = false; // Set to true once verified
+    const langCode = isArabicConfirmed ? 'ar' : 'en_US';
+
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: destinationPhone,
+      type: 'template',
+      template: {
+        name: 'jigzo_puzzle_solved',
+        language: {
+          code: langCode
+        },
+        components: [
+          {
+            type: 'body',
+            parameters: [
+              { type: 'text', text: recipientName || '' },
+              { type: 'text', text: durationText }
+            ]
+          }
+        ]
+      },
+      biz_opaque_callback_data: idempotencyKey
+    };
+
+    const payloadString = JSON.stringify(payload);
+    const payloadHash = crypto.createHash('sha256').update(payloadString).digest('hex');
+    messageRecord.payloadHash = payloadHash;
+    await messageRecord.save();
+
+    const apiVersion = 'v24.0';
+    const url = `https://api.kapso.ai/meta/whatsapp/${apiVersion}/${phoneId}/messages`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-API-Key': apiKey,
+          'Content-Type': 'application/json'
+        },
+        body: payloadString,
+        signal: AbortSignal.timeout(10000)
+      });
+
+      const resBodyText = await response.text();
+      let resJson;
+      try {
+        resJson = JSON.parse(resBodyText);
+      } catch (parseErr) {
+        throw new Error(`Invalid JSON response: ${resBodyText.slice(0, 200)}`);
+      }
+
+      if (response.ok && resJson.messages && resJson.messages[0]) {
+        const providerMessageId = resJson.messages[0].id;
+
+        messageRecord.status = 'accepted';
+        messageRecord.providerMessageId = providerMessageId;
+        messageRecord.acceptedAt = new Date();
+        messageRecord.updatedAt = new Date();
+        await messageRecord.save();
+
+        return { success: true, status: 'accepted', providerMessageId };
+      } else {
+        const errCode = resJson.error?.code || 'API_ERROR';
+        const errMsg = resJson.error?.message || 'Failed to send template message';
+
+        messageRecord.status = 'failed';
+        messageRecord.lastErrorCode = String(errCode);
+        messageRecord.lastErrorMessage = String(errMsg).slice(0, 500);
+        messageRecord.updatedAt = new Date();
+        await messageRecord.save();
+
+        return { success: false, error: errMsg };
+      }
+    } catch (networkErr) {
+      console.error('[WhatsAppService] Send alert request network exception:', networkErr.message);
+
+      messageRecord.status = 'verification_required';
+      messageRecord.lastErrorCode = 'NETWORK_ERROR';
+      messageRecord.lastErrorMessage = String(networkErr.message).slice(0, 500);
+      messageRecord.updatedAt = new Date();
+      await messageRecord.save();
 
       return { success: false, error: 'ambiguous_network_failure' };
     }

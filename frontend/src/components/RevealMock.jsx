@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { buildEdgeMap, piecePath } from '../puzzle/puzzle-shape';
 import LoaderOrbit from './LoaderOrbit';
+import RevealFace from './RevealFace';
 
 export default function RevealMock() {
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === 'ar';
+
   const PHOTO = '/assets/demo-photo.png';
-  const REVEAL = '/assets/demo-reveal.png';
-  const MESSAGE = "Twelve years since this picture, and you're still one of the best parts of my life. Happy Birthday, my forever friend";
-  const WA = "Hi Sofia, Zara left something special for you. There's a message waiting behind a little challenge. Solve the puzzle to uncover it. 🧩 Open your JIGZO";
+  const MESSAGE = t('demo.message');
+  const WA = t('demo.whatsappText');
 
   const COLS = 4, ROWS = 6, VW = 360, VH = 640, pw = VW / COLS, ph = VH / ROWS;
   const edgeMap = buildEdgeMap(COLS, ROWS, 1337);
@@ -75,16 +79,7 @@ export default function RevealMock() {
     return `${hh}:${String(now.getMinutes()).padStart(2, '0')} ${ap}`;
   })();
 
-  const capText = [
-    'Upload a photo',
-    'Write your message',
-    'They get a WhatsApp from JIGZO',
-    'They solve the puzzle',
-    '',
-    'Your words, revealed',
-    'Yours to keep'
-  ];
-
+  const capText = t('demo.captions', { returnObjects: true }) || [];
   const durations = [2000, 2000, 2500, 2500, 1000, 4000, 2500];
 
   useEffect(() => {
@@ -109,14 +104,14 @@ export default function RevealMock() {
 
   return (
     <div className="reveal-mock-card">
-      <div className="reveal-mock-steps">
+      <div className="reveal-mock-steps" style={{ direction: isRtl ? 'rtl' : 'ltr' }}>
         {capText.map((_, i) => (
           <span key={i} className={`reveal-mock-step ${i === activeIdx ? 'is-active' : ''}`}>
             {i + 1}
           </span>
         ))}
       </div>
-      <div className="reveal-mock-captions">
+      <div className="reveal-mock-captions" style={{ direction: isRtl ? 'rtl' : 'ltr' }}>
         {capText.map((t, i) => (
           <div key={i} className={`reveal-mock-caption ${i === activeIdx ? 'is-active' : ''}`}>
             {t}
@@ -137,24 +132,31 @@ export default function RevealMock() {
           </div>
 
           {/* Scene 2 */}
-          <div className={`reveal-mock-scene reveal-mock-s2 ${activeIdx === 1 ? 'is-active' : ''}`}>
+          <div className={`reveal-mock-scene reveal-mock-s2 ${activeIdx === 1 ? 'is-active' : ''}`} style={{ direction: isRtl ? 'rtl' : 'ltr', textAlign: isRtl ? 'right' : 'left' }}>
             <div className="reveal-mock-msgcard">
-              <div className="reveal-mock-msglabel">Message</div>
+              <div className="reveal-mock-msglabel">{t('create.recipient.messageLabel')}</div>
               <div className="reveal-mock-msgtext">{MESSAGE}</div>
             </div>
           </div>
 
           {/* Scene 3 */}
-          <div className={`reveal-mock-scene reveal-mock-s3 ${activeIdx === 2 ? 'is-active' : ''}`}>
+          <div className={`reveal-mock-scene reveal-mock-s3 ${activeIdx === 2 ? 'is-active' : ''}`} style={{ direction: isRtl ? 'rtl' : 'ltr' }}>
             <div className="reveal-mock-wa">
-              <div className="reveal-mock-wa-head">
-                <div className="reveal-mock-wa-back"><span className="chev">‹</span><span className="n">1</span></div>
+              <div className="reveal-mock-wa-head" style={{ flexDirection: isRtl ? 'row-reverse' : 'row' }}>
+                <div className="reveal-mock-wa-back" style={{ flexDirection: isRtl ? 'row-reverse' : 'row' }}><span className="chev">{isRtl ? '›' : '‹'}</span><span className="n">1</span></div>
                 <img className="reveal-mock-wa-av" src="/assets/JIGZO-Icon-Cream.svg" alt="JIGZO" />
-                <div className="reveal-mock-wa-name"><span className="nm">JIGZO</span><span className="reveal-mock-wa-badge">✓</span></div>
+                <div className="reveal-mock-wa-name" style={{ flexDirection: isRtl ? 'row-reverse' : 'row', justifyContent: isRtl ? 'flex-end' : 'flex-start' }}><span className="nm">JIGZO</span><span className="reveal-mock-wa-badge">✓</span></div>
               </div>
               <div className="reveal-mock-wa-body" style={{ backgroundImage: doodle }}>
-                <div className="reveal-mock-wa-bubble">
-                  <span className="reveal-mock-wa-tail"></span>
+                <div className="reveal-mock-wa-bubble" style={{
+                  borderRadius: isRtl ? "8px 0 8px 8px" : "0 8px 8px 8px",
+                  marginRight: isRtl ? 0 : 'auto', marginLeft: isRtl ? 'auto' : 0
+                }}>
+                  <span className="reveal-mock-wa-tail" style={{
+                    left: isRtl ? "auto" : -7, right: isRtl ? -7 : "auto",
+                    borderWidth: isRtl ? "0 0 8px 8px" : "0 8px 8px 0",
+                    borderColor: isRtl ? "transparent transparent transparent #FFFFFF" : "transparent #FFFFFF transparent transparent"
+                  }}></span>
                   {WA}
                   <span className="reveal-mock-wa-time">{stamp}</span>
                 </div>
@@ -188,21 +190,21 @@ export default function RevealMock() {
 
           {/* Scene 6 */}
           <div className={`reveal-mock-scene reveal-mock-s6 ${activeIdx === 5 ? 'is-active' : ''}`}>
-            <img src={REVEAL} alt="" draggable="false" />
+            <RevealFace photo={PHOTO} toName={t('demo.toName')} fromName={t('demo.fromName')} message={MESSAGE} />
           </div>
 
           {/* Scene 7 */}
-          <div className={`reveal-mock-scene reveal-mock-s7 ${activeIdx === 6 ? 'is-active' : ''}`}>
+          <div className={`reveal-mock-scene reveal-mock-s7 ${activeIdx === 6 ? 'is-active' : ''}`} style={{ direction: isRtl ? 'rtl' : 'ltr' }}>
             <div className="reveal-mock-s7-card">
-              <img src={REVEAL} alt="" draggable="false" />
+              <RevealFace photo={PHOTO} toName={t('demo.toName')} fromName={t('demo.fromName')} message={MESSAGE} />
             </div>
-            <div className="reveal-mock-s7-madeA">Created with care.</div>
-            <div className="reveal-mock-s7-madeB">Made with JIGZO</div>
+            <div className="reveal-mock-s7-madeA">{t('receive.branding.createdWithCare')}</div>
+            <div className="reveal-mock-s7-madeB">{t('receive.branding.madeWithJigzo')}</div>
             <button type="button" tabIndex={-1} aria-hidden="true" className="reveal-mock-s7-btn">
-              Save or share
+              {t('receive.buttons.saveOrShare')}
             </button>
             <div className="reveal-mock-s7-saved">
-              <span className="reveal-mock-s7-check">✓</span>Saved
+              <span className="reveal-mock-s7-check">✓</span>{t('demo.saved')}
             </div>
           </div>
 

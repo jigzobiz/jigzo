@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { api } from '../services/api';
 import { packageForRecipientCount } from '../services/pricing';
 import { COUNTRIES } from '../config/countries';
@@ -13,6 +14,7 @@ import RevealBeat from '../components/RevealBeat';
 import { buildEdgeMap, piecePath, mulberry32 } from '../puzzle/puzzle-shape';
 import { analytics } from '../services/analytics';
 import { isValidPhoneNumber } from 'libphonenumber-js';
+import { normalizePhoneInput } from '../utils/phone';
 
 const T = {
   bg: "#FAF8EC",
@@ -96,27 +98,39 @@ function PuzzleBadge({ size }) {
 }
 
 function StepProgressBar({ step }) {
-  const labels = ["Create", "Personalize", "Send", "Review & Pay"];
+  const { t, i18n } = useTranslation();
+  const isAr = i18n.language === 'ar';
+  const labels = [
+    t('create.progress.step1'),
+    t('create.progress.step2'),
+    t('create.progress.step3'),
+    t('create.progress.step4')
+  ];
+  const stepText = isAr
+    ? `الخطوة ${step} من 4 — ${labels[step - 1]}`
+    : `Step ${step} of 4 — ${labels[step - 1]}`;
   return (
-    <div style={{ marginBottom: 28 }}>
-      <div className="progress-bar">
+    <div style={{ marginBottom: 28, direction: isAr ? 'rtl' : 'ltr' }}>
+      <div className="progress-bar" style={{ display: 'flex', flexDirection: isAr ? 'row-reverse' : 'row' }}>
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className={`progress-bar__seg ${i <= step ? "progress-bar__seg--active" : ""}`} />
         ))}
       </div>
-      <div style={{ fontSize: 12.5, fontWeight: 600, color: T.ink, letterSpacing: "0.02em" }} aria-current="step">
-        Step {step} of 4 — {labels[step - 1]}
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: T.ink, letterSpacing: "0.02em", textAlign: isAr ? 'right' : 'left' }} aria-current="step">
+        {stepText}
       </div>
     </div>
   );
 }
 
-function phoneDigits(v) { return (v || "").replace(/\D/g, ""); }
+function phoneDigits(v) { return normalizePhoneInput(v).replace(/\D/g, ""); }
 // Strong format validation via libphonenumber-js. Accepts any structurally
 // valid number regardless of line type (we do not require it to classify as
-// mobile, and we never claim a number is "WhatsApp verified").
+// mobile, and we never claim a number is "WhatsApp verified"). The dial + phone
+// are normalized first so Arabic-Indic/Persian digits and RTL marks validate
+// identically to English input (and match the backend's normalized value).
 function phoneValid(dial, phone) {
-  const full = `${dial || ""}${phone || ""}`.trim();
+  const full = normalizePhoneInput(`${dial || ""}${phone || ""}`);
   if (!full) return false;
   try {
     return isValidPhoneNumber(full.startsWith("+") ? full : `+${full}`);
@@ -131,6 +145,12 @@ function emailValid(v) {
 
 export default function CreatePage() {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  // Active language flag, shared by every helper inside this component.
+  // Defined once here so all render branches (delivery, review, success)
+  // resolve the same value — previously only StepProgressBar had a local
+  // `isAr`, so references in CreatePage's body threw "isAr is not defined".
+  const isAr = i18n.language === 'ar';
 
   const [currency, setCurrency] = useState(resolveVisitorCurrency());
 
@@ -317,25 +337,25 @@ export default function CreatePage() {
     const pw = Wf / cols;
     const ph = Hf / rows;
     const edgeMap = buildEdgeMap(cols, rows, 42);
-    
+
     const tabPad = 0.46 * Math.max(pw, ph);
     const elemW = pw + tabPad * 2;
     const elemH = ph + tabPad * 2;
-    
+
     const paths = [];
     const rand = mulberry32(101);
-    
+
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const d = piecePath(r, c, cols, rows, pw, ph, edgeMap);
-        
+
         // Scatter puzzle pieces randomly across the 170x302 phone stage
         const minX = 6, maxX = Wf - pw - 6;
         const minY = 6, maxY = Hf - ph - 6;
         const posX = minX + rand() * (maxX - minX);
         const posY = minY + rand() * (maxY - minY);
         const angle = (rand() - 0.5) * 60;
-        
+
         paths.push({
           r,
           c,
@@ -364,9 +384,12 @@ export default function CreatePage() {
   };
 
   const sanitizeDialCode = (val) => {
-    let sanitized = val.replace(/[^\d+]/g, '');
+    // Normalize first so an Arabic-Indic/Persian-typed dial code (e.g. +٩٧٣)
+    // and any RTL marks collapse to a clean "+973" before the digit filter.
+    const normalized = normalizePhoneInput(val);
+    let sanitized = normalized.replace(/[^\d+]/g, '');
     if (sanitized.includes('+')) {
-      const hasLeadingPlus = val.startsWith('+');
+      const hasLeadingPlus = normalized.startsWith('+');
       sanitized = sanitized.replace(/\+/g, '');
       if (hasLeadingPlus) {
         sanitized = '+' + sanitized;
@@ -586,8 +609,8 @@ export default function CreatePage() {
         return {
           name: r.name,
           deliveryMethod: "whatsapp",
-          countryCode: r.dial,
-          phone: r.phone
+          countryCode: normalizePhoneInput(r.dial),
+          phone: normalizePhoneInput(r.phone)
         };
       });
 
@@ -601,10 +624,11 @@ export default function CreatePage() {
         cropData,
         message,
         senderName,
-        senderPhone: senderDial + senderPhone,
+        senderPhone: normalizePhoneInput(`${senderDial}${senderPhone}`),
         revealIdentity,
         pieceCount,
-        recipients: formattedRecipients
+        recipients: formattedRecipients,
+        experienceLanguage: i18n.language
       });
 
       const publicId = puzzleRes.puzzle.publicId;
@@ -660,8 +684,8 @@ export default function CreatePage() {
         return {
           name: r.name,
           deliveryMethod: "whatsapp",
-          countryCode: r.dial,
-          phone: r.phone
+          countryCode: normalizePhoneInput(r.dial),
+          phone: normalizePhoneInput(r.phone)
         };
       });
 
@@ -670,12 +694,13 @@ export default function CreatePage() {
         cropData,
         message,
         senderName,
-        senderPhone: senderDial + senderPhone,
+        senderPhone: normalizePhoneInput(`${senderDial}${senderPhone}`),
         revealIdentity,
         pieceCount,
         recipients: formattedRecipients,
         occasion,
-        tone
+        tone,
+        experienceLanguage: i18n.language
       });
 
       const expectedCount = formattedRecipients.length;
@@ -799,8 +824,8 @@ export default function CreatePage() {
         <div style={{ fontFamily: "Archia, sans-serif", color: T.ink, padding: "34px 20px 70px" }}>
           <div style={{ maxWidth: 480, margin: "0 auto", textAlign: "center", paddingTop: 50 }}>
             <LoaderOrbit />
-            <h1 style={{ fontSize: 22, fontWeight: 500, margin: "24px 0 8px", letterSpacing: "-0.01em" }}>Preparing your JIGZO…</h1>
-            <p style={{ fontSize: 14, color: T.ink60 }}>This usually takes only a few seconds.</p>
+            <h1 style={{ fontSize: 22, fontWeight: 500, margin: "24px 0 8px", letterSpacing: "-0.01em" }}>{t('demo.loaderText')}</h1>
+            <p style={{ fontSize: 14, color: T.ink60 }}>{isAr ? 'يستغرق هذا عادةً بضع ثوانٍ فقط.' : 'This usually takes only a few seconds.'}</p>
           </div>
         </div>
       </div>
@@ -809,6 +834,9 @@ export default function CreatePage() {
 
   if (isSuccess && testModeResult) {
     const hasMultipleLinks = testModeResult.recipientLinks && testModeResult.recipientLinks.length > 1;
+    const stagingSub = isAr
+      ? `هذه نسخة تجريبية للاختبار فقط. ${hasMultipleLinks ? "انسخ روابط المستلمين أدناه لاختبار عرض كل مستلم." : "انسخ الرابط أدناه للاختبار على متصفح أو جهاز آخر."}`
+      : `This is a staging-only test reveal. ${hasMultipleLinks ? "Copy the recipient links below to test each recipient's view." : "Copy the link below to test on another browser or device."}`;
 
     return (
       <div className="create-page">
@@ -821,26 +849,26 @@ export default function CreatePage() {
                   strokeDasharray="40" strokeDashoffset="40" style={{ animation: "ckDraw 0.5s ease 0.35s forwards" }} />
               </svg>
             </div>
-            <h1 style={{ fontSize: 27, fontWeight: 300, margin: "0 0 12px", letterSpacing: "-0.02em" }}>Test Reveal Created</h1>
+            <h1 style={{ fontSize: 27, fontWeight: 300, margin: "0 0 12px", letterSpacing: "-0.02em" }}>{isAr ? "تم إنشاء اختبار الكشف" : "Test Reveal Created"}</h1>
             <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 auto 26px", maxWidth: 360, lineHeight: 1.6 }}>
-              This is a staging-only test reveal. {hasMultipleLinks ? "Copy the recipient links below to test each recipient's view." : "Copy the link below to test on another browser or device."}
+              {stagingSub}
             </p>
-            
+
             <div style={{ marginBottom: 24, textAlign: 'left' }}>
               {testModeResult.recipientLinks && testModeResult.recipientLinks.length > 0 ? (
                 testModeResult.recipientLinks.map((link) => (
                   <div key={link.recipientIndex} style={{ marginBottom: 16, border: `1px solid ${T.ink15}`, padding: 16, borderRadius: 12, background: T.card }}>
-                    <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 8, color: T.ink, display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Recipient {link.recipientIndex + 1}</span>
+                    <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 8, color: T.ink, display: 'flex', justifyContent: 'space-between', flexDirection: isAr ? 'row-reverse' : 'row' }}>
+                      <span>{isAr ? `المستلم ${link.recipientIndex + 1}` : `Recipient ${link.recipientIndex + 1}`}</span>
                       <span style={{ color: T.ink66 }}>{link.recipientName}</span>
                     </div>
                     <input type="text" readOnly value={link.revealUrl} style={{ ...inputStyle, textAlign: 'left', marginBottom: 10, fontSize: 13 }} />
                     <div style={{ display: 'flex', gap: 10 }}>
                       <GhostButton onClick={() => {
                         navigator.clipboard.writeText(link.revealUrl);
-                        alert(`Copied link for ${link.recipientName}!`);
-                      }} style={{ flex: 1, padding: "8px 12px", fontSize: 13 }}>Copy Link</GhostButton>
-                      <PrimaryButton onClick={() => window.open(link.revealUrl, "_blank")} style={{ flex: 1, padding: "8px 12px", fontSize: 13 }}>Open Reveal</PrimaryButton>
+                        alert(isAr ? `تم نسخ الرابط لـ ${link.recipientName}!` : `Copied link for ${link.recipientName}!`);
+                      }} style={{ flex: 1, padding: "8px 12px", fontSize: 13 }}>{isAr ? "نسخ الرابط" : "Copy Link"}</GhostButton>
+                      <PrimaryButton onClick={() => window.open(link.revealUrl, "_blank")} style={{ flex: 1, padding: "8px 12px", fontSize: 13 }}>{isAr ? "افتح الكشف" : "Open Reveal"}</PrimaryButton>
                     </div>
                   </div>
                 ))
@@ -850,17 +878,17 @@ export default function CreatePage() {
                   <div style={{ display: 'flex', gap: 10 }}>
                     <GhostButton onClick={() => {
                       navigator.clipboard.writeText(testModeResult.revealUrl);
-                      alert('Copied to clipboard!');
-                    }} style={{ flex: 1 }}>Copy Link</GhostButton>
-                    <PrimaryButton onClick={() => window.open(testModeResult.revealUrl, "_blank")} style={{ flex: 1 }}>Open Reveal</PrimaryButton>
+                      alert(isAr ? 'تم النسخ إلى الحافظة!' : 'Copied to clipboard!');
+                    }} style={{ flex: 1 }}>{isAr ? "نسخ الرابط" : "Copy Link"}</GhostButton>
+                    <PrimaryButton onClick={() => window.open(testModeResult.revealUrl, "_blank")} style={{ flex: 1 }}>{isAr ? "افتح الكشف" : "Open Reveal"}</PrimaryButton>
                   </div>
                 </div>
               )}
             </div>
-            
+
 
             <p style={{ fontSize: 11.5, color: T.ink50, lineHeight: 1.5 }}>
-              This test reveal will expire in 7 days.
+              {isAr ? "ستنتهي صلاحية هذا الاختبار خلال 7 أيام." : "This test reveal will expire in 7 days."}
             </p>
           </div>
         </div>
@@ -869,10 +897,14 @@ export default function CreatePage() {
   }
 
   if (isSuccess) {
-    const displayRecipientsText = recipients.length === 1 
-      ? `${recipients[0].name || "They"} will receive a WhatsApp from JIGZO with a puzzle to solve. Your message unlocks with the final piece.`
-      : "Your recipients will receive a WhatsApp from JIGZO with a puzzle to solve. Your message unlocks with the final piece.";
-    
+    const displayRecipientsText = isAr
+      ? (recipients.length === 1
+          ? `سيتلقى ${recipients[0].name || "المستلم"} رسالة واتساب من JIGZO مع أحجية لحلها. سيتم الكشف عن رسالتك مع القطعة الأخيرة.`
+          : "سيتلقى المستلمون رسالة واتساب من JIGZO مع أحجية لحلها. سيتم الكشف عن رسالتك مع القطعة الأخيرة.")
+      : (recipients.length === 1
+          ? `${recipients[0].name || "They"} will receive a WhatsApp from JIGZO with a puzzle to solve. Your message unlocks with the final piece.`
+          : "Your recipients will receive a WhatsApp from JIGZO with a puzzle to solve. Your message unlocks with the final piece.");
+
     return (
       <div className="create-page">
         <div style={{ fontFamily: "Archia, sans-serif", color: T.ink, padding: "34px 20px 70px" }}>
@@ -884,17 +916,17 @@ export default function CreatePage() {
                   strokeDasharray="40" strokeDashoffset="40" style={{ animation: "ckDraw 0.5s ease 0.35s forwards" }} />
               </svg>
             </div>
-            <h1 style={{ fontSize: 27, fontWeight: 300, margin: "0 0 12px", letterSpacing: "-0.02em" }}>Your JIGZO has been delivered.</h1>
+            <h1 style={{ fontSize: 27, fontWeight: 300, margin: "0 0 12px", letterSpacing: "-0.02em" }}>{isAr ? "تم إرسال أحجية JIGZO الخاصة بك." : "Your JIGZO has been delivered."}</h1>
             <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 auto 26px", maxWidth: 360, lineHeight: 1.6 }}>
               {displayRecipientsText}
             </p>
             {testLink && (
               <PrimaryButton onClick={() => window.open(testLink, "_blank")} style={{ width: "100%" }}>
-                Open the reveal link (local test)
+                {isAr ? "افتح الرابط (اختبار محلي)" : "Open the reveal link (local test)"}
               </PrimaryButton>
             )}
             <p style={{ fontSize: 11.5, color: T.ink50, marginTop: 12, lineHeight: 1.5 }}>
-              Prototype simulation — did not process a real payment or send a real WhatsApp. Click above to test the solve flow locally.
+              {isAr ? "محاكاة تجريبية - لم نقم بمعالجة دفعة حقيقية أو إرسال رسالة واتساب حقيقية. انقر أعلاه لاختبار تدفق الحل محليًا." : "Prototype simulation — did not process a real payment or send a real WhatsApp. Click above to test the solve flow locally."}
             </p>
           </div>
         </div>
@@ -907,10 +939,10 @@ export default function CreatePage() {
       {/* ===================== NAV ===================== */}
       <header className="nav" style={{ marginBottom: 20 }}>
         <div className="nav__inner">
-          <Link to="/" aria-label="Jigzo home">
+          <Link to="/" aria-label={t('landing.nav.home')}>
             <img className="nav__logo" src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" />
           </Link>
-          <Link to="/" style={{
+          <Link to="/" aria-label={t('common.home')} style={{
             background: T.ink,
             color: T.bg,
             border: "none",
@@ -923,7 +955,7 @@ export default function CreatePage() {
             alignItems: "center",
             fontFamily: "Archia, sans-serif"
           }}>
-            Home
+            {t('common.home')}
           </Link>
         </div>
       </header>
@@ -943,9 +975,9 @@ export default function CreatePage() {
         {/* ============ STEP 1 — CREATE ============ */}
         {currentStep === 1 && (
           <div style={{ animation: "fadeUp 0.4s ease" }}>
-            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>Create your surprise</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>{t('create.title')}</h1>
             <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 0 20px", lineHeight: 1.5 }}>
-              Choose the photo they’ll uncover. We’ll turn it into the puzzle that hides your message.
+              {t('create.photo.description')}
             </p>
 
             {!imgSrc && (
@@ -959,8 +991,8 @@ export default function CreatePage() {
                 <div style={{ width: 54, height: 54, margin: "0 auto 14px", filter: "drop-shadow(0 6px 14px rgba(124,76,34,0.35))" }}>
                   <PuzzleBadge size={54} />
                 </div>
-                <div style={{ fontWeight: 600, fontSize: 15.5, marginBottom: 4 }}>Upload a photo</div>
-                <div style={{ fontSize: 12.5, color: T.ink50 }}>JPG or PNG</div>
+                <div style={{ fontWeight: 600, fontSize: 15.5, marginBottom: 4 }}>{t('create.photo.title')}</div>
+                <div style={{ fontSize: 12.5, color: T.ink50 }}>{t('create.photo.subtitle')}</div>
               </div>
             )}
 
@@ -1018,7 +1050,7 @@ export default function CreatePage() {
                       fontFamily: "Archia, sans-serif"
                     }}
                   >
-                    <span style={{ fontSize: 16 }}>↺</span> Rotate Left
+                    <span style={{ fontSize: 16 }}>↺</span> {t('create.photo.accessibility.rotateLeft')}
                   </button>
                   <button
                     type="button"
@@ -1038,12 +1070,12 @@ export default function CreatePage() {
                       fontFamily: "Archia, sans-serif"
                     }}
                   >
-                    Rotate Right <span style={{ fontSize: 16 }}>↻</span>
+                    {t('create.photo.accessibility.rotateRight')} <span style={{ fontSize: 16 }}>↻</span>
                   </button>
                 </div>
                 <div className="footer-nav">
-                  <GhostButton onClick={() => { setImgSrc(null); setRotation(0); }}>Cancel</GhostButton>
-                  <PrimaryButton onClick={captureCrop} style={{ flex: 1 }}>Crop Photo</PrimaryButton>
+                  <GhostButton onClick={() => { setImgSrc(null); setRotation(0); }}>{t('common.cancel')}</GhostButton>
+                  <PrimaryButton onClick={captureCrop} style={{ flex: 1 }}>{t('create.photo.cropTitle')}</PrimaryButton>
                 </div>
               </div>
             )}
@@ -1055,21 +1087,21 @@ export default function CreatePage() {
                     overflow: "hidden", boxShadow: T.shadowRest, border: "1px solid " + T.ink08 }}>
                     <img src={cropData} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     <button type="button" onClick={() => { setCropData(null); setZoom(1.2); setPan({ x: 0, y: 0 }); setRotation(0); }} className="edit-btn"
-                      style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)" }}>Change</button>
+                      style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)" }}>{t('create.photo.change')}</button>
                   </div>
                 </div>
 
                 {!difficultyOpen ? (
                   <div className="difficulty-summary">
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 2 }}>Puzzle difficulty</div>
-                      <div style={{ fontSize: 15, fontWeight: 600 }}>{currentDifficulty.label} · {currentDifficulty.pieces}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 2 }}>{t('create.photo.difficultyLabel')}</div>
+                      <div style={{ fontSize: 15, fontWeight: 600 }}>{t(`difficulties.${currentDifficulty.id}.label`)} · {t(`difficulties.${currentDifficulty.id}.pieces`)}</div>
                     </div>
-                    <button type="button" onClick={() => setDifficultyOpen(true)} className="btn-change">Change</button>
+                    <button type="button" onClick={() => setDifficultyOpen(true)} className="btn-change">{t('create.photo.change')}</button>
                   </div>
                 ) : (
                   <div style={{ padding: 18, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, marginBottom: 18, animation: "fadeUp 0.3s ease" }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 10 }}>Select difficulty</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 10 }}>{t('create.photo.selectDifficulty')}</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {PIECE_OPTIONS.map((opt) => {
                         const isSel = opt.count === pieceCount;
@@ -1078,16 +1110,16 @@ export default function CreatePage() {
                             style={{ display: "block", width: "100%", padding: "14px 16px" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 6 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                <span style={{ fontWeight: 600, fontSize: 14.5, color: T.ink }}>{opt.label}</span>
+                                <span style={{ fontWeight: 600, fontSize: 14.5, color: T.ink }}>{t(`difficulties.${opt.id}.label`)}</span>
                                 {opt.recommended && (
                                   <span style={{ fontSize: 10.5, fontWeight: 700, background: T.goldWarm, color: T.ink, padding: "2px 8px", borderRadius: 99, whiteSpace: "nowrap" }}>
-                                    ★ Recommended
+                                    ★ {t('create.photo.recommended')}
                                   </span>
                                 )}
                               </div>
-                              <span style={{ fontSize: 11.5, fontWeight: 500, color: isSel ? T.bg : T.ink50, background: isSel ? T.ink : "rgba(28,25,19,0.06)", padding: "3px 10px", borderRadius: 99, whiteSpace: "nowrap" }}>{opt.pieces}</span>
+                              <span style={{ fontSize: 11.5, fontWeight: 500, color: isSel ? T.bg : T.ink50, background: isSel ? T.ink : "rgba(28,25,19,0.06)", padding: "3px 10px", borderRadius: 99, whiteSpace: "nowrap" }}>{t(`difficulties.${opt.id}.pieces`)}</span>
                             </div>
-                            <div style={{ fontSize: 12.5, color: isSel ? T.ink74 : T.ink66, textAlign: "left", lineHeight: 1.4 }}>{opt.copy}</div>
+                            <div style={{ fontSize: 12.5, color: isSel ? T.ink74 : T.ink66, textAlign: "left", lineHeight: 1.4 }}>{t(`difficulties.${opt.id}.copy`)}</div>
                           </button>
                         );
                       })}
@@ -1096,7 +1128,7 @@ export default function CreatePage() {
                 )}
 
                 <div className="footer-nav" style={{ marginTop: 24 }}>
-                  <PrimaryButton onClick={handleStep1Continue} style={{ flex: 1 }}>Continue</PrimaryButton>
+                  <PrimaryButton onClick={handleStep1Continue} style={{ flex: 1 }}>{t('common.continue')}</PrimaryButton>
                 </div>
               </div>
             )}
@@ -1108,52 +1140,52 @@ export default function CreatePage() {
         {/* ============ STEP 2 — PERSONALIZE ============ */}
         {currentStep === 2 && (
           <div style={{ animation: "fadeUp 0.4s ease" }}>
-            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>Who is this for?</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>{t('create.recipient.title')}</h1>
             <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 0 20px", lineHeight: 1.5 }}>
-              Write their name, and choose occasion keywords to find suggested messages.
+              {t('create.recipient.subtitle')}
             </p>
 
             <div style={{ marginBottom: 18 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50, marginBottom: 6 }}>Recipient (to)</label>
-              <input type="text" placeholder="e.g. Sofia, Mom, Alex" value={primaryRecipientName}
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50, marginBottom: 6 }}>{t('create.recipient.recipientLabel')}</label>
+              <input type="text" placeholder={t('create.recipient.recipientPlaceholder')} value={primaryRecipientName}
                 onChange={(e) => handlePrimaryRecipientNameChange(e.target.value)} style={inputStyle}
                 autoComplete="off" />
             </div>
 
             <div style={{ marginBottom: 18 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50, marginBottom: 8 }}>What's the occasion?</label>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50, marginBottom: 8 }}>{t('create.recipient.occasionLabel')}</label>
               <div className={`occasions-chips-wrapper ${occasion ? "chips-container-has-selection" : ""}`} style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {OCCASIONS.map((o) => (
                   <button type="button" key={o.id} onClick={() => { setOccasion(o.id); pickCombo(o.id, tone); }}
-                    className={`occasion-chip ${o.id === occasion ? "active" : ""}`}>{o.label}</button>
+                    className={`occasion-chip ${o.id === occasion ? "active" : ""}`}>{t(`occasions.${o.id}`)}</button>
                 ))}
               </div>
             </div>
 
             <div style={{ marginBottom: 18, animation: "fadeUp 0.3s ease" }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50, marginBottom: 8 }}>Choose a tone</label>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50, marginBottom: 8 }}>{t('create.recipient.toneLabel')}</label>
               <div className={`tones-chips-wrapper ${tone ? "chips-container-has-selection" : ""}`} style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {TONES.map((t) => (
-                  <button type="button" key={t.id} onClick={() => { setTone(t.id); pickCombo(occasion, t.id); }}
-                    className={`tone-chip ${t.id === tone ? "active" : ""}`}>{t.label}</button>
+                {TONES.map((tOpt) => (
+                  <button type="button" key={tOpt.id} onClick={() => { setTone(tOpt.id); pickCombo(occasion, tOpt.id); }}
+                    className={`tone-chip ${tOpt.id === tone ? "active" : ""}`}>{t(`tones.${tOpt.id}`)}</button>
                 ))}
               </div>
             </div>
 
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50 }}>Hidden Message</label>
+                <label style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50 }}>{t('create.recipient.messageLabel')}</label>
                 {occasion && tone && suggestedMessage(occasion, tone) && (
-                  <button type="button" onClick={useSuggested} className="btn-change">Insert suggested message</button>
+                  <button type="button" onClick={useSuggested} className="btn-change">{t('create.recipient.suggestedInsert')}</button>
                 )}
               </div>
-              <textarea placeholder="Write your hidden message here..." value={message} onChange={(e) => setMessage(e.target.value)}
+              <textarea placeholder={t('create.recipient.messagePlaceholder')} value={message} onChange={(e) => setMessage(e.target.value)}
                 style={{ ...inputStyle, resize: "none", height: 110, lineHeight: 1.5, padding: 14 }} />
             </div>
 
             <div className="footer-nav">
-              <GhostButton onClick={handleBack}>Back</GhostButton>
-              <PrimaryButton onClick={handleStep2Continue} disabled={!primaryRecipientName.trim() || !message.trim()} style={{ flex: 1 }}>Continue</PrimaryButton>
+              <GhostButton onClick={handleBack}>{t('common.back')}</GhostButton>
+              <PrimaryButton onClick={handleStep2Continue} disabled={!primaryRecipientName.trim() || !message.trim()} style={{ flex: 1 }}>{t('common.continue')}</PrimaryButton>
             </div>
           </div>
         )}
@@ -1161,16 +1193,16 @@ export default function CreatePage() {
         {/* ============ STEP 3 — SEND ============ */}
         {currentStep === 3 && (
           <div style={{ animation: "fadeUp 0.4s ease" }}>
-            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>Set up delivery</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>{t('create.delivery.title')}</h1>
             <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 0 20px", lineHeight: 1.5 }}>
-              Puzzles are delivered directly through WhatsApp. Select a plan based on the number of recipients.
+              {t('create.delivery.subtitle')}
             </p>
 
             <div onClick={() => setPackageAccordionOpen(!packageAccordionOpen)} role="button" aria-expanded={packageAccordionOpen}
               style={{ padding: 18, borderRadius: 16, background: T.card, border: "1.5px solid " + T.ink15, marginBottom: 16, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 2 }}>Current Package</div>
-                <div style={{ fontSize: 16, fontWeight: 600 }}>{currentPack.label} · Up to {currentPack.limit} {currentPack.limit === 1 ? "recipient" : "recipients"} · {formatPrice(currentPack.price)}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 2 }}>{t('create.delivery.currentPackage')}</div>
+                <div style={{ fontSize: 16, fontWeight: 600 }}>{t(`packages.${currentPack.id}.label`)} · {currentPack.limit === 1 ? t('create.delivery.recipientLimit_one') : t('create.delivery.recipientLimit_other', { count: currentPack.limit })} · {formatPrice(currentPack.price)}</div>
               </div>
               <span style={{ fontSize: 12 }}>{packageAccordionOpen ? "▲" : "▼"}</span>
             </div>
@@ -1178,9 +1210,9 @@ export default function CreatePage() {
             {packageAccordionOpen && (
               <div style={{ padding: 16, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, marginBottom: 16, animation: "fadeUp 0.3s ease" }}>
                 <div style={{ fontSize: 12, color: T.ink50, marginBottom: 12, lineHeight: 1.4 }}>
-                  Your plan is selected automatically based on the number of recipients.
+                  {t('create.delivery.autoPlanSelection')}
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 10 }}>Available Plans</div>
+                <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 10 }}>{t('create.delivery.availablePlans')}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {PACK_OPTIONS.map((pack) => {
                     const isSel = pack.id === currentPack.id;
@@ -1188,14 +1220,14 @@ export default function CreatePage() {
                       <div key={pack.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", borderRadius: 10, border: isSel ? "1.5px solid " + T.ink : "1px solid " + T.ink08, background: isSel ? "rgba(28,25,19,0.02)" : "transparent" }}>
                         <div>
                           <div style={{ fontWeight: 600, fontSize: 14.5, display: "flex", alignItems: "center", gap: 6 }}>
-                            <span>{pack.label}</span>
+                            <span>{t(`packages.${pack.id}.label`)}</span>
                             {isSel && (
                               <span style={{ fontSize: 10.5, fontWeight: 700, background: T.goldWarm, color: T.ink, padding: "2px 8px", borderRadius: 99, whiteSpace: "nowrap", display: "inline-block" }}>
-                                Active
+                                {t('packages.active')}
                               </span>
                             )}
                           </div>
-                          <div style={{ fontSize: 12, color: T.ink66, marginTop: 4 }}>Up to {pack.limit} {pack.limit === 1 ? "recipient" : "recipients"}</div>
+                          <div style={{ fontSize: 12, color: T.ink66, marginTop: 4 }}>{pack.limit === 1 ? t('create.delivery.recipientLimit_one') : t('create.delivery.recipientLimit_other', { count: pack.limit })}</div>
                         </div>
                         <span style={{ fontFamily: T.mono, fontWeight: 600, fontSize: 15, color: T.ink }}>{formatPrice(pack.price)}</span>
                       </div>
@@ -1217,12 +1249,12 @@ export default function CreatePage() {
               return (
                 <div key={idx} style={{ padding: 18, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, marginBottom: 16, position: "relative" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <span style={{ fontWeight: 600, fontSize: 14.5 }}>Recipient (to) #{idx + 1}</span>
+                    <span style={{ fontWeight: 600, fontSize: 14.5 }}>{t('create.delivery.recipientTitle', { index: idx + 1 })}</span>
                     {recipients.length > 1 && (
-                      <button type="button" onClick={() => setRecipients(prev => prev.filter((_, i) => i !== idx))} className="edit-btn">Remove</button>
+                      <button type="button" onClick={() => setRecipients(prev => prev.filter((_, i) => i !== idx))} className="edit-btn">{t('create.delivery.remove')}</button>
                     )}
                   </div>
-                  <input type="text" placeholder="Recipient name" value={rec.name}
+                  <input type="text" placeholder={t('create.delivery.recipientPlaceholder')} value={rec.name}
                     onChange={(e) => {
                       const val = e.target.value;
                       if (idx === 0) setPrimaryRecipientName(val);
@@ -1237,7 +1269,7 @@ export default function CreatePage() {
                   />
 
                   {/* Delivery method */}
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.ink50, marginBottom: 6 }}>Deliver via</label>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.ink50, marginBottom: 6 }}>{t('create.delivery.deliverVia')}</label>
                   <select
                     value={method}
                     onChange={(e) => {
@@ -1258,7 +1290,7 @@ export default function CreatePage() {
                     <>
                       <input
                         type="email"
-                        placeholder="Recipient email"
+                        placeholder={t('create.delivery.emailPlaceholder')}
                         value={rec.email}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -1278,8 +1310,8 @@ export default function CreatePage() {
                           <span>⚠️</span>
                           <span>
                             {!recEmailValid
-                              ? "Enter a valid email address."
-                              : "Duplicate email. Each recipient must be unique."
+                              ? t('create.delivery.emailInvalid')
+                              : t('create.delivery.emailDuplicate')
                             }
                           </span>
                         </div>
@@ -1299,10 +1331,12 @@ export default function CreatePage() {
                               return next;
                             });
                           }}
+                          dir="ltr"
+                          inputMode="tel"
                           style={{ ...inputStyle, width: "80px", flex: "none", padding: "13px 8px", textAlign: "center" }}
                           placeholder="+973"
                         />
-                        <input type="tel" placeholder="Phone number" value={rec.phone}
+                        <input type="tel" placeholder={t('create.delivery.phonePlaceholder')} value={rec.phone}
                           onChange={(e) => {
                             const val = e.target.value;
                             setRecipients(prev => {
@@ -1312,9 +1346,10 @@ export default function CreatePage() {
                             });
                           }}
                           aria-invalid={rec.phone && !recValid ? "true" : "false"}
+                          dir="ltr"
                           inputMode="tel"
                           autoComplete="off"
-                          style={{ ...inputStyle, flex: 1 }}
+                          style={{ ...inputStyle, flex: 1, textAlign: "left" }}
                         />
                       </div>
 
@@ -1323,8 +1358,8 @@ export default function CreatePage() {
                           <span>⚠️</span>
                           <span>
                             {!recValid
-                              ? "Enter a valid phone number."
-                              : "Duplicate phone number. Each recipient must be unique."
+                              ? t('create.delivery.phoneInvalid')
+                              : t('create.delivery.phoneDuplicate')
                             }
                           </span>
                         </div>
@@ -1348,14 +1383,14 @@ export default function CreatePage() {
                 }}
                 className="add-recipient-btn"
               >
-                + Add another recipient
+                + {t('create.delivery.addRecipient')}
               </button>
             )}
 
             {/* Sender Details */}
             <div style={{ padding: 18, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, margin: "16px 0" }}>
-              <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 12 }}>Sender details</div>
-              <input type="text" placeholder="Your name (as you want it shown)" value={senderName} onChange={(e) => setSenderName(e.target.value)}
+              <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 12 }}>{t('create.delivery.senderDetailsTitle')}</div>
+              <input type="text" placeholder={t('create.delivery.senderNamePlaceholder')} value={senderName} onChange={(e) => setSenderName(e.target.value)}
                 style={{ ...inputStyle, marginBottom: 14 }}
                 autoComplete="name" />
               <div style={{ display: "flex", gap: 10 }}>
@@ -1367,45 +1402,48 @@ export default function CreatePage() {
                     setSenderDial(val);
                     senderDialEditedRef.current = true;
                   }}
+                  dir="ltr"
+                  inputMode="tel"
                   style={{ ...inputStyle, width: "80px", flex: "none", padding: "13px 8px", textAlign: "center" }}
                   placeholder="+973"
                 />
-                <input type="tel" placeholder="Your phone number" value={senderPhone} onChange={(e) => setSenderPhone(e.target.value)}
+                <input type="tel" placeholder={t('create.delivery.senderPhonePlaceholder')} value={senderPhone} onChange={(e) => setSenderPhone(e.target.value)}
+                  dir="ltr"
                   inputMode="tel"
                   autoComplete="tel"
-                  style={{ ...inputStyle, flex: 1 }} />
+                  style={{ ...inputStyle, flex: 1, textAlign: "left" }} />
               </div>
 
               {senderPhone && !senderValid && (
                 <div style={{ marginTop: 8, fontSize: 12.5, color: T.goldDeep, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 4 }}>
                   <span>⚠️</span>
-                  <span>Enter a valid phone number.</span>
+                  <span>{t('create.delivery.phoneInvalid')}</span>
                 </div>
               )}
               {senderPhone && senderValid && (
                 <div style={{ marginTop: 8, fontSize: 12.5, color: T.ink50, fontWeight: 500, textAlign: "left" }}>
-                  Phone number format is valid
+                  {t('create.delivery.phoneFormatValid')}
                 </div>
               )}
 
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 14 }}>
                 <input type="checkbox" id="show-identity" checked={revealIdentity} onChange={(e) => setRevealIdentity(e.target.checked)} style={{ marginTop: 4, flex: "none" }} />
                 <div style={{ fontSize: 13, lineHeight: 1.4 }}>
-                  <label htmlFor="show-identity" style={{ fontWeight: 600, cursor: "pointer" }}>Show who this JIGZO is from</label>
+                  <label htmlFor="show-identity" style={{ fontWeight: 600, cursor: "pointer" }}>{t('create.delivery.revealIdentityLabel')}</label>
                   <p style={{ fontSize: 12.5, color: T.ink50, margin: "6px 0 0", lineHeight: 1.4 }}>
-                    Turn this off to keep the first notification anonymous. Your signed message can still include your name.
+                    {t('create.delivery.revealIdentityHint')}
                   </p>
                 </div>
               </div>
             </div>
 
-            <Disclosure title="Preview their WhatsApp message" defaultOpen={true}>
+            <Disclosure title={t('create.delivery.previewTitle')} defaultOpen={true}>
               <WhatsAppPreview senderName={senderName} showIdentity={revealIdentity} receiverName={recipients[0]?.name} />
             </Disclosure>
 
             <div className="footer-nav">
-              <GhostButton onClick={handleBack}>Back</GhostButton>
-              <PrimaryButton onClick={handleStep3Continue} disabled={!step3Ready} style={{ flex: 1 }}>Continue</PrimaryButton>
+              <GhostButton onClick={handleBack}>{t('common.back')}</GhostButton>
+              <PrimaryButton onClick={handleStep3Continue} disabled={!step3Ready} style={{ flex: 1 }}>{t('common.continue')}</PrimaryButton>
             </div>
           </div>
         )}
@@ -1413,9 +1451,9 @@ export default function CreatePage() {
         {/* ============ STEP 4 — REVIEW & PAY ============ */}
         {currentStep === 4 && (
           <div style={{ animation: "fadeUp 0.4s ease" }}>
-            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>Review and send</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>{t('create.review.title')}</h1>
             <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 0 20px", lineHeight: 1.5 }}>
-              Check the details before your JIGZO is delivered.
+              {t('create.review.subtitle')}
             </p>
 
             <div style={{ padding: 18, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, marginBottom: 16 }}>
@@ -1423,32 +1461,32 @@ export default function CreatePage() {
                 {cropData && (
                   <div style={{ position: "relative", flex: "none" }}>
                     <img src={cropData} alt="" style={{ width: 52, height: 92, objectFit: "cover", borderRadius: 8 }} />
-                    <button type="button" onClick={() => setCurrentStep(1)} className="edit-btn" style={{ display: "block", marginTop: 4, textAlign: "center", width: "100%" }}>Edit</button>
+                    <button type="button" onClick={() => setCurrentStep(1)} className="edit-btn" style={{ display: "block", marginTop: 4, textAlign: "center", width: "100%" }}>{t('create.review.edit')}</button>
                   </div>
                 )}
                 <div style={{ fontSize: 13.5, lineHeight: 1.7, flex: 1 }}>
-                  <div><strong>Recipients (to) ({recipients.length})</strong> · {recipients.map(r => r.name || "—").join(", ")} <button type="button" onClick={() => setCurrentStep(3)} className="edit-btn">Edit</button></div>
+                  <div><strong>{t('create.review.recipientsLabel')} ({recipients.length})</strong> · {recipients.map(r => r.name || "—").join(", ")} <button type="button" onClick={() => setCurrentStep(3)} className="edit-btn">{t('create.review.edit')}</button></div>
                   <div style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", maxWidth: 260 }}>
-                    <strong>Message</strong> · "{message}" <button type="button" onClick={() => setCurrentStep(2)} className="edit-btn">Edit</button>
+                    <strong>{t('create.review.messageLabel')}</strong> · "{message}" <button type="button" onClick={() => setCurrentStep(2)} className="edit-btn">{t('create.review.edit')}</button>
                   </div>
-                  <div><strong>Difficulty</strong> · {currentDifficulty.label} ({pieceCount} pieces) <button type="button" onClick={() => setCurrentStep(1)} className="edit-btn">Edit</button></div>
-                  <div><strong>Sender shown</strong> · {revealIdentity ? `Yes (${senderName})` : "Anonymous"} <button type="button" onClick={() => setCurrentStep(3)} className="edit-btn">Edit</button></div>
+                  <div><strong>{t('create.review.difficultyLabel')}</strong> · {t(`difficulties.${currentDifficulty.id}.label`)} ({t('create.photo.pieceCount', { count: pieceCount }) || `${pieceCount} pieces`}) <button type="button" onClick={() => setCurrentStep(1)} className="edit-btn">{t('create.review.edit')}</button></div>
+                  <div><strong>{t('create.review.senderLabel')}</strong> · {revealIdentity ? t('create.review.senderYes', { name: senderName }) : t('create.review.senderNo')} <button type="button" onClick={() => setCurrentStep(3)} className="edit-btn">{t('create.review.edit')}</button></div>
                 </div>
               </div>
             </div>
 
-            <Disclosure title="Preview the reveal layout" defaultOpen={true}>
+            <Disclosure title={t('create.review.previewTitle')} defaultOpen={true}>
               <div style={{ display: "flex", justifyContent: "center", margin: "14px 0" }}>
-                <div 
+                <div
                   onClick={() => { if (!revealSimSolved) handleSimulateSolve(); }}
                   style={{ position: "relative", width: 170, aspectRatio: "9 / 16", borderRadius: 20,
                     boxShadow: "0 4px 18px rgba(0,0,0,0.18), 0 0 0 3px #050505", overflow: "hidden", cursor: revealSimSolved ? "default" : "pointer" }}>
-                  
+
                   {!revealSimSolved ? (
                     <div style={{ position: "absolute", inset: 0, background: "#FAF8EC", overflow: "hidden" }}>
                       {/* Blank board target guide lines inside */}
                       <div style={{ position: "absolute", inset: 8, border: "1.5px dashed rgba(28,25,19,0.12)", borderRadius: 10 }} />
-                      
+
                       {/* Scrambled pieces scattered on top of the blank board */}
                       {previewPieces.map((p, idx) => (
                         <div
@@ -1504,7 +1542,7 @@ export default function CreatePage() {
                         pointerEvents: "none",
                         lineHeight: "1.2"
                       }}>
-                        Tap to simulate solving
+                        {t('create.review.tapToSolve')}
                       </div>
                     </div>
                   ) : (
@@ -1522,7 +1560,7 @@ export default function CreatePage() {
               {revealSimSolved && !revealSimLoading && (
                 <div style={{ textAlign: "center", marginTop: 8 }}>
                   <button type="button" onClick={() => { setRevealSimSolved(false); setRevealSimLoading(false); }} className="btn-change" style={{ fontSize: 12.5 }}>
-                    Reset simulation
+                    {t('create.review.resetSim')}
                   </button>
                 </div>
               )}
@@ -1531,14 +1569,17 @@ export default function CreatePage() {
             {UPGRADES.map((u) => {
               const selected = selectedUpgrades.includes(u.id);
               const priceVal = getUpgradePrice(u.id);
+              const addForText = isAr
+                ? `أضف مقابل ${formatPrice(priceVal)}`
+                : `Add for ${formatPrice(priceVal)}`;
               return (
                 <div key={u.id} onClick={() => toggleUpgrade(u.id)} role="button" aria-pressed={selected}
                   style={{ border: selected ? "2px solid " + T.ink : "1.5px solid " + T.ink15,
                     background: selected ? "rgba(28,25,19,0.04)" : T.card, borderRadius: 16, padding: 18,
                     marginBottom: 16, cursor: "pointer", transition: "border-color 0.2s ease, background 0.2s ease" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                    <div style={{ fontWeight: 600, fontSize: 15.5, flex: 1 }}>{u.name}</div>
-                    <div style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.ink }}>Add for {formatPrice(priceVal)}</div>
+                    <div style={{ fontWeight: 600, fontSize: 15.5, flex: 1 }}>{t(`upgrades.${u.id}.name`)}</div>
+                    <div style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.ink }}>{addForText}</div>
                     <div style={{ width: 20, height: 20, borderRadius: "50%", flex: "none",
                       border: selected ? "1.5px solid " + T.ink : "1.5px solid rgba(28, 25, 19, 0.3)",
                       background: selected ? T.ink : "transparent",
@@ -1550,72 +1591,72 @@ export default function CreatePage() {
                       )}
                     </div>
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: T.goldDeep, marginBottom: 4 }}>{u.tagline}</div>
-                  <div style={{ fontSize: 12.5, color: T.ink66, lineHeight: 1.4 }}>{u.description}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: T.goldDeep, marginBottom: 4 }}>{t(`upgrades.${u.id}.tagline`)}</div>
+                  <div style={{ fontSize: 12.5, color: T.ink66, lineHeight: 1.4 }}>{t(`upgrades.${u.id}.description`)}</div>
                 </div>
               );
             })}
 
             <div style={{ padding: 16, borderRadius: 14, background: T.card, border: "1px solid " + T.ink08, marginBottom: 16 }}>
               <div className="price-row">
-                <span>{currentPack.label} ({recipients.length} {recipients.length === 1 ? "recipient" : "recipients"})</span>
+                <span>{t(`packages.${currentPack.id}.label`)} ({t('common.recipientsCount', { count: recipients.length })})</span>
                 <span>{formatPrice(BASE_PRICE)}</span>
               </div>
               {selectedUpgrades.includes("insights") && (
                 <div className="price-row">
-                  <span>Reveal Alert Add-on</span>
+                  <span>{t('create.review.revealAlertAddon')}</span>
                   <span>+{formatPrice(getUpgradePrice("insights"))}</span>
                 </div>
               )}
               <div className="price-row total">
-                <span>Total</span>
+                <span>{t('create.review.total')}</span>
                 <span>{formatPrice(grandTotal)}</span>
               </div>
             </div>
 
             <div style={{ textAlign: 'center', padding: '20px', background: T.card, borderRadius: 16, border: '1.5px solid ' + T.ink15, margin: "20px 0" }}>
-              <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 6, color: T.ink }}>JIGZO is launching soon</h2>
+              <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 6, color: T.ink }}>{t('create.review.launchingSoon')}</h2>
               {interestRegistered ? (
                 <p style={{ fontSize: 14.5, color: T.goldDeep, fontWeight: 600, margin: "14px 0" }}>
-                  🎉 You're on the list! We'll notify you soon.
+                  {t('create.review.onTheList')}
                 </p>
               ) : (
                 <>
                   <p style={{ fontSize: 13.5, color: T.ink66, lineHeight: 1.4, marginBottom: 14 }}>
-                    Leave your details and we’ll let you know when sending opens.
+                    {t('create.review.leaveDetails')}
                   </p>
                   <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-                    <input 
-                      type="email" 
-                      placeholder="Your email address" 
+                    <input
+                      type="email"
+                      placeholder={t('create.review.emailPlaceholder')}
                       value={interestEmail}
                       onChange={(e) => setInterestEmail(e.target.value)}
-                      style={{ ...inputStyle, flex: 1 }} 
+                      style={{ ...inputStyle, flex: 1 }}
                       disabled={interestRegistering}
                     />
-                    <PrimaryButton 
-                      onClick={handleNotifyMe} 
-                      disabled={!interestEmail.trim() || interestRegistering} 
+                    <PrimaryButton
+                      onClick={handleNotifyMe}
+                      disabled={!interestEmail.trim() || interestRegistering}
                       style={{ flex: 'none', padding: '10px 20px' }}
                     >
-                      {interestRegistering ? "..." : "Notify Me"}
+                      {interestRegistering ? "..." : t('create.review.notifyMe')}
                     </PrimaryButton>
                   </div>
                 </>
               )}
               <div style={{ fontSize: 12, color: T.goldDeep, fontWeight: 600 }}>
-                No payment will be taken.
+                {t('create.review.noPayment')}
               </div>
             </div>
 
             <div className="footer-nav" style={{ flexDirection: 'column', gap: 12 }}>
               <div style={{ display: 'flex', gap: 12, width: '100%' }}>
-                <GhostButton onClick={handleBack}>Back</GhostButton>
-                <PrimaryButton disabled style={{ flex: 1 }}>Pay &amp; Send</PrimaryButton>
+                <GhostButton onClick={handleBack}>{t('common.back')}</GhostButton>
+                <PrimaryButton disabled style={{ flex: 1 }}>{t('create.review.payAndSend')}</PrimaryButton>
               </div>
               {isTestModeEnabled && (
                 <PrimaryButton onClick={handleCreateTestReveal} style={{ width: '100%', background: T.goldWarm, color: T.ink }}>
-                  Create Test Reveal (Staging Only)
+                  {t('create.review.createTestReveal')}
                 </PrimaryButton>
               )}
             </div>
@@ -1629,11 +1670,11 @@ export default function CreatePage() {
         <div className="footer__inner">
           <div className="footer__brand">
             <img className="footer__logo" src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" />
-            <span className="footer__by">Product by Jigpuzzle</span>
+            <span className="footer__by">{t('landing.footer.by')}</span>
           </div>
-          <div className="footer__tag">Every surprise deserves a memorable reveal.</div>
+          <div className="footer__tag">{t('landing.footer.tag')}</div>
           <div className="footer__links">
-            <Link className="footer__link" to="/terms">Terms of Service</Link>
+            <Link className="footer__link" to="/terms">{t('landing.footer.terms')}</Link>
           </div>
         </div>
       </footer>

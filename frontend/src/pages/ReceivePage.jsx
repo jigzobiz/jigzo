@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { api } from '../services/api';
 import { buildEdgeMap, piecePath, mulberry32 } from '../puzzle/puzzle-shape';
 import RevealBeat from '../components/RevealBeat';
 import LoaderOrbit from '../components/LoaderOrbit';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 import { analytics } from '../services/analytics';
 
 const GRID_FOR = {
@@ -23,7 +25,9 @@ const SETTLE = "transform 0.28s cubic-bezier(0.25, 1, 0.2, 1), filter 0.24s ease
 export default function ReceivePage() {
   const { publicId } = useParams();
   const [searchParams] = useSearchParams();
-  
+  const { i18n } = useTranslation();
+  const languageInitializedRef = useRef(false);
+
   const rQueryValue = searchParams.get("r");
   const rIndexParsed = rQueryValue !== null && rQueryValue !== "" ? parseInt(rQueryValue, 10) : undefined;
 
@@ -52,8 +56,15 @@ export default function ReceivePage() {
         setError(null);
         const res = await api.getPuzzle(publicId, rIndexParsed);
         if (!active) return;
-        
+
         const puzzle = res.puzzle;
+        if (!languageInitializedRef.current && puzzle) {
+          languageInitializedRef.current = true;
+          const expLang = puzzle.experienceLanguage || 'en';
+          if (i18n.language !== expLang) {
+            i18n.changeLanguage(expLang);
+          }
+        }
         const finalRIndex = puzzle.recipient?.index ?? 0;
         setResolvedRIndex(finalRIndex);
 
@@ -64,14 +75,14 @@ export default function ReceivePage() {
           const apiBase = import.meta.env.VITE_API_URL || '';
           puzzle.cropImageUrl = `${apiBase}${puzzle.cropImageUrl}`;
         }
-        
+
         // Log open event asynchronously
         api.recordOpen(publicId, finalRIndex).catch(console.error);
         analytics.track('puzzle_opened', { puzzleId: publicId, recipientIndex: finalRIndex });
 
         if (puzzle.cropImageUrl) {
           const img = new Image();
-          
+
           let completed = false;
           const handleSuccess = () => {
             if (!active || completed) return;
@@ -164,18 +175,31 @@ export default function ReceivePage() {
   }
 
   if (error || !puzzleData) {
+    let errorText = error;
+    if (error === 'Puzzle link has expired.') {
+      errorText = t('receive.errors.expired');
+    } else if (error === 'Access denied.') {
+      errorText = t('receive.errors.accessDenied');
+    } else if (error === 'Invalid or missing recipient index.') {
+      errorText = t('receive.errors.invalidRecipient');
+    } else if (error === 'Puzzle not found.') {
+      errorText = t('receive.errors.loadFailed');
+    } else {
+      errorText = error || t('receive.errors.unexpected');
+    }
+
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Archia, sans-serif", padding: 24, background: "#FAF8EC" }}>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Archia, sans-serif", padding: 24, background: "#FAF8EC", direction: i18n.language === 'ar' ? 'rtl' : 'ltr' }}>
         <div style={{ maxWidth: 380, textAlign: "center" }}>
-          <div style={{ fontWeight: 700, fontSize: 22, color: "#7a1c1c", marginBottom: 10 }}>Couldn’t load JIGZO</div>
+          <div style={{ fontWeight: 700, fontSize: 22, color: "#7a1c1c", marginBottom: 10 }}>{t('receive.errors.loadFailed')}</div>
           <p style={{ fontSize: 14.5, lineHeight: 1.6, color: "rgba(5,5,5,0.6)", margin: "0 0 22px" }}>
-            {error || 'The puzzle link might be expired or invalid.'}
+            {errorText}
           </p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
             <button type="button" onClick={handleRetry} style={{ display: "inline-block", background: "#050505", color: "#FAF8EC", border: "none",
-              fontWeight: 600, fontSize: 14, borderRadius: 999, padding: "13px 26px", cursor: "pointer" }}>Retry</button>
+              fontWeight: 600, fontSize: 14, borderRadius: 999, padding: "13px 26px", cursor: "pointer" }}>{t('common.retry')}</button>
             <a href="/" style={{ display: "inline-block", background: "transparent", color: "#050505", border: "1.5px solid #050505", textDecoration: "none",
-              fontWeight: 600, fontSize: 14, borderRadius: 999, padding: "12px 26px" }}>Go Home</a>
+              fontWeight: 600, fontSize: 14, borderRadius: 999, padding: "12px 26px" }}>{t('common.goHome')}</a>
           </div>
         </div>
       </div>
@@ -186,6 +210,8 @@ export default function ReceivePage() {
 }
 
 function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
+  const { t, i18n } = useTranslation();
+  const isAr = i18n.language === 'ar';
   const g = GRID_FOR[data.pieceCount] || { cols: 3, rows: 6 };
   const cols = g.cols, rows = g.rows;
   const BW = 288, BH = 512, PAD = 46;
@@ -231,7 +257,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
   useEffect(() => {
     if (showReveal) {
       setLoaderRunning(true);
-      
+
       // Calculate and report solve duration
       if (startTimeRef.current) {
         const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
@@ -349,20 +375,20 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     if (!wrap) return;
     const availW = wrap.parentElement ? wrap.parentElement.clientWidth : wrap.clientWidth;
     const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    
+
     let measuredHeaderHeight = 0;
     if (headerRef.current) {
       measuredHeaderHeight = headerRef.current.getBoundingClientRect().height;
     }
-    
+
     let measuredActionHeight = 0;
     if (actionsRef.current) {
       measuredActionHeight = actionsRef.current.getBoundingClientRect().height;
     }
-    
+
     const safetySpacing = 32;
     const availH = Math.max(280, viewportHeight - measuredHeaderHeight - measuredActionHeight - safetySpacing);
-    
+
     const scaleW = availW / stageW;
     const scaleH = availH / stageH;
     setScale(Math.min(1, scaleW, scaleH));
@@ -538,6 +564,7 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
       const cardW = 340;
       const S = CW / cardW;
       const CREAM = "rgb(250,248,236)";
+      const isArabic = /[\u0600-\u06FF]/.test(data.message || "");
 
       const paint = (img) => {
         try {
@@ -563,7 +590,10 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
           ctx.fillStyle = vg; ctx.fillRect(0, 0, CW, CH);
 
           const contentW = 842;
-          ctx.font = `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`;
+          ctx.font = isArabic
+            ? `400 ${20 * S}px "Noto Naskh Arabic", serif`
+            : `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`;
+
           const msgLines = [];
           (data.message || "").split("\n").forEach((para) => {
             let line = "";
@@ -578,12 +608,36 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
           const rows = [];
           const recipientName = data.recipient?.name || data.toName || '';
           if (recipientName) {
-            rows.push({ type: "text", t: recipientName, f: `500 ${12.5 * S}px "JetBrains Mono", monospace`, color: "#E6C67F", ls: 0.1 * 12.5 * S, lh: 12.5 * S * 1.3, gap: 18 * S });
+            rows.push({
+              type: "text",
+              t: recipientName,
+              f: isArabic ? `500 ${12.5 * S}px "Noto Sans Arabic", sans-serif` : `500 ${12.5 * S}px "JetBrains Mono", monospace`,
+              color: "#E6C67F",
+              ls: isArabic ? 0 : 0.1 * 12.5 * S,
+              lh: 12.5 * S * 1.3,
+              gap: 18 * S
+            });
           }
-          msgLines.forEach((ln, i) => rows.push({ type: "text", t: ln, f: `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`, color: "#F3ECDD", lh: 20 * S * 1.32, shadow: true, gap: i === msgLines.length - 1 ? 18 * S : 0 }));
+          msgLines.forEach((ln, i) => rows.push({
+            type: "text",
+            t: ln,
+            f: isArabic ? `400 ${20 * S}px "Noto Naskh Arabic", serif` : `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`,
+            color: "#F3ECDD",
+            lh: 20 * S * 1.32,
+            shadow: true,
+            gap: i === msgLines.length - 1 ? 18 * S : 0
+          }));
           rows.push({ type: "rule", h: 2 * S, w: 44 * S, gap: data.senderName ? 14 * S : 0 });
           if (data.senderName) {
-            rows.push({ type: "text", t: data.senderName, f: `500 ${12 * S}px "JetBrains Mono", monospace`, color: "rgba(238,232,220,0.82)", ls: 0.08 * 12 * S, lh: 12 * S * 1.3, gap: 0 });
+            rows.push({
+              type: "text",
+              t: data.senderName,
+              f: isArabic ? `500 ${12 * S}px "Noto Sans Arabic", sans-serif` : `500 ${12 * S}px "JetBrains Mono", monospace`,
+              color: "rgba(238,232,220,0.82)",
+              ls: isArabic ? 0 : 0.08 * 12 * S,
+              lh: 12 * S * 1.3,
+              gap: 0
+            });
           }
 
           const total = rows.reduce((s, r) => s + (r.h || r.lh) + r.gap, 0);
@@ -598,6 +652,9 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
             } else {
               ctx.save();
               ctx.font = r.f; ctx.fillStyle = r.color;
+              if (isArabic) {
+                ctx.direction = 'rtl';
+              }
               if ("letterSpacing" in ctx) ctx.letterSpacing = (r.ls || 0) + "px";
               if (r.shadow) { ctx.shadowColor = "rgba(5,5,5,0.92)"; ctx.shadowBlur = 9 * S; ctx.shadowOffsetY = 2 * S; }
               else { ctx.shadowColor = "rgba(5,5,5,0.8)"; ctx.shadowBlur = 5 * S; ctx.shadowOffsetY = 1 * S; }
@@ -636,12 +693,21 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
           }
         } else paint(null);
       };
+
+      const fontList = isArabic
+        ? [
+            '500 12.5px "Noto Sans Arabic"',
+            '400 20px "Noto Naskh Arabic"',
+            '500 12px "Noto Sans Arabic"',
+          ]
+        : [
+            'italic 400 20px "Playfair Display"',
+            '500 12.5px "JetBrains Mono"',
+            '500 12px "JetBrains Mono"',
+          ];
+
       if (document.fonts && document.fonts.ready) {
-        Promise.all([
-          'italic 400 20px "Playfair Display"',
-          '500 11px "JetBrains Mono"',
-          '500 10px "JetBrains Mono"',
-        ].map((w) => document.fonts.load(w).catch(() => {})))
+        Promise.all(fontList.map((w) => document.fonts.load(w).catch(() => {})))
           .then(() => document.fonts.ready).then(run, run);
       } else run();
     });
@@ -670,14 +736,14 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
       }
       const file = new File([blob], "jigzo-reveal.jpg", { type: "image/jpeg" });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: "Your JIGZO reveal" });
+        await navigator.share({ files: [file], title: t('receive.shareTitle') });
       } else {
         saveAsFile(file);
       }
     } catch (err) {
       if (err && err.name === "AbortError") return;
       console.error('[ReceivePage] Export failed:', err);
-      alert('Failed to generate image for saving. Please try again.');
+      alert(t('receive.errors.imageGenerationFailed'));
       generationPromiseRef.current = null;
       cachedBlobRef.current = null;
     } finally {
@@ -691,22 +757,27 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
 
   return (
     <div className="receive-page" style={{ fontFamily: "Archia,sans-serif", color: "#1C1913",
-      display: "flex", flexDirection: "column", alignItems: "center", padding: "10px 14px 20px" }}>
+      display: "flex", flexDirection: "column", alignItems: "center", padding: "10px 14px 20px", direction: isAr ? 'rtl' : 'ltr' }}>
       <style>{`
         @keyframes jzFade { from { opacity:0; } to { opacity:1; } }
       `}</style>
+      <div style={{ alignSelf: isAr ? "flex-start" : "flex-end", marginBottom: 10 }}>
+        <LanguageSwitcher location="receive_page" />
+      </div>
       <div style={showReveal ? { width: "100%", display: "flex", flexDirection: "column", alignItems: "center" } : { width: "100%", maxWidth: 440 }}>
         {/* above the puzzle — heading + live piece counter */}
         {!showReveal && (
           <div ref={headerRef} style={{ textAlign: "center", marginBottom: 12 }}>
             <h1 style={{ fontSize: 19, fontWeight: 600, margin: "0 0 4px", letterSpacing: "-0.015em", color: "#050505" }}>
-              Solve to reveal your message
+              {t('receive.heading')}
             </h1>
             <p style={{ fontSize: 13, color: "rgba(5,5,5,0.6)", margin: "0 0 8px" }}>
-              Move the pieces into place.
+              {t('receive.subheading')}
             </p>
             <div style={{ fontSize: 11, fontWeight: 600, color: "#B8935A", letterSpacing: "0.04em" }}>
-              {placedCount} / {homes.length} pieces placed
+              {placedCount === 1
+                ? t('receive.piecesPlaced_one')
+                : t('receive.piecesPlaced_other', { count: placedCount, total: homes.length })}
             </div>
           </div>
         )}
@@ -775,17 +846,17 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
                 }}>
                 <div className="reveal-card" style={{ width: "100%", height: "100%", position: "relative", display: "block", marginInline: "auto", left: "auto", right: "auto", transform: "none" }}>
                   {revealObjectUrl ? (
-                    <img src={revealObjectUrl} alt="Completed JIGZO" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                    <img src={revealObjectUrl} alt={t('receive.cardAlt')} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                   ) : (
                     <div style={{ width: "100%", height: "100%", background: "#FAF8EC", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
-                      <div style={{ color: "#7a1c1c", fontWeight: 600, fontSize: 16, marginBottom: 8, fontFamily: "Archia, sans-serif" }}>Couldn't load reveal image</div>
+                      <div style={{ color: "#7a1c1c", fontWeight: 600, fontSize: 16, marginBottom: 8, fontFamily: "Archia, sans-serif" }}>{t('receive.errors.revealLoadFailed')}</div>
                       <button type="button" onClick={() => {
                         cachedBlobRef.current = null;
                         generationPromiseRef.current = null;
                         cacheKeyRef.current = "";
                         setRetryTrigger(prev => prev + 1);
                       }} style={{ background: "#050505", color: "#FAF8EC", border: "none", borderRadius: 999, padding: "10px 20px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: "Archia, sans-serif" }}>
-                        Retry
+                        {t('common.retry')}
                       </button>
                     </div>
                   )}
@@ -805,26 +876,26 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
               {/* Primary: Save or Share */}
               <button type="button" onClick={onSaveOrShare} disabled={exportLoading} style={{ background: "#050505", color: "#FAF8EC", border: "none", borderRadius: 999,
                 padding: "13px 26px", fontSize: 14.5, fontWeight: 700, fontFamily: "Archia,sans-serif", cursor: "pointer", width: "100%", maxWidth: 280, opacity: exportLoading ? 0.75 : 1 }}>
-                {exportLoading ? "Generating..." : "Save or Share"}
+                {exportLoading ? t('receive.buttons.generating') : t('receive.buttons.saveOrShare')}
               </button>
-              
+
               {/* Secondary: Create Your Puzzle */}
               <button type="button" onClick={() => window.location.href = "/create"} style={{ background: "transparent", color: "#050505", border: "1.5px solid #050505",
                 borderRadius: 999, padding: "13px 26px", fontSize: 14.5, fontWeight: 600, fontFamily: "Archia,sans-serif", cursor: "pointer", width: "100%", maxWidth: 280 }}>
-                Create Your Puzzle
+                {t('receive.buttons.createYourOwn')}
               </button>
 
               {/* Tertiary text action: Replay Puzzle */}
               <button type="button" onClick={replay} style={{ background: "none", border: "none", color: "rgba(5,5,5,0.6)",
                 fontSize: 13.5, fontWeight: 600, fontFamily: "Archia,sans-serif", cursor: "pointer", textDecoration: "underline", marginTop: 4 }}>
-                Replay Puzzle
+                {t('receive.buttons.replay')}
               </button>
             </div>
-            
+
             {/* Minimal branding */}
             <div style={{ marginTop: 24, opacity: 0.8 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: "rgba(5,5,5,0.7)" }}>Created with care.</div>
-              <div style={{ fontSize: 10.5, fontWeight: 500, color: "rgba(5,5,5,0.42)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Made with JIGZO</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: "rgba(5,5,5,0.7)" }}>{t('receive.branding.createdWithCare')}</div>
+              <div style={{ fontSize: 10.5, fontWeight: 500, color: "rgba(5,5,5,0.42)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>{t('receive.branding.madeWithJigzo')}</div>
             </div>
           </div>
         )}
