@@ -693,7 +693,8 @@ export default function CreatePage() {
         pieceCount,
         recipients: formattedRecipients,
         occasion,
-        tone
+        tone,
+        experienceLanguage: i18n.language
       });
 
       const expectedCount = formattedRecipients.length;
