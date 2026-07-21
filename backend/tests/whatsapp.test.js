@@ -42,7 +42,7 @@ const MockWhatsAppMessage = function(data) {
   Object.defineProperty(this, 'idempotencyKey', { get: () => this._data.idempotencyKey });
   Object.defineProperty(this, 'destinationMasked', { get: () => this._data.destinationMasked });
   Object.defineProperty(this, 'createdAt', { get: () => this._data.createdAt });
-  
+
   Object.defineProperty(this, 'updatedAt', {
     get: () => this._data.updatedAt,
     set: (v) => { this._data.updatedAt = v; }
@@ -165,7 +165,7 @@ MockWhatsAppWebhookEvent.findOneAndUpdate = async (query, update, options) => {
   const key = query.idempotencyKey;
   const existing = mockDb.webhookEvents[key];
   if (!existing) return null;
-  
+
   let match = false;
   if (query.$or) {
     for (let cond of query.$or) {
@@ -221,7 +221,7 @@ whatsappService.updateRecipientSnapshot = async (puzzleId, recipientIndex, field
   const puzzle = mockDb.puzzles[puzzleId];
   if (puzzle && puzzle.recipients[recipientIndex]) {
     const rec = puzzle.recipients[recipientIndex];
-    
+
     const priority = {
       'pending': 0,
       'disabled': 0,
@@ -250,7 +250,7 @@ whatsappService.updateRecipientSnapshot = async (puzzleId, recipientIndex, field
       rec.whatsappFailedAt = fields.failedAt || fields.occurredAt || new Date();
       rec.whatsappLastErrorCode = fields.errorCode || '';
       rec.whatsappLastErrorMessage = fields.errorMessage || '';
-      
+
       const currentPriority = priority[rec.whatsappSendStatus] || 0;
       if (currentPriority < priority['sent']) {
         rec.whatsappSendStatus = 'failed';
@@ -363,7 +363,7 @@ async function runAllTests() {
     revealIdentity: true,
     recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }]
   };
-  
+
   fetchResponseMock = {
     ok: true,
     text: async () => JSON.stringify({ messages: [{ id: 'provider-accepted-id-123' }] })
@@ -416,7 +416,7 @@ async function runAllTests() {
   // ==========================================
   console.log('\n--- Group 4: Webhook Security & Version checks ---');
   resetMocks();
-  
+
   const webhookPayload = JSON.stringify({
     phone_number_id: '10928374',
     message: {
@@ -475,7 +475,7 @@ async function runAllTests() {
   // ==========================================
   console.log('\n--- Group 5: Webhook Retry Idempotency & Leasing ---');
   resetMocks();
-  
+
   mockDb.puzzles['webhook-retry'] = {
     publicId: 'webhook-retry',
     recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'accepted' }]
@@ -623,7 +623,7 @@ async function runAllTests() {
   // ==========================================
   console.log('\n--- Group 6: Status Lifecycle ---');
   resetMocks();
-  
+
   mockDb.messages['puzzle-delivery:lc:0:jigzo_puzzle_delivery:v1'] = new MockWhatsAppMessage({
     puzzleId: 'lc',
     recipientIndex: 0,
@@ -679,14 +679,77 @@ async function runAllTests() {
   console.log('✓ Scenario 6.2: Late failed webhook event preserves achieved delivered state and records failure metadata: Success');
 
   // ==========================================
+  // Group 8: Reveal Alert & Language templates
+  // ==========================================
+  console.log('\n--- Group 8: Reveal Alert & Language templates ---');
+
+  // Verify sendRevealAlert when WHATSAPP_ENABLED is false
+  process.env.WHATSAPP_ENABLED = 'false';
+  const disabledRes = await whatsappService.sendRevealAlert({
+    puzzleId: 'lc',
+    recipientIndex: 0,
+    senderPhone: '97333333333',
+    recipientName: 'Sam',
+    durationSeconds: 120
+  });
+  assert.strictEqual(disabledRes.status, 'disabled');
+  console.log('✓ Scenario 8.1: Reveal alert with WHATSAPP_ENABLED=false is safely disabled: Success');
+
+  // Enable whatsapp and mock fetch
+  process.env.WHATSAPP_ENABLED = 'true';
+  process.env.KAPSO_API_KEY = 'test_key';
+  process.env.KAPSO_PHONE_NUMBER_ID = 'test_phone_id';
+
+  // Global fetch mock to capture payload
+  let capturedPayload;
+  const originalFetch = global.fetch;
+  global.fetch = async (url, options) => {
+    capturedPayload = JSON.parse(options.body);
+    return {
+      ok: true,
+      text: async () => JSON.stringify({
+        messages: [{ id: 'msg-solved-123' }]
+      })
+    };
+  };
+
+  try {
+    const alertRes = await whatsappService.sendRevealAlert({
+      puzzleId: 'lc',
+      recipientIndex: 0,
+      senderPhone: '97333333333',
+      recipientName: 'Sam',
+      durationSeconds: 155
+    });
+
+    assert.strictEqual(alertRes.success, true);
+    assert.strictEqual(alertRes.status, 'accepted');
+    assert.strictEqual(alertRes.providerMessageId, 'msg-solved-123');
+    assert.strictEqual(capturedPayload.template.name, 'jigzo_puzzle_solved');
+    assert.strictEqual(capturedPayload.template.language.code, 'en_US'); // Pending confirmation is false, so en_US
+    assert.deepStrictEqual(capturedPayload.template.components[0].parameters, [
+      { type: 'text', text: 'Sam' },
+      { type: 'text', text: '2m 35s' }
+    ]);
+    console.log('✓ Scenario 8.2: Reveal alert template name and parameters are formatted correctly: Success');
+
+  } finally {
+    // Restore fetch and env
+    global.fetch = originalFetch;
+    process.env.WHATSAPP_ENABLED = 'false';
+    process.env.KAPSO_API_KEY = '';
+    process.env.KAPSO_PHONE_NUMBER_ID = '';
+  }
+
+  // ==========================================
   // Group 7: Puzzle Status Webhook Calculations & Mongoose Indexes
   // ==========================================
   console.log('\n--- Group 7: Puzzle Status Webhook Calculations & Mongoose Indexes ---');
   const Puzzle = require('../src/models/Puzzle');
-  
+
   const webhookRouterFile = require('../src/routes/webhooks');
   const paymentHandler = webhookRouterFile.stack.find(s => s.route?.path === '/payment')?.route.stack[0]?.handle;
-  
+
   mockDb.puzzles['puz-check-status'] = {
     _id: 'puz-db-id',
     publicId: 'puz-check-status',

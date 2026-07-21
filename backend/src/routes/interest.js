@@ -6,7 +6,7 @@ const JourneyEvent = require('../models/JourneyEvent');
 router.post('/', async (req, res, next) => {
   try {
     const { email, phone, country = '', interestType = 'jigzo_launch', sourceUrl = '', context = {}, anonymousId, sessionId } = req.body;
-    
+
     if (!email && !phone) {
       return res.status(400).json({ error: 'Email or phone number is required.' });
     }

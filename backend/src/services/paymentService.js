@@ -5,16 +5,16 @@
 class PaymentService {
   /**
    * Generates a mock checkout session link.
-   * @param {string} orderId 
-   * @param {number} total 
-   * @param {string} currency 
+   * @param {string} orderId
+   * @param {number} total
+   * @param {string} currency
    * @returns {Promise<{checkoutUrl: string, reference: string}>}
    */
   async createCheckout(orderId, total, currency = 'USD') {
     console.log(`[PaymentService] Creating checkout session for Order: ${orderId}, Total: ${currency}${total}`);
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 300));
-    
+
     // Return a mock checkout page url and reference ID
     return {
       checkoutUrl: `https://checkout.mock-payment.com/pay/${orderId}?amount=${total}`,
@@ -24,8 +24,8 @@ class PaymentService {
 
   /**
    * Simulates webhook signature verification.
-   * @param {string} bodyPayload 
-   * @param {string} signatureHeader 
+   * @param {string} bodyPayload
+   * @param {string} signatureHeader
    * @returns {boolean}
    */
   verifyWebhook(bodyPayload, signatureHeader) {

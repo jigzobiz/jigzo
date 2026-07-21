@@ -19,11 +19,11 @@ const OCCASIONS = [
 export default function ScrollConceptPage() {
   const containerRef = useRef(null);
   const guidePieceRef = useRef(null);
-  
+
   // State to track puzzle reveal and interactive occasions
   const [isPuzzleSnapped, setIsPuzzleSnapped] = useState(false);
   const [activeOccasion, setActiveOccasion] = useState('birthday');
-  
+
   // Detect if user has prefers-reduced-motion set
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
@@ -49,7 +49,7 @@ export default function ScrollConceptPage() {
     // Create GSAP context for safe scoping and clean up
     const ctx = gsap.context(() => {
       const isMobile = window.innerWidth < 1024;
-      
+
       // Secondary supporting pieces subtle parallax
       gsap.to('.support-piece-1', {
         scrollTrigger: {
@@ -243,7 +243,7 @@ export default function ScrollConceptPage() {
       }
 
       // Scroll triggers for individual scene animations
-      
+
       // Scene 1: Reveal second line on slight scroll
       gsap.to('.scene-hook__scroll-reveal', {
         scrollTrigger: {

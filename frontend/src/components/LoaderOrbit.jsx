@@ -1,8 +1,11 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 export default function LoaderOrbit() {
+  const { t } = useTranslation();
+
   return (
-    <div className="jz-orbit" role="status" aria-label="Loading your Jigzo">
+    <div className="jz-orbit" role="status" aria-label={t('common.loading')}>
       <div className="jz-orbit__ring">
         <div className="jz-orbit__arm">
           <div className="jz-orbit__badge">
@@ -56,7 +59,9 @@ export default function LoaderOrbit() {
           </div>
         </div>
       </div>
-      <div className="sr-only" style={{ position: 'absolute', width: '1px', height: '1px', padding: '0', margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', border: '0' }}>Preparing your reveal</div>
+      <div className="sr-only" style={{ position: 'absolute', width: '1px', height: '1px', padding: '0', margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', border: '0' }}>
+        {t('demo.loaderText')}
+      </div>
     </div>
   );
 }

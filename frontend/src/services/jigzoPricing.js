@@ -73,7 +73,7 @@ export function roundPrice(amount, currency) {
 export function formatMoney(amount, currencyCode) {
   const quote = BACKEND_QUOTE || FALLBACK_QUOTE;
   const cur = currencyCode || quote.currency;
-  
+
   // Calculate based on the single backend FX rate source of truth
   const rate = quote.rate || 1.0;
   const rawConverted = amount * rate;
@@ -159,7 +159,7 @@ export function initializePricing() {
       throw new Error('Quote missing in response');
     } catch (err) {
       console.warn('Failed to load pricing locale from API, falling back to USD 5:', err.message);
-      
+
       // Fallback cleanly to USD 5
       BACKEND_QUOTE = FALLBACK_QUOTE;
       sessionStorage.setItem(CACHE_KEY_QUOTE, JSON.stringify(FALLBACK_QUOTE));

@@ -4,8 +4,8 @@ const https = require('https');
 
 // Supported currencies by the payment gateway
 const SUPPORTED_CURRENCIES = new Set([
-  'USD', 'EUR', 'GBP', 'AED', 'SAR', 'BHD', 'KWD', 'OMR', 'QAR', 
-  'CAD', 'AUD', 'JPY', 'SGD', 'HKD', 'NZD', 'CHF', 'SEK', 'NOK', 
+  'USD', 'EUR', 'GBP', 'AED', 'SAR', 'BHD', 'KWD', 'OMR', 'QAR',
+  'CAD', 'AUD', 'JPY', 'SGD', 'HKD', 'NZD', 'CHF', 'SEK', 'NOK',
   'DKK', 'MXN', 'BRL', 'ZAR', 'KRW', 'INR'
 ]);
 
@@ -101,7 +101,7 @@ router.get('/locale', async (req, res) => {
           if (ip.includes(',')) {
             ip = ip.split(',')[0].trim();
           }
-          
+
           // Perform geolocation lookup via native HTTPS
           await new Promise((resolveGeo) => {
             https.get(`https://ipapi.co/${ip}/json/`, (geoRes) => {
@@ -171,10 +171,10 @@ router.get('/locale', async (req, res) => {
     PACK_OPTIONS.forEach(pkg => {
       const rawPrice = pkg.price * rate;
       const roundedPrice = roundPrice(rawPrice, currency);
-      
+
       const rawInsights = pkg.insightsPrice * rate;
       const roundedInsights = roundPrice(rawInsights, currency);
-      
+
       packagesQuote[pkg.id] = {
         basePrice: roundedPrice,
         formattedBase: formatMoney(rawPrice, currency),

@@ -14,7 +14,7 @@ function getCleanHost(req) {
     return null;
   }
   const clean = hostHeader.trim().toLowerCase();
-  
+
   let host = clean;
   if (clean.includes(']')) {
     const bracketEnd = clean.indexOf(']');
@@ -66,10 +66,10 @@ function isTestModeAllowed(req) {
     if (process.env.VERCEL_ENV !== 'preview' || process.env.VERCEL_GIT_COMMIT_REF !== 'staging') {
       return false;
     }
-    
+
     const vercelUrl = process.env.VERCEL_URL ? process.env.VERCEL_URL.toLowerCase().trim() : '';
     const branchUrl = process.env.VERCEL_BRANCH_URL ? process.env.VERCEL_BRANCH_URL.toLowerCase().trim() : '';
-    
+
     return (
       host === 'staging.jigzo.biz' ||
       host === vercelUrl ||
@@ -89,7 +89,7 @@ function isTestModeAllowed(req) {
   return false;
 }
 
-module.exports = { 
+module.exports = {
   isTestModeAllowed,
   getCleanHost
 };
