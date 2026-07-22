@@ -33,6 +33,15 @@ const FILES = [
   'components/RevealFace.jsx',
   'components/LoaderOrbit.jsx',
   'components/RevealBeat.jsx',
+  // JIGZO Business (staging prototype)
+  'pages/BusinessLandingPage.jsx',
+  'pages/BusinessDashboardPage.jsx',
+  'pages/BusinessCampaignBuilderPage.jsx',
+  'business/BizNav.jsx',
+  'business/BizHero.jsx',
+  'business/BizLangSwitcher.jsx',
+  'business/DemoModal.jsx',
+  'business/RecipientJourney.jsx',
 ];
 
 // ---- id sets used to expand dynamic `${...}` template keys -----------------
