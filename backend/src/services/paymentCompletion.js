@@ -2,7 +2,7 @@ const Order = require('../models/Order');
 const Puzzle = require('../models/Puzzle');
 const emailService = require('./emailService');
 const whatsappService = require('./whatsappService');
-const { getFrontendOrigin } = require('../utils/runtimeConfig');
+const { getFrontendOrigin, isNonProduction } = require('../utils/runtimeConfig');
 
 /**
  * Idempotently marks the order and associated puzzle as paid,
@@ -27,6 +27,11 @@ async function markOrderAndPuzzlePaid(order, providerChargeId, transactionRefere
     if (puzzle.status === 'draft' || puzzle.status === 'pending_payment') {
       puzzle.status = 'paid';
       await puzzle.save();
+    }
+
+    // Block all external delivery during staging/non-production payment QA
+    if (isNonProduction()) {
+      return order;
     }
 
     const frontendUrl = getFrontendOrigin();
