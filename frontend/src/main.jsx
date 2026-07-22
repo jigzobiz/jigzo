@@ -7,6 +7,7 @@ import ReceivePage from './pages/ReceivePage';
 import TermsPage from './pages/TermsPage';
 import AdminPortal from './pages/AdminPortal';
 import ScrollConceptPage from './pages/ScrollConceptPage';
+import PaymentResult from './pages/PaymentResult';
 import './i18n';
 import './index.css';
 
@@ -19,6 +20,10 @@ const router = createBrowserRouter([
   {
     path: '/create',
     element: <CreatePage />
+  },
+  {
+    path: '/payment/result',
+    element: <PaymentResult />
   },
   {
     path: '/scroll-concept',
