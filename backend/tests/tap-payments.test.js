@@ -116,6 +116,9 @@ function makeMockReq(body) {
   return {
     body,
     protocol: 'http',
+    headers: {
+      host: 'localhost:5173'
+    },
     get: (header) => 'localhost:5173'
   };
 }
@@ -491,4 +494,19 @@ test('Preview/non-prod sends zero email and zero WhatsApp on sandbox CAPTURED pa
   // Restore
   emailService.sendRevealEmail = originalSendEmail;
   delete process.env.VERCEL_ENV;
+});
+
+test('actual GET /api/features/status returns safe booleans', async () => {
+  const req = makeMockReq({});
+  const res = makeMockRes();
+
+  const featuresRouter = require('../src/routes/features');
+  const featuresStatusHandler = featuresRouter.stack.find(s => s.route?.path === '/status' && s.route.methods.get)?.route.stack[0]?.handle;
+
+  await featuresStatusHandler(req, res, () => {});
+
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(typeof res.body.checkoutEnabled, 'boolean');
+  assert.strictEqual(typeof res.body.whatsappEnabled, 'boolean');
+  assert.strictEqual(typeof res.body.testRevealEnabled, 'boolean');
 });

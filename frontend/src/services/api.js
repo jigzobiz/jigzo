@@ -148,6 +148,11 @@ export const api = {
     return response.data;
   },
 
+  getFeaturesStatus: async () => {
+    const response = await API.get('/api/features/status');
+    return response.data;
+  },
+
   getTestStatus: async () => {
     const response = await API.get('/api/test/status');
     return response.data;

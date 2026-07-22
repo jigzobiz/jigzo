@@ -9,6 +9,7 @@ const errorHandler = require('./middleware/errorHandler');
 const { getFrontendOrigin } = require('./utils/runtimeConfig');
 
 const puzzlesRouter = require('./routes/puzzles');
+const featuresRouter = require('./routes/features');
 const ordersRouter = require('./routes/orders');
 const webhooksRouter = require('./routes/webhooks');
 const interestRouter = require('./routes/interest');
@@ -105,6 +106,7 @@ app.use('/api', async (req, res, next) => {
 
 // Routes
 app.use('/api/puzzles', puzzlesRouter);
+app.use('/api/features', featuresRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/interest', interestRouter);

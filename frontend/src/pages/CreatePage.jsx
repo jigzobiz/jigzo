@@ -185,18 +185,20 @@ export default function CreatePage() {
   const [revealSimSolved, setRevealSimSolved] = useState(false);
   const [revealSimLoading, setRevealSimLoading] = useState(false);
   const [isTestModeEnabled, setIsTestModeEnabled] = useState(false);
+  const [checkoutEnabled, setCheckoutEnabled] = useState(false);
   const [testModeResult, setTestModeResult] = useState(null);
 
   useEffect(() => {
-    const checkTestMode = async () => {
+    const checkFeatures = async () => {
       try {
-        const res = await api.getTestStatus();
-        setIsTestModeEnabled(res.enabled);
+        const res = await api.getFeaturesStatus();
+        setCheckoutEnabled(res.checkoutEnabled);
+        setIsTestModeEnabled(res.testRevealEnabled);
       } catch (err) {
-        console.error('Error fetching test status:', err);
+        console.error('Error fetching features status:', err);
       }
     };
-    checkTestMode();
+    checkFeatures();
   }, []);
 
   const [defaultDialCode, setDefaultDialCode] = useState("+973");
@@ -1614,45 +1616,57 @@ export default function CreatePage() {
               </div>
             </div>
 
-            <div style={{ textAlign: 'center', padding: '20px', background: T.card, borderRadius: 16, border: '1.5px solid ' + T.ink15, margin: "20px 0" }}>
-              <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 6, color: T.ink }}>{t('create.review.launchingSoon')}</h2>
-              {interestRegistered ? (
-                <p style={{ fontSize: 14.5, color: T.goldDeep, fontWeight: 600, margin: "14px 0" }}>
-                  {t('create.review.onTheList')}
-                </p>
-              ) : (
-                <>
-                  <p style={{ fontSize: 13.5, color: T.ink66, lineHeight: 1.4, marginBottom: 14 }}>
-                    {t('create.review.leaveDetails')}
+            {!checkoutEnabled && (
+              <div style={{ textAlign: 'center', padding: '20px', background: T.card, borderRadius: 16, border: '1.5px solid ' + T.ink15, margin: "20px 0" }}>
+                <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 6, color: T.ink }}>{t('create.review.launchingSoon')}</h2>
+                {interestRegistered ? (
+                  <p style={{ fontSize: 14.5, color: T.goldDeep, fontWeight: 600, margin: "14px 0" }}>
+                    {t('create.review.onTheList')}
                   </p>
-                  <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-                    <input
-                      type="email"
-                      placeholder={t('create.review.emailPlaceholder')}
-                      value={interestEmail}
-                      onChange={(e) => setInterestEmail(e.target.value)}
-                      style={{ ...inputStyle, flex: 1 }}
-                      disabled={interestRegistering}
-                    />
-                    <PrimaryButton
-                      onClick={handleNotifyMe}
-                      disabled={!interestEmail.trim() || interestRegistering}
-                      style={{ flex: 'none', padding: '10px 20px' }}
-                    >
-                      {interestRegistering ? "..." : t('create.review.notifyMe')}
-                    </PrimaryButton>
-                  </div>
-                </>
-              )}
-              <div style={{ fontSize: 12, color: T.goldDeep, fontWeight: 600 }}>
-                {t('create.review.noPayment')}
+                ) : (
+                  <>
+                    <p style={{ fontSize: 13.5, color: T.ink66, lineHeight: 1.4, marginBottom: 14 }}>
+                      {t('create.review.leaveDetails')}
+                    </p>
+                    <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+                      <input
+                        type="email"
+                        placeholder={t('create.review.emailPlaceholder')}
+                        value={interestEmail}
+                        onChange={(e) => setInterestEmail(e.target.value)}
+                        style={{ ...inputStyle, flex: 1 }}
+                        disabled={interestRegistering}
+                      />
+                      <PrimaryButton
+                        onClick={handleNotifyMe}
+                        disabled={!interestEmail.trim() || interestRegistering}
+                        style={{ flex: 'none', padding: '10px 20px' }}
+                      >
+                        {interestRegistering ? "..." : t('create.review.notifyMe')}
+                      </PrimaryButton>
+                    </div>
+                  </>
+                )}
+                <div style={{ fontSize: 12, color: T.goldDeep, fontWeight: 600 }}>
+                  {t('create.review.noPayment')}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="footer-nav" style={{ flexDirection: 'column', gap: 12 }}>
               <div style={{ display: 'flex', gap: 12, width: '100%' }}>
                 <GhostButton onClick={handleBack}>{t('common.back')}</GhostButton>
-                <PrimaryButton disabled style={{ flex: 1 }}>{t('create.review.payAndSend')}</PrimaryButton>
+                {checkoutEnabled ? (
+                  <PrimaryButton
+                    onClick={handlePayAndSend}
+                    disabled={isProcessing}
+                    style={{ flex: 1 }}
+                  >
+                    {isProcessing ? t('create.review.payment.submitting') : t('create.review.payAndSend')}
+                  </PrimaryButton>
+                ) : (
+                  <PrimaryButton disabled style={{ flex: 1 }}>{t('create.review.payAndSend')}</PrimaryButton>
+                )}
               </div>
               {isTestModeEnabled && (
                 <PrimaryButton onClick={handleCreateTestReveal} style={{ width: '100%', background: T.goldWarm, color: T.ink }}>
