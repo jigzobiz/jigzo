@@ -193,11 +193,13 @@ export default function CreatePage() {
   const [checkoutEnabled, setCheckoutEnabled] = useState(false);
   const [createdPuzzleId, setCreatedPuzzleId] = useState("");
   const [paymentError, setPaymentError] = useState("");
+  const [processingContext, setProcessingContext] = useState("");
   const [testModeResult, setTestModeResult] = useState(null);
 
   useEffect(() => {
     setCreatedPuzzleId("");
     setPaymentError("");
+    setProcessingContext("");
   }, [
     cropData,
     message,
@@ -209,6 +211,19 @@ export default function CreatePage() {
     recipients,
     i18n.language
   ]);
+
+  useEffect(() => {
+    const handlePageShow = (e) => {
+      if (e.persisted) {
+        setIsProcessing(false);
+        setProcessingContext("");
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => {
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, []);
 
   useEffect(() => {
     const checkFeatures = async () => {
@@ -616,6 +631,7 @@ export default function CreatePage() {
   // Submit Handler integrating server-side API pricing and orders
   const handlePayAndSend = async () => {
     setIsProcessing(true);
+    setProcessingContext("payment");
     try {
       const formattedRecipients = recipients.map(r => {
         const method = r.deliveryMethod === "email" ? "email" : "whatsapp";
@@ -696,6 +712,7 @@ export default function CreatePage() {
 
   const handleCreateTestReveal = async () => {
     setIsProcessing(true);
+    setProcessingContext("test");
     try {
       const formattedRecipients = recipients.map(r => {
         const method = r.deliveryMethod === "email" ? "email" : "whatsapp";
@@ -844,13 +861,24 @@ export default function CreatePage() {
   }, [pieceCount]);
 
   if (isProcessing) {
+    let title = t('demo.loaderText');
+    let subtitle = isAr ? 'يستغرق هذا عادةً بضع ثوانٍ فقط.' : 'This usually takes only a few seconds.';
+
+    if (processingContext === 'payment') {
+      title = isAr ? 'جارٍ فتح صفحة الدفع الآمنة' : 'Opening secure checkout';
+      subtitle = isAr ? 'ستُكمل عملية الدفع بأمان عبر Tap.' : 'You’ll complete your payment securely with Tap.';
+    } else if (processingContext === 'test') {
+      title = isAr ? 'جارٍ إعداد أحجية الاختبار' : 'Preparing your test puzzle';
+      subtitle = isAr ? 'يستغرق ذلك عادةً بضع ثوانٍ فقط.' : 'This usually takes only a few seconds.';
+    }
+
     return (
       <div className="create-page">
         <div style={{ fontFamily: "Archia, sans-serif", color: T.ink, padding: "34px 20px 70px" }}>
           <div style={{ maxWidth: 480, margin: "0 auto", textAlign: "center", paddingTop: 50 }}>
             <LoaderOrbit />
-            <h1 style={{ fontSize: 22, fontWeight: 500, margin: "24px 0 8px", letterSpacing: "-0.01em" }}>{t('demo.loaderText')}</h1>
-            <p style={{ fontSize: 14, color: T.ink60 }}>{isAr ? 'يستغرق هذا عادةً بضع ثوانٍ فقط.' : 'This usually takes only a few seconds.'}</p>
+            <h1 style={{ fontSize: 22, fontWeight: 500, margin: "24px 0 8px", letterSpacing: "-0.01em" }}>{title}</h1>
+            <p style={{ fontSize: 14, color: T.ink60 }}>{subtitle}</p>
           </div>
         </div>
       </div>

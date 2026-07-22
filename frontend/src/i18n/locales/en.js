@@ -1104,7 +1104,7 @@ const en = {
     },
   },
   payment: {
-    verifying: 'Verifying payment...',
+    verifying: 'Payment received. Preparing your reveal.',
     success: 'Payment successful!',
     pending: 'Payment pending...',
     cancelled: 'Payment cancelled.',
