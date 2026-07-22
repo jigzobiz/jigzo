@@ -10,6 +10,7 @@ import ScrollConceptPage from './pages/ScrollConceptPage';
 import BusinessLandingPage from './pages/BusinessLandingPage';
 import BusinessDashboardPage from './pages/BusinessDashboardPage';
 import BusinessCampaignBuilderPage from './pages/BusinessCampaignBuilderPage';
+import PaymentResult from './pages/PaymentResult';
 import './i18n';
 import './index.css';
 
@@ -22,6 +23,10 @@ const router = createBrowserRouter([
   {
     path: '/create',
     element: <CreatePage />
+  },
+  {
+    path: '/payment/result',
+    element: <PaymentResult />
   },
   {
     path: '/scroll-concept',

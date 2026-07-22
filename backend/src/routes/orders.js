@@ -1,9 +1,10 @@
 const express = require('express');
-const router = Router = express.Router();
+const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const Order = require('../models/Order');
 const Puzzle = require('../models/Puzzle');
 const paymentService = require('../services/paymentService');
+const { markOrderAndPuzzlePaid } = require('../services/paymentCompletion');
 const { getExchangeRates, SUPPORTED_CURRENCIES } = require('./pricing');
 
 // Helper to determine package rules by count
@@ -21,7 +22,7 @@ function getPackageDetails(count) {
 
 /**
  * POST /api/orders
- * Calculates server-side pricing and creates an unpaid order.
+ * Calculates server-side pricing and creates or reuses an order, initiating a Tap Charge.
  */
 router.post('/', async (req, res, next) => {
   try {
@@ -64,43 +65,134 @@ router.post('/', async (req, res, next) => {
     const rate = rates[currency] || 1.0;
     const rawConverted = usdTotal * rate;
 
-    // Apply currency-aware retail rounding rule matching frontend exactly (using Math.ceil)
+    // Apply currency-aware retail rounding rule matching frontend exactly
     let convertedTotal;
     const threeDecimalCurrencies = ['BHD', 'KWD', 'OMR', 'LYD', 'IQD', 'TND'];
     if (threeDecimalCurrencies.includes(currency)) {
-      // Low-denomination 3-decimal currencies: round to 1 decimal place
       convertedTotal = Math.ceil(rawConverted * 10) / 10;
     } else {
-      // Standard 2-decimal and zero-decimal currencies: round to whole units
       convertedTotal = Math.ceil(rawConverted);
     }
 
-    const orderId = `ord_${uuidv4().replace(/-/g, '').substring(0, 12)}`;
+    // Check for an existing order for this puzzle
+    let order = await Order.findOne({ puzzleId: puzzle.publicId });
 
-    // Create the order in the database
-    const order = new Order({
-      orderId,
-      puzzleId,
-      packageId,
-      recipientCount: count,
-      basePrice,
-      addOns,
-      total: convertedTotal,
-      currency,
-      paymentStatus: 'pending'
-    });
+    if (order) {
+      // If already paid, prevent creating another charge and return order information
+      if (order.paymentStatus === 'paid' || puzzle.status === 'paid') {
+        return res.status(200).json({
+          success: true,
+          order: {
+            orderId: order.orderId,
+            puzzleId: order.puzzleId,
+            packageId: order.packageId,
+            recipientCount: order.recipientCount,
+            basePrice: order.basePrice,
+            addOns: order.addOns,
+            total: order.total,
+            currency: order.currency,
+            paymentStatus: 'paid'
+          }
+        });
+      }
 
-    await order.save();
+      // Check if details changed; if they match, reuse order
+      if (
+        order.total === convertedTotal &&
+        order.currency.toUpperCase() === currency.toUpperCase() &&
+        order.recipientCount === count &&
+        order.packageId === packageId
+      ) {
+        // If we already have a valid pending checkout URL, return it directly
+        if (order.paymentReference && order.paymentReference.startsWith('http') && order.providerChargeId) {
+          return res.status(200).json({
+            success: true,
+            order: {
+              orderId: order.orderId,
+              puzzleId: order.puzzleId,
+              packageId: order.packageId,
+              recipientCount: order.recipientCount,
+              basePrice: order.basePrice,
+              addOns: order.addOns,
+              total: order.total,
+              currency: order.currency,
+              paymentStatus: order.paymentStatus,
+              checkoutUrl: order.paymentReference
+            }
+          });
+        }
+      } else {
+        // Details changed (e.g. upgrades added or currency changed). Update existing pending order.
+        order.packageId = packageId;
+        order.recipientCount = count;
+        order.basePrice = basePrice;
+        order.addOns = addOns;
+        order.total = convertedTotal;
+        order.currency = currency;
+        await order.save();
+      }
+    } else {
+      // Create new pending order
+      const orderId = `ord_${uuidv4().replace(/-/g, '').substring(0, 12)}`;
+      order = new Order({
+        orderId,
+        puzzleId: puzzle.publicId,
+        packageId,
+        recipientCount: count,
+        basePrice,
+        addOns,
+        total: convertedTotal,
+        currency,
+        paymentStatus: 'pending'
+      });
+      await order.save();
+    }
 
     // Transition puzzle status to pending_payment
-    puzzle.status = 'pending_payment';
-    await puzzle.save();
+    if (puzzle.status === 'draft') {
+      puzzle.status = 'pending_payment';
+      await puzzle.save();
+    }
 
-    // Request mock checkout URL
-    const checkoutData = await paymentService.createCheckout(orderId, convertedTotal, currency);
+    // Stable idempotency reference for Tap
+    const stableIdempotencyKey = order.orderId;
 
-    // Save reference ID on the order
-    order.paymentReference = checkoutData.reference;
+    // Construct redirect and webhook URLs
+    const host = req.get('host');
+    const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+    const baseUrl = isLocal ? 'https://staging.jigzo.biz' : `${req.protocol}://${host}`;
+    const redirectUrl = `https://staging.jigzo.biz/payment/result?orderId=${order.orderId}`;
+    const postUrl = `${baseUrl}/api/webhooks/payment`;
+
+    // Create Tap Charge session
+    const chargeRes = await paymentService.createCheckout(
+      order,
+      puzzle,
+      redirectUrl,
+      postUrl,
+      stableIdempotencyKey
+    );
+
+    const chargeId = chargeRes.id;
+    const checkoutUrl = chargeRes.transaction ? chargeRes.transaction.url : '';
+    const transactionRef = chargeRes.reference ? chargeRes.reference.transaction : '';
+    const status = chargeRes.status;
+
+    // Update order with Tap identifiers
+    order.providerChargeId = chargeId;
+    order.providerStatus = status;
+    order.paymentReference = checkoutUrl; // Store transaction redirect URL as standard paymentReference
+    order.providerTransactionReference = transactionRef;
+
+    // Add to payment attempts history
+    order.paymentAttempts.push({
+      providerChargeId: chargeId,
+      providerStatus: status,
+      transactionReference: transactionRef,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
     await order.save();
 
     res.status(201).json({
@@ -115,9 +207,88 @@ router.post('/', async (req, res, next) => {
         total: order.total,
         currency: order.currency,
         paymentStatus: order.paymentStatus,
-        checkoutUrl: checkoutData.checkoutUrl
+        checkoutUrl: checkoutUrl
       }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/orders/verify-payment
+ * Verify a payment result directly against Tap.
+ */
+router.post('/verify-payment', async (req, res, next) => {
+  try {
+    const { tap_id, orderId } = req.body;
+
+    if (!tap_id || !orderId) {
+      return res.status(400).json({ error: 'tap_id and orderId are required.' });
+    }
+
+    const order = await Order.findOne({ orderId });
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+
+    // Fetch charge from Tap
+    const charge = await paymentService.retrieveCharge(tap_id);
+
+    // Verify charge details
+    const orderMatch = charge.reference && charge.reference.order === orderId;
+    const amountMatch = Number(charge.amount) === Number(order.total);
+    const currencyMatch = charge.currency && charge.currency.toUpperCase() === order.currency.toUpperCase();
+    const liveModeMatch = charge.live_mode === false; // Should always be test key in staging
+
+    // Verify charge ID matches either stored providerChargeId or paymentAttempts history
+    const isKnownCharge = order.providerChargeId === tap_id ||
+      order.paymentAttempts.some(att => att.providerChargeId === tap_id);
+
+    if (!orderMatch || !amountMatch || !currencyMatch || !liveModeMatch || !isKnownCharge) {
+      return res.status(400).json({ error: 'Payment verification details mismatch.' });
+    }
+
+    // Find and update current payment attempt status
+    const attempt = order.paymentAttempts.find(att => att.providerChargeId === tap_id);
+    if (attempt) {
+      attempt.providerStatus = charge.status;
+      attempt.updatedAt = new Date();
+    }
+
+    order.providerStatus = charge.status;
+
+    if (charge.status === 'CAPTURED') {
+      await markOrderAndPuzzlePaid(order, charge.id, charge.reference ? charge.reference.transaction : '');
+      return res.json({
+        success: true,
+        status: 'CAPTURED',
+        paymentStatus: 'paid'
+      });
+    } else if (['INITIATED', 'PENDING', 'IN_PROGRESS'].includes(charge.status)) {
+      order.paymentStatus = 'pending';
+      await order.save();
+      return res.json({
+        success: true,
+        status: charge.status,
+        paymentStatus: 'pending'
+      });
+    } else {
+      // Documented failure states (ABANDONED, CANCELLED, FAILED, DECLINED, VOID, etc.)
+      order.paymentStatus = 'failed';
+      order.failedAt = new Date();
+      order.lastPaymentError = (charge.response && charge.response.message) || `Tap status: ${charge.status}`;
+      if (attempt) {
+        attempt.safeFailureCode = (charge.response && charge.response.code) || '';
+        attempt.safeFailureMessage = (charge.response && charge.response.message) || '';
+      }
+      await order.save();
+      return res.json({
+        success: true,
+        status: charge.status,
+        paymentStatus: 'failed'
+      });
+    }
   } catch (error) {
     next(error);
   }

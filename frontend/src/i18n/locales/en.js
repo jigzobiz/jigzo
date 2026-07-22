@@ -1099,6 +1099,20 @@ const en = {
       ],
     },
   },
+  payment: {
+    verifying: 'Verifying payment...',
+    success: 'Payment successful!',
+    pending: 'Payment pending...',
+    cancelled: 'Payment cancelled.',
+    declined: 'Payment declined.',
+    failed: 'Payment failed.',
+    unableToVerify: 'Unable to verify payment.',
+    successSub: 'Thank you! Your surprise puzzle has been created and will be delivered to your recipients.',
+    pendingSub: 'Your payment is still being processed. Once captured, the puzzle will be sent.',
+    failedSub: 'We could not complete your payment. Please try again or use another payment method.',
+    backToCreate: 'Back to Create',
+    solvingHint: 'You can check your puzzle or create another one.'
+  },
   meta: {
     title: 'JIGZO | Turn Any Photo Into a Puzzle Surprise',
     description: 'Turn a photo and personal message into an interactive puzzle surprise, delivered instantly through WhatsApp. No app needed—create yours in minutes.',

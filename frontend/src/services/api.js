@@ -116,6 +116,11 @@ export const api = {
     return response.data;
   },
 
+  verifyPayment: async (tap_id, orderId) => {
+    const response = await API.post('/api/orders/verify-payment', { tap_id, orderId });
+    return response.data;
+  },
+
   // Simulated Webhook trigger for local payment testing
   triggerMockPayment: async (orderId, puzzleId) => {
     const response = await API.post('/api/webhooks/payment', {
