@@ -186,7 +186,24 @@ export default function CreatePage() {
   const [revealSimLoading, setRevealSimLoading] = useState(false);
   const [isTestModeEnabled, setIsTestModeEnabled] = useState(false);
   const [checkoutEnabled, setCheckoutEnabled] = useState(false);
+  const [createdPuzzleId, setCreatedPuzzleId] = useState("");
+  const [paymentError, setPaymentError] = useState("");
   const [testModeResult, setTestModeResult] = useState(null);
+
+  useEffect(() => {
+    setCreatedPuzzleId("");
+    setPaymentError("");
+  }, [
+    cropData,
+    message,
+    senderName,
+    senderPhone,
+    senderDial,
+    revealIdentity,
+    pieceCount,
+    recipients,
+    i18n.language
+  ]);
 
   useEffect(() => {
     const checkFeatures = async () => {
@@ -617,23 +634,27 @@ export default function CreatePage() {
       });
 
       // 1. Create Draft Puzzle
-      analytics.track('checkout_started', {
-        amount: grandTotal,
-        recipientsCount: recipients.length
-      });
+      let publicId = createdPuzzleId;
+      if (!publicId) {
+        analytics.track('checkout_started', {
+          amount: grandTotal,
+          recipientsCount: recipients.length
+        });
 
-      const puzzleRes = await api.createPuzzle({
-        cropData,
-        message,
-        senderName,
-        senderPhone: normalizePhoneInput(`${senderDial}${senderPhone}`),
-        revealIdentity,
-        pieceCount,
-        recipients: formattedRecipients,
-        experienceLanguage: i18n.language
-      });
+        const puzzleRes = await api.createPuzzle({
+          cropData,
+          message,
+          senderName,
+          senderPhone: normalizePhoneInput(`${senderDial}${senderPhone}`),
+          revealIdentity,
+          pieceCount,
+          recipients: formattedRecipients,
+          experienceLanguage: i18n.language
+        });
 
-      const publicId = puzzleRes.puzzle.publicId;
+        publicId = puzzleRes.puzzle.publicId;
+        setCreatedPuzzleId(publicId);
+      }
 
       // 2. Create Order
       const orderRes = await api.createOrder({
@@ -666,7 +687,8 @@ export default function CreatePage() {
       }
     } catch (err) {
       console.error(err);
-      alert('Failed to initialize checkout order: ' + (err.response?.data?.error || err.message));
+      const safeMsg = err.response?.data?.error?.message || err.response?.data?.message || err.message || t('create.review.paymentErrorFallback');
+      setPaymentError(safeMsg);
       setIsProcessing(false);
     }
   };
@@ -1650,6 +1672,22 @@ export default function CreatePage() {
                 <div style={{ fontSize: 12, color: T.goldDeep, fontWeight: 600 }}>
                   {t('create.review.noPayment')}
                 </div>
+              </div>
+            )}
+
+            {paymentError && (
+              <div style={{
+                padding: 12,
+                borderRadius: 12,
+                background: "#fdf2f2",
+                border: "1.5px solid #fbd5d5",
+                color: "#9b1c1c",
+                fontSize: 13.5,
+                lineHeight: 1.4,
+                marginBottom: 14,
+                textAlign: "center"
+              }}>
+                {t('create.review.paymentErrorPrefix')} {paymentError}
               </div>
             )}
 

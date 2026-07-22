@@ -510,3 +510,65 @@ test('actual GET /api/features/status returns safe booleans', async () => {
   assert.strictEqual(typeof res.body.whatsappEnabled, 'boolean');
   assert.strictEqual(typeof res.body.testRevealEnabled, 'boolean');
 });
+
+test('actual POST /api/puzzles saves image to GridFS and creates a draft puzzle without local directory writes', async () => {
+  const req = makeMockReq({
+    cropData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    message: 'Hello World',
+    senderName: 'Zahra',
+    senderPhone: '+97333333333',
+    recipients: [{ name: 'Sam', deliveryMethod: 'email', email: 'sam@jigzo.biz' }]
+  });
+  const res = makeMockRes();
+
+  const puzzlesRouter = require('../src/routes/puzzles');
+  const puzzlesPostHandler = puzzlesRouter.stack.find(s => s.route?.path === '/' && s.route.methods.post)?.route.stack[0]?.handle;
+
+  // Mock storageService.saveImage
+  const storageService = require('../src/services/storageService');
+  const originalSaveImage = storageService.saveImage;
+  storageService.saveImage = async () => 'mock_image_id';
+
+  await puzzlesPostHandler(req, res, (err) => {
+    if (err) throw err;
+  });
+
+  assert.strictEqual(res.statusCode, 201);
+  assert.strictEqual(res.body.success, true);
+  assert.strictEqual(res.body.puzzle.cropImageUrl, `/api/puzzles/${res.body.puzzle.publicId}/image`);
+
+  // Restore
+  storageService.saveImage = originalSaveImage;
+});
+
+test('actual POST /api/orders handles Tap creation rejection with safe error logging and formatting', async () => {
+  const puzzle = new Puzzle({
+    publicId: 'puz_tap_error_test',
+    cropImageUrl: 'http://image',
+    recipients: [{ name: 'Sam' }]
+  });
+  await puzzle.save();
+
+  // Stub createCheckout to reject/throw
+  const originalCreateCheckout = paymentService.createCheckout;
+  paymentService.createCheckout = async () => {
+    throw new Error('Tap API error (status 400): {"code":"VALIDATION_ERROR","message":"Invalid card brand"}');
+  };
+
+  const req = makeMockReq({
+    puzzleId: 'puz_tap_error_test',
+    recipientCount: 1,
+    hasRevealAlert: false,
+    currency: 'USD'
+  });
+  const res = makeMockRes();
+
+  await ordersPostHandler(req, res, () => {});
+
+  assert.strictEqual(res.statusCode, 400);
+  assert.match(res.body.error.message, /VALIDATION_ERROR/);
+  assert.strictEqual(res.body.error.status, 'failed');
+
+  // Restore
+  paymentService.createCheckout = originalCreateCheckout;
+});

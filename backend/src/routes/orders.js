@@ -196,13 +196,39 @@ router.post('/', async (req, res, next) => {
     const postUrl = `${baseUrl}/api/webhooks/payment`;
 
     // Create Tap Charge session
-    const chargeRes = await paymentService.createCheckout(
-      order,
-      puzzle,
-      redirectUrl,
-      postUrl,
-      stableIdempotencyKey
-    );
+    let chargeRes;
+    try {
+      chargeRes = await paymentService.createCheckout(
+        order,
+        puzzle,
+        redirectUrl,
+        postUrl,
+        stableIdempotencyKey
+      );
+    } catch (err) {
+      const statusMatch = err.message.match(/status (\d+)/);
+      const httpStatus = statusMatch ? parseInt(statusMatch[1]) : 500;
+
+      console.error('[Tap Payment Error]', {
+        httpStatus,
+        message: err.message,
+        orderId: order.orderId,
+        amount: order.total,
+        currency: order.currency,
+        tapMode: process.env.TAP_MODE || 'test'
+      });
+
+      order.paymentStatus = 'failed';
+      order.lastPaymentError = err.message;
+      await order.save();
+
+      return res.status(httpStatus >= 400 && httpStatus < 600 ? httpStatus : 400).json({
+        error: {
+          message: err.message.replace(/(Bearer|sk_test_|sk_live_)[A-Za-z0-9_]+/g, 'REDACTED'),
+          status: 'failed'
+        }
+      });
+    }
 
     const chargeId = chargeRes.id;
     const checkoutUrl = chargeRes.transaction ? chargeRes.transaction.url : '';

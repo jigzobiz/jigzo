@@ -124,13 +124,34 @@ router.post('/', async (req, res, next) => {
 
     const publicId = require('crypto').randomBytes(16).toString('hex');
 
-    // Save image to local disk
-    const cropImageUrl = await imageService.saveCropImage(cropData, publicId);
+    // Save image to GridFS
+    if (!cropData || typeof cropData !== 'string' || !cropData.startsWith('data:image')) {
+      return res.status(400).json({ error: 'Invalid cropData format. Expected base64 image data URL.' });
+    }
+
+    const matches = cropData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ error: 'Could not parse base64 image content.' });
+    }
+
+    const detectedMime = matches[1];
+    const base64Content = matches[2];
+    const buffer = Buffer.from(base64Content, 'base64');
+    const ext = detectedMime.split('/')[1] || 'jpg';
+    const filename = `${publicId}.${ext}`;
+
+    const imageStorageId = await storageService.saveImage(buffer, {
+      filename,
+      contentType: detectedMime,
+      publicId
+    });
 
     const puzzle = new Puzzle({
       publicId,
       status: 'draft',
-      cropImageUrl,
+      cropImageUrl: `/api/puzzles/${publicId}/image`,
+      imageStorageId,
+      imageMimeType: detectedMime,
       message: message || '',
       senderName: senderName || '',
       senderPhone: normalizedSenderPhone,
