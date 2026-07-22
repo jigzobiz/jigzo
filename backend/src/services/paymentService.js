@@ -176,7 +176,7 @@ class PaymentService {
     }
 
     const x_amount = this.formatAmount(amountVal, x_currency);
-    const toBeHashedString = `${x_id}${x_amount}${x_currency}${x_gateway_reference}${x_payment_reference}${x_status}${x_created}`;
+    const toBeHashedString = `x_id${x_id}x_amount${x_amount}x_currency${x_currency}x_gateway_reference${x_gateway_reference}x_payment_reference${x_payment_reference}x_status${x_status}x_created${x_created}`;
 
     const hmac = crypto.createHmac('sha256', config.secretKey);
     hmac.update(toBeHashedString);

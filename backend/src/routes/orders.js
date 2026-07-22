@@ -74,11 +74,29 @@ router.post('/', async (req, res, next) => {
       convertedTotal = Math.ceil(rawConverted);
     }
 
-    // Check for an existing order for this puzzle
-    let order = await Order.findOne({ puzzleId: puzzle.publicId });
+    // Check if any order for this puzzle is already paid
+    const paidOrder = await Order.findOne({ puzzleId: puzzle.publicId, paymentStatus: 'paid' });
+    if (paidOrder) {
+      return res.status(200).json({
+        success: true,
+        order: {
+          orderId: paidOrder.orderId,
+          puzzleId: paidOrder.puzzleId,
+          packageId: paidOrder.packageId,
+          recipientCount: paidOrder.recipientCount,
+          basePrice: paidOrder.basePrice,
+          addOns: paidOrder.addOns,
+          total: paidOrder.total,
+          currency: paidOrder.currency,
+          paymentStatus: 'paid'
+        }
+      });
+    }
+
+    // Find the latest order for this puzzle
+    let order = await Order.findOne({ puzzleId: puzzle.publicId }).sort({ createdAt: -1 });
 
     if (order) {
-      // If already paid, prevent creating another charge and return order information
       if (order.paymentStatus === 'paid' || puzzle.status === 'paid') {
         return res.status(200).json({
           success: true,
@@ -101,7 +119,8 @@ router.post('/', async (req, res, next) => {
         order.total === convertedTotal &&
         order.currency.toUpperCase() === currency.toUpperCase() &&
         order.recipientCount === count &&
-        order.packageId === packageId
+        order.packageId === packageId &&
+        order.addOns === addOns
       ) {
         // If we already have a valid pending checkout URL, return it directly
         if (order.paymentReference && order.paymentReference.startsWith('http') && order.providerChargeId) {
@@ -122,13 +141,25 @@ router.post('/', async (req, res, next) => {
           });
         }
       } else {
-        // Details changed (e.g. upgrades added or currency changed). Update existing pending order.
-        order.packageId = packageId;
-        order.recipientCount = count;
-        order.basePrice = basePrice;
-        order.addOns = addOns;
-        order.total = convertedTotal;
-        order.currency = currency;
+        // Details changed (e.g. upgrades added or currency changed).
+        // Supersede the previous pending checkout safely and create a new immutable order.
+        order.paymentStatus = 'failed';
+        order.failedAt = new Date();
+        order.lastPaymentError = 'Superseded by a new checkout attempt with different details.';
+        await order.save();
+
+        const orderId = `ord_${uuidv4().replace(/-/g, '').substring(0, 12)}`;
+        order = new Order({
+          orderId,
+          puzzleId: puzzle.publicId,
+          packageId,
+          recipientCount: count,
+          basePrice,
+          addOns,
+          total: convertedTotal,
+          currency,
+          paymentStatus: 'pending'
+        });
         await order.save();
       }
     } else {
