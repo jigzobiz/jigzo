@@ -170,6 +170,11 @@ export default function CreatePage() {
   const [message, setMessage] = useState("");
   const [senderName, setSenderName] = useState("");
   const [senderPhone, setSenderPhone] = useState("");
+  const [senderDial, setSenderDial] = useState("+973");
+  const [defaultDialCode, setDefaultDialCode] = useState("+973");
+  const [recipients, setRecipients] = useState([
+    { name: "", phone: "", dial: "+973", dialEdited: false, deliveryMethod: "whatsapp", email: "" }
+  ]);
   const [revealIdentity, setRevealIdentity] = useState(true);
   const [pieceCount, setPieceCount] = useState(18);
   const [selectedUpgrades, setSelectedUpgrades] = useState([]);
@@ -218,10 +223,7 @@ export default function CreatePage() {
     checkFeatures();
   }, []);
 
-  const [defaultDialCode, setDefaultDialCode] = useState("+973");
-  const [recipients, setRecipients] = useState([
-    { name: "", phone: "", dial: "+973", dialEdited: false, deliveryMethod: "whatsapp", email: "" }
-  ]);
+
 
   const [primaryRecipientName, setPrimaryRecipientName] = useState("");
 
@@ -394,7 +396,6 @@ export default function CreatePage() {
   }, [pieceCount]);
 
   // Country Dial Selectors
-  const [senderDial, setSenderDial] = useState("+973");
   const senderValid = phoneValid(senderDial, senderPhone);
 
   const getCountryCodeFromDial = (dialVal) => {
