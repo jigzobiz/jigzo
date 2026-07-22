@@ -232,6 +232,8 @@ const en = {
       notifyMe: 'Notify me',
       noPayment: 'No payment required.',
       createTestReveal: 'Create Free Test Puzzle',
+      paymentErrorPrefix: 'Tap could not start the payment.',
+      paymentErrorFallback: 'Please try again or contact support.',
       summary: {
         photo: 'Photo',
         recipients: 'Recipients (to)',

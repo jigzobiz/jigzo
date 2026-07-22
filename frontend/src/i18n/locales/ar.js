@@ -240,6 +240,8 @@ const ar = {
       notifyMe: 'أبلِغني',
       noPayment: 'لا يتطلب أي دفع.',
       createTestReveal: 'إنشاء أحجية اختبار مجانية',
+      paymentErrorPrefix: 'لم يتمكن Tap من بدء عملية الدفع.',
+      paymentErrorFallback: 'يرجى المحاولة مرة أخرى أو الاتصال بالدعم.',
       summary: {
         photo: 'الصورة',
         recipients: 'المستلمون (إلى)',
