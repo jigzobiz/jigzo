@@ -27,6 +27,10 @@ const MockOrder = {
   findOne: async () => ({
     puzzleId: 'puz-check-status',
     paymentStatus: 'pending',
+    providerChargeId: 'chg-123',
+    paymentAttempts: [{ providerChargeId: 'chg-123', providerStatus: 'CAPTURED' }],
+    total: 10,
+    currency: 'USD',
     save: async () => {}
   })
 };
@@ -209,6 +213,13 @@ Module.prototype.require = function(path) {
   if (path.includes('models/WhatsAppWebhookEvent')) return MockWhatsAppWebhookEvent;
   if (path.includes('models/Order')) return MockOrder;
   if (path.includes('services/paymentService')) return MockPaymentService;
+  if (path.includes('utils/runtimeConfig')) {
+    const original = originalRequire.apply(this, arguments);
+    return {
+      ...original,
+      isNonProduction: () => false
+    };
+  }
   return originalRequire.apply(this, arguments);
 };
 
@@ -763,8 +774,15 @@ async function runAllTests() {
   MockPuzzle.findById = async (id) => mockDb.puzzles['puz-check-status'];
 
   let mockPaymentReq = {
-    headers: { 'x-jigzo-signature': 'mock' },
-    body: { orderId: 'ord-123', paymentStatus: 'success' }
+    headers: { 'hashstring': 'valid-hash' },
+    body: {
+      id: 'chg-123',
+      amount: 10,
+      currency: 'USD',
+      reference: { order: 'ord-123', transaction: 'tx-123' },
+      live_mode: false,
+      status: 'CAPTURED'
+    }
   };
   let mockPaymentRes = { json: () => {} };
   await paymentHandler(mockPaymentReq, mockPaymentRes, () => {});

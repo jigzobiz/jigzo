@@ -10,30 +10,7 @@ const { markOrderAndPuzzlePaid } = require('../services/paymentCompletion');
  */
 router.post('/payment', async (req, res, next) => {
   try {
-    const jigzoSignature = req.headers['x-jigzo-signature'];
     const signature = req.headers['hashstring'];
-
-    // Legacy mock webhook support for existing test suites
-    if (jigzoSignature && !signature) {
-      const bodyString = JSON.stringify(req.body);
-      const isValid = paymentService.verifyWebhook(bodyString, jigzoSignature);
-      if (!isValid) {
-        return res.status(401).json({ error: 'Invalid legacy signature.' });
-      }
-
-      const { orderId, paymentStatus, paymentReference } = req.body;
-      if (!orderId || paymentStatus !== 'success') {
-        return res.status(400).json({ error: 'Invalid legacy payload.' });
-      }
-
-      const order = await Order.findOne({ orderId });
-      if (!order) {
-        return res.status(404).json({ error: 'Order not found.' });
-      }
-
-      await markOrderAndPuzzlePaid(order, paymentReference || order.paymentReference, '');
-      return res.json({ success: true, message: 'Legacy webhook processed, puzzle delivery triggered.' });
-    }
 
     // Tap Webhook verification
     if (!signature) {

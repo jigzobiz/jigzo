@@ -1,14 +1,31 @@
 const https = require('https');
 const crypto = require('crypto');
+const { isNonProduction } = require('../utils/runtimeConfig');
 
 class PaymentService {
   _getTapConfig() {
     const secretKey = process.env.TAP_SECRET_KEY;
     const merchantId = process.env.TAP_MERCHANT_ID;
-    const mode = process.env.TAP_MODE || 'test';
+    let mode = process.env.TAP_MODE;
 
     if (!secretKey || !merchantId) {
       throw new Error('Required Tap Payments environment variables (TAP_SECRET_KEY and/or TAP_MERCHANT_ID) are missing.');
+    }
+
+    if (isNonProduction()) {
+      if (mode === 'live') {
+        throw new Error('TAP_MODE=live is rejected in non-production environments.');
+      }
+      mode = 'test';
+    } else {
+      mode = mode || 'live';
+    }
+
+    if (mode === 'test' && !secretKey.startsWith('sk_test_')) {
+      throw new Error('TAP_MODE=test requires a secret key starting with sk_test_');
+    }
+    if (mode === 'live' && !secretKey.startsWith('sk_live_')) {
+      throw new Error('TAP_MODE=live requires a secret key starting with sk_live_');
     }
 
     return { secretKey, merchantId, mode };
