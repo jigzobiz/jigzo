@@ -7,6 +7,9 @@ import ReceivePage from './pages/ReceivePage';
 import TermsPage from './pages/TermsPage';
 import AdminPortal from './pages/AdminPortal';
 import ScrollConceptPage from './pages/ScrollConceptPage';
+import BusinessLandingPage from './pages/BusinessLandingPage';
+import BusinessDashboardPage from './pages/BusinessDashboardPage';
+import BusinessCampaignBuilderPage from './pages/BusinessCampaignBuilderPage';
 import './i18n';
 import './index.css';
 
@@ -35,6 +38,19 @@ const router = createBrowserRouter([
   {
     path: '/admin',
     element: <AdminPortal />
+  },
+  // JIGZO Business (staging prototype — static, no backend)
+  {
+    path: '/business',
+    element: <BusinessLandingPage />
+  },
+  {
+    path: '/business/dashboard',
+    element: <BusinessDashboardPage />
+  },
+  {
+    path: '/business/campaigns/new',
+    element: <BusinessCampaignBuilderPage />
   },
   // Keep receive.html mapping as fallback for local dev compatibility
   {
