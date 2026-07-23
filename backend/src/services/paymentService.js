@@ -89,7 +89,6 @@ class PaymentService {
       'accept': 'application/json',
       'Content-Type': 'application/json',
       'lang_code': langCode
->>>>>>> ec448b4 (feat: Tap Payments sandbox integration for staging)
     };
 
     const payload = {
