@@ -40,7 +40,15 @@ router.post('/payment', async (req, res, next) => {
     // Verify charge details match order
     const amountMatch = Number(amount) === Number(order.total);
     const currencyMatch = currency && currency.toUpperCase() === order.currency.toUpperCase();
-    const liveModeMatch = live_mode === false;
+    
+    let expectedLiveMode;
+    try {
+      expectedLiveMode = paymentService.getExpectedLiveMode();
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'System configuration error.' });
+    }
+    const liveModeMatch = live_mode === expectedLiveMode;
     const isKnownCharge = order.providerChargeId === chargeId ||
       order.paymentAttempts.some(att => att.providerChargeId === chargeId);
 

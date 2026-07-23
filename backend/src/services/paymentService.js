@@ -31,6 +31,17 @@ class PaymentService {
     return { secretKey, merchantId, mode };
   }
 
+  getExpectedLiveMode() {
+    const mode = process.env.TAP_MODE;
+    if (mode === 'live') {
+      return true;
+    } else if (mode === 'test') {
+      return false;
+    } else {
+      throw new Error(`Unsupported or missing TAP_MODE: ${mode}`);
+    }
+  }
+
   // helper to make HTTP requests
   async _request(method, url, headers, bodyObj) {
     return new Promise((resolve, reject) => {
