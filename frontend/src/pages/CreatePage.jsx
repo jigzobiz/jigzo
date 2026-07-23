@@ -1725,27 +1725,34 @@ export default function CreatePage() {
             {checkoutEnabled && (
               <div style={{
                 display: 'flex',
-                gap: 8,
-                alignItems: 'flex-start',
+                flexDirection: 'column',
                 padding: 12,
                 borderRadius: 12,
                 background: '#fdfbfa',
                 border: `1px solid ${T.goldWarm}40`,
-                color: T.ink74,
-                fontSize: 13,
-                lineHeight: 1.4,
                 marginBottom: 14,
                 textAlign: isAr ? 'right' : 'left',
                 direction: isAr ? 'rtl' : 'ltr'
               }}>
-                <svg style={{ width: 16, height: 16, color: T.goldDeep, marginTop: 2, flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>
+                <div style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: T.goldDeep,
+                  lineHeight: 1.35
+                }}>
+                  {t('create.review.bhdNoticeHeadline')}
+                </div>
+                <div style={{
+                  fontSize: 13,
+                  fontWeight: 'normal',
+                  color: T.ink74,
+                  lineHeight: 1.45,
+                  marginTop: 6
+                }}>
                   {currency === 'BHD'
-                    ? t('create.review.bhdNoticeBhdOnly')
-                    : t('create.review.bhdNoticeMulticurrency')}
-                </span>
+                    ? t('create.review.bhdNoticeBhdOnlySub')
+                    : t('create.review.bhdNoticeMulticurrencySub')}
+                </div>
               </div>
             )}
 
