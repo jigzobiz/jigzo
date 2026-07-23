@@ -36,7 +36,8 @@ const MockOrder = {
 };
 
 const MockPaymentService = {
-  verifyWebhook: () => true
+  verifyWebhook: () => true,
+  getExpectedLiveMode: () => false
 };
 
 const MockWhatsAppMessage = function(data) {
