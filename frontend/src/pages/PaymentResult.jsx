@@ -94,8 +94,8 @@ export default function PaymentResult() {
         if (isProdEnv) {
           title = isAr ? 'تم الدفع بنجاح!' : 'Payment successful!';
           description = isAr 
-            ? 'تم إنشاء جيقزو وجارٍ إرساله إلى المستلمين.' 
-            : 'Your JIGZO has been created and is being sent to your recipients.';
+            ? 'تم إنشاء جيقزو بنجاح.' 
+            : 'Your JIGZO has been created successfully.';
         } else {
           title = isAr ? 'تمت عملية الدفع التجريبية بنجاح!' : 'Sandbox payment successful!';
           description = isAr 

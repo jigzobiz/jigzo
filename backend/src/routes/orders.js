@@ -296,7 +296,15 @@ router.post('/verify-payment', async (req, res, next) => {
     const orderMatch = charge.reference && charge.reference.order === orderId;
     const amountMatch = Number(charge.amount) === Number(order.total);
     const currencyMatch = charge.currency && charge.currency.toUpperCase() === order.currency.toUpperCase();
-    const liveModeMatch = charge.live_mode === false; // Should always be test key in staging
+    
+    let expectedLiveMode;
+    try {
+      expectedLiveMode = paymentService.getExpectedLiveMode();
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'System configuration error.' });
+    }
+    const liveModeMatch = charge.live_mode === expectedLiveMode;
 
     // Verify charge ID matches either stored providerChargeId or paymentAttempts history
     const isKnownCharge = order.providerChargeId === tap_id ||

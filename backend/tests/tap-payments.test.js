@@ -572,3 +572,122 @@ test('actual POST /api/orders handles Tap creation rejection with safe error log
   // Restore
   paymentService.createCheckout = originalCreateCheckout;
 });
+
+test('mode-aware live_mode validation (test and live)', async () => {
+  const originalTapMode = process.env.TAP_MODE;
+
+  // 1. Expected test mode (TAP_MODE=test)
+  process.env.TAP_MODE = 'test';
+  assert.strictEqual(paymentService.getExpectedLiveMode(), false);
+
+  // 2. Expected live mode (TAP_MODE=live)
+  process.env.TAP_MODE = 'live';
+  assert.strictEqual(paymentService.getExpectedLiveMode(), true);
+
+  // 3. Unsupported TAP_MODE fails safely
+  process.env.TAP_MODE = 'invalid';
+  assert.throws(() => paymentService.getExpectedLiveMode(), /Unsupported or missing TAP_MODE/);
+
+  // Restore TAP_MODE
+  process.env.TAP_MODE = originalTapMode;
+});
+
+test('mode-aware redirect and webhook verification (accepts and rejects appropriately)', async () => {
+  const originalTapMode = process.env.TAP_MODE;
+
+  // Let's create an order to verify against
+  const order = new Order({
+    orderId: 'ord_mode_test',
+    puzzleId: 'puz_mode_test',
+    packageId: 'single',
+    recipientCount: 1,
+    basePrice: 19,
+    total: 19,
+    currency: 'AED',
+    paymentStatus: 'pending',
+    providerChargeId: 'chg_mode_test',
+    paymentAttempts: [{
+      providerChargeId: 'chg_mode_test',
+      providerStatus: 'INITIATED',
+      transactionReference: 'tx_ref_1'
+    }]
+  });
+  await order.save();
+
+  const puzzle = new Puzzle({
+    publicId: 'puz_mode_test',
+    status: 'draft',
+    cropImageUrl: 'http://image',
+    recipients: [{ name: 'Test User', deliveryStatus: 'pending' }]
+  });
+  await puzzle.save();
+
+  // Test scenario 1: TAP_MODE=test (Sandbox)
+  process.env.TAP_MODE = 'test';
+
+  // 1a. Sandbox redirect verify accepts live_mode=false
+  paymentService.retrieveCharge = async () => ({
+    id: 'chg_mode_test',
+    amount: 19,
+    currency: 'AED',
+    live_mode: false,
+    reference: { order: 'ord_mode_test' },
+    status: 'CAPTURED'
+  });
+  const res1a = makeMockRes();
+  await ordersVerifyPostHandler({ body: { tap_id: 'chg_mode_test', orderId: 'ord_mode_test' } }, res1a, () => {});
+  assert.strictEqual(res1a.statusCode, 200);
+
+  // 1b. Sandbox redirect verify rejects live_mode=true
+  paymentService.retrieveCharge = async () => ({
+    id: 'chg_mode_test',
+    amount: 19,
+    currency: 'AED',
+    live_mode: true,
+    reference: { order: 'ord_mode_test' },
+    status: 'CAPTURED'
+  });
+  const res1b = makeMockRes();
+  await ordersVerifyPostHandler({ body: { tap_id: 'chg_mode_test', orderId: 'ord_mode_test' } }, res1b, () => {});
+  assert.strictEqual(res1b.statusCode, 400);
+
+  // Test scenario 2: TAP_MODE=live (Production)
+  process.env.TAP_MODE = 'live';
+
+  // Reset order status
+  order.paymentStatus = 'pending';
+  await order.save();
+
+  // 2a. Live redirect verify accepts live_mode=true
+  paymentService.retrieveCharge = async () => ({
+    id: 'chg_mode_test',
+    amount: 19,
+    currency: 'AED',
+    live_mode: true,
+    reference: { order: 'ord_mode_test' },
+    status: 'CAPTURED'
+  });
+  const res2a = makeMockRes();
+  await ordersVerifyPostHandler({ body: { tap_id: 'chg_mode_test', orderId: 'ord_mode_test' } }, res2a, () => {});
+  assert.strictEqual(res2a.statusCode, 200);
+
+  // Reset order status
+  order.paymentStatus = 'pending';
+  await order.save();
+
+  // 2b. Live redirect verify rejects live_mode=false
+  paymentService.retrieveCharge = async () => ({
+    id: 'chg_mode_test',
+    amount: 19,
+    currency: 'AED',
+    live_mode: false,
+    reference: { order: 'ord_mode_test' },
+    status: 'CAPTURED'
+  });
+  const res2b = makeMockRes();
+  await ordersVerifyPostHandler({ body: { tap_id: 'chg_mode_test', orderId: 'ord_mode_test' } }, res2b, () => {});
+  assert.strictEqual(res2b.statusCode, 400);
+
+  // Restore TAP_MODE
+  process.env.TAP_MODE = originalTapMode;
+});
