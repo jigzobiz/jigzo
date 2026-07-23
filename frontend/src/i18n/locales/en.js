@@ -234,6 +234,10 @@ const en = {
       createTestReveal: 'Create Free Test Puzzle',
       paymentErrorPrefix: 'Tap could not start the payment.',
       paymentErrorFallback: 'Please try again or contact support.',
+      bhdNoticeMulticurrency: 'Payment will be processed in Bahraini dinars (BHD). The corresponding amount in your selected currency will remain visible for reference.',
+      bhdNoticeBhdOnly: 'Payment will be processed securely in Bahraini dinars (BHD).',
+      bhdProcessingMulticurrency: 'You’ll pay securely in Bahraini dinars, with the corresponding amount shown in your selected currency.',
+      bhdProcessingBhdOnly: 'You’ll complete your payment securely in Bahraini dinars.',
       summary: {
         photo: 'Photo',
         recipients: 'Recipients (to)',

@@ -242,6 +242,10 @@ const ar = {
       createTestReveal: 'إنشاء أحجية اختبار مجانية',
       paymentErrorPrefix: 'لم يتمكن Tap من بدء عملية الدفع.',
       paymentErrorFallback: 'يرجى المحاولة مرة أخرى أو الاتصال بالدعم.',
+      bhdNoticeMulticurrency: 'ستتم معالجة الدفعة بالدينار البحريني (BHD)، مع إبقاء المبلغ المقابل بعملتك المختارة ظاهرًا للمرجع.',
+      bhdNoticeBhdOnly: 'ستتم معالجة الدفعة بأمان بالدينار البحريني (BHD).',
+      bhdProcessingMulticurrency: 'ستُكمل الدفع بأمان بالدينار البحريني، مع عرض المبلغ المقابل بعملتك المختارة.',
+      bhdProcessingBhdOnly: 'ستُكمل عملية الدفع بأمان بالدينار البحريني.',
       summary: {
         photo: 'الصورة',
         recipients: 'المستلمون (إلى)',

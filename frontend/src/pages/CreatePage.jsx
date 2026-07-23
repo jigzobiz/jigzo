@@ -866,7 +866,9 @@ export default function CreatePage() {
 
     if (processingContext === 'payment') {
       title = isAr ? 'جارٍ فتح صفحة الدفع الآمنة' : 'Opening secure checkout';
-      subtitle = isAr ? 'ستُكمل عملية الدفع بأمان عبر Tap.' : 'You’ll complete your payment securely with Tap.';
+      subtitle = currency === 'BHD'
+        ? t('create.review.bhdProcessingBhdOnly')
+        : t('create.review.bhdProcessingMulticurrency');
     } else if (processingContext === 'test') {
       title = isAr ? 'جارٍ إعداد أحجية الاختبار' : 'Preparing your test puzzle';
       subtitle = isAr ? 'يستغرق ذلك عادةً بضع ثوانٍ فقط.' : 'This usually takes only a few seconds.';
@@ -1717,6 +1719,33 @@ export default function CreatePage() {
                 textAlign: "center"
               }}>
                 {t('create.review.paymentErrorPrefix')} {paymentError}
+              </div>
+            )}
+
+            {checkoutEnabled && (
+              <div style={{
+                display: 'flex',
+                gap: 8,
+                alignItems: 'flex-start',
+                padding: 12,
+                borderRadius: 12,
+                background: '#fdfbfa',
+                border: `1px solid ${T.goldWarm}40`,
+                color: T.ink74,
+                fontSize: 13,
+                lineHeight: 1.4,
+                marginBottom: 14,
+                textAlign: isAr ? 'right' : 'left',
+                direction: isAr ? 'rtl' : 'ltr'
+              }}>
+                <svg style={{ width: 16, height: 16, color: T.goldDeep, marginTop: 2, flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>
+                  {currency === 'BHD'
+                    ? t('create.review.bhdNoticeBhdOnly')
+                    : t('create.review.bhdNoticeMulticurrency')}
+                </span>
               </div>
             )}
 
