@@ -89,8 +89,19 @@ export default function PaymentResult() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         );
-        title = t('payment.success');
-        description = t('payment.successSub');
+        
+        const isProdEnv = window.location.hostname === 'jigzo.biz' || window.location.hostname === 'www.jigzo.biz';
+        if (isProdEnv) {
+          title = isAr ? 'تم الدفع بنجاح!' : 'Payment successful!';
+          description = isAr 
+            ? 'تم إنشاء جيقزو وجارٍ إرساله إلى المستلمين.' 
+            : 'Your JIGZO has been created and is being sent to your recipients.';
+        } else {
+          title = isAr ? 'تمت عملية الدفع التجريبية بنجاح!' : 'Sandbox payment successful!';
+          description = isAr 
+            ? 'تم تأكيد الدفعة التجريبية وإنشاء جيقزو. لم يتم إرسال أي رسالة من بيئة الاختبار.' 
+            : 'Your test payment was confirmed and your JIGZO was created. No message was sent from staging.';
+        }
         color = T.successGreen;
         break;
       case 'pending':

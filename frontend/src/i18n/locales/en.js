@@ -1112,7 +1112,7 @@ const en = {
     successSub: 'Thank you! Your surprise puzzle has been created and will be delivered to your recipients.',
     pendingSub: 'Your payment is still being processed. Once captured, the puzzle will be sent.',
     failedSub: 'We could not complete your payment. Please try again or use another payment method.',
-    backToCreate: 'Back to Create',
+    backToCreate: 'Create Another JIGZO',
     solvingHint: 'You can check your puzzle or create another one.'
   },
   meta: {
