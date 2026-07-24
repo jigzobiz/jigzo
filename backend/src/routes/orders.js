@@ -387,4 +387,48 @@ router.get('/:orderId', async (req, res, next) => {
   }
 });
 
+router.post('/verify-incident-solve', async (req, res, next) => {
+  try {
+    const { key } = req.body;
+    if (key !== 'reveal-alert-diag-secure-key') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const puzzle = await Puzzle.findOne({ publicId: '774d41ec6b8bc24f4d1e299126d137f9' });
+    if (!puzzle) {
+      return res.status(404).json({ error: 'Puzzle not found.' });
+    }
+
+    const recipientsInfo = puzzle.recipients.map((r, idx) => ({
+      index: idx,
+      name: r.name,
+      openedAt: r.openedAt,
+      completedAt: r.completedAt,
+      completionSeconds: r.completionSeconds
+    }));
+
+    const WhatsAppMessage = require('../models/WhatsAppMessage');
+    const messages = await WhatsAppMessage.find({ puzzleId: '774d41ec6b8bc24f4d1e299126d137f9' });
+
+    res.json({
+      success: true,
+      recipients: recipientsInfo,
+      messages: messages.map(m => ({
+        recipientIndex: m.recipientIndex,
+        idempotencyKey: m.idempotencyKey,
+        status: m.status,
+        providerMessageId: m.providerMessageId ? m.providerMessageId.substring(0, 10) + '...' : null,
+        acceptedAt: m.acceptedAt,
+        requestStartedAt: m.requestStartedAt,
+        lastErrorCode: m.lastErrorCode,
+        lastErrorMessage: m.lastErrorMessage,
+        destinationMasked: m.destinationMasked
+      })),
+      puzzleSenderPhoneMasked: puzzle.senderPhone ? puzzle.senderPhone.substring(0, 6) + '...' : null
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
