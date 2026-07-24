@@ -244,48 +244,70 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
         y = minY + rand() * (maxY - minY);
         tries++;
       } while (tries < 8 && Math.hypot(x - h.hx, y - h.hy) < SNAP * 2);
-      return { x, y, rot: (rand() - 0.5) * 2 * 9 };
+return { x, y, rot: (rand() - 0.5) * 2 * 9 };
     });
   }, [homes, cols, rows, bound, stageW, stageH, pieceW, pieceH, SNAP]);
 
   const [positions, setPositions] = useState(scatter);
-  const [placed, setPlaced] = useState(() => homes.map(() => false));
+  const [placed, setPlaced] = useState(() => homes.map(() => !!(data?.message && data.message.trim() !== '')));
   const [gid, setGid] = useState(() => homes.map((_, i) => i));
-  const [showReveal, setShowReveal] = useState(false);
+  const [showReveal, setShowReveal] = useState(() => !!(data?.message && data.message.trim() !== ''));
   const [loaderRunning, setLoaderRunning] = useState(false);
+  const [revealState, setRevealState] = useState(() => {
+    if (data?.message && data.message.trim() !== '') {
+      return 'generating';
+    }
+    return 'idle';
+  });
 
   useEffect(() => {
     if (showReveal) {
-      setLoaderRunning(true);
+      const hasMessage = data?.message && typeof data.message === 'string' && data.message.trim() !== '';
+      if (!hasMessage) {
+        setRevealState('completing');
+        setLoaderRunning(true);
 
-      // Calculate and report solve duration
-      if (startTimeRef.current) {
-        const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-        api.recordComplete(publicId, rIndex, elapsed)
-          .then((res) => {
-            if (res && res.success) {
-              setData(prev => ({
-                ...prev,
-                message: res.message,
-                completedAt: res.completedAt,
-                completionRecorded: res.completionRecorded,
-                recipient: prev.recipient ? {
-                  ...prev.recipient,
-                  completedAt: res.completedAt
-                } : undefined
-              }));
+        if (startTimeRef.current) {
+          const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+          
+          const runRecordComplete = async (attempt = 1) => {
+            try {
+              const res = await api.recordComplete(publicId, rIndex, elapsed);
+              if (res && res.success) {
+                setData(prev => ({
+                  ...prev,
+                  message: res.message,
+                  completedAt: res.completedAt,
+                  completionRecorded: res.completionRecorded,
+                  recipient: prev.recipient ? {
+                    ...prev.recipient,
+                    completedAt: res.completedAt
+                  } : undefined
+                }));
+                setRevealState('generating');
+              } else {
+                throw new Error('Success false');
+              }
+            } catch (err) {
+              console.error(`[ReceivePage] recordComplete attempt ${attempt} failed:`, err);
+              if (attempt < 3) {
+                await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+                return runRecordComplete(attempt + 1);
+              }
+              setRevealState('error');
+              setLoaderRunning(false);
             }
-          })
-          .catch(err => {
-            console.error('[ReceivePage] Completion recording failed:', err);
-            alert('Failed to register solve. Message may not unlock correctly.');
-          });
-        analytics.track('puzzle_completed', { puzzleId: publicId, recipientIndex: rIndex, durationSeconds: elapsed });
-      }
+          };
 
-      const t = setTimeout(() => setLoaderRunning(false), 3000);
-      return () => clearTimeout(t);
+          runRecordComplete();
+          analytics.track('puzzle_completed', { puzzleId: publicId, recipientIndex: rIndex, durationSeconds: elapsed });
+          startTimeRef.current = null;
+        }
+      } else {
+        setRevealState('generating');
+      }
     } else {
+      setRevealState('idle');
       setLoaderRunning(false);
     }
   }, [showReveal, publicId, rIndex, startTimeRef]);
@@ -322,8 +344,30 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     const hasRecipient = !!(data?.recipient?.name || data?.toName);
     const hasSender = !!data?.senderName;
 
-    if (showReveal && data && hasMessage && hasRecipient && hasSender) {
+    if (revealState === 'generating' && data && hasMessage && hasRecipient && hasSender) {
       const currentKey = getExportKey();
+
+      const generatePng = (attempt = 1) => {
+        buildRevealPng().then(blob => {
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            setRevealObjectUrl(url);
+            setRevealState('ready');
+            setLoaderRunning(false);
+          }
+        }).catch(async (err) => {
+          console.error(`[ReceivePage] reveal pre-generation attempt ${attempt} failed:`, err);
+          generationPromiseRef.current = null;
+          if (attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            generatePng(attempt + 1);
+          } else {
+            setRevealState('ready');
+            setLoaderRunning(false);
+          }
+        });
+      };
+
       if (currentKey !== cacheKeyRef.current) {
         if (revealObjectUrl) {
           URL.revokeObjectURL(revealObjectUrl);
@@ -332,30 +376,21 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
         cachedBlobRef.current = null;
         generationPromiseRef.current = null;
         cacheKeyRef.current = currentKey;
-        buildRevealPng().then(blob => {
-          if (blob) {
-            const url = URL.createObjectURL(blob);
-            setRevealObjectUrl(url);
-          }
-        }).catch(err => {
-          console.error('[ReceivePage] Background pre-generation failed:', err);
-        });
+        generatePng();
       } else if (!cachedBlobRef.current && !generationPromiseRef.current) {
-        buildRevealPng().then(blob => {
-          if (blob) {
-            const url = URL.createObjectURL(blob);
-            setRevealObjectUrl(url);
-          }
-        }).catch(err => {
-          console.error('[ReceivePage] Background pre-generation failed:', err);
-        });
+        generatePng();
       } else if (cachedBlobRef.current && !revealObjectUrl) {
         const url = URL.createObjectURL(cachedBlobRef.current);
         setRevealObjectUrl(url);
+        setRevealState('ready');
+        setLoaderRunning(false);
+      } else {
+        setRevealState('ready');
+        setLoaderRunning(false);
       }
     }
   }, [
-    showReveal,
+    revealState,
     data?.cropImageUrl,
     data?.message,
     data?.senderName,
@@ -566,7 +601,10 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
       const CREAM = "rgb(250,248,236)";
       const isArabic = /[\u0600-\u06FF]/.test(data.message || "");
 
+      let hasPainted = false;
       const paint = (img) => {
+        if (hasPainted) return;
+        hasPainted = true;
         try {
           const canvas = document.createElement("canvas");
           canvas.width = CW; canvas.height = CH;
@@ -710,6 +748,9 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
         Promise.all(fontList.map((w) => document.fonts.load(w).catch(() => {})))
           .then(() => document.fonts.ready).then(run, run);
       } else run();
+    }).catch(err => {
+      generationPromiseRef.current = null;
+      throw err;
     });
     generationPromiseRef.current = promise;
     return promise;
@@ -845,20 +886,20 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
                   animation: "jzFade 0.6s ease"
                 }}>
                 <div className="reveal-card" style={{ width: "100%", height: "100%", position: "relative", display: "block", marginInline: "auto", left: "auto", right: "auto", transform: "none" }}>
-                  {revealObjectUrl ? (
-                    <img src={revealObjectUrl} alt={t('receive.cardAlt')} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                  ) : (
+                  {revealState === 'error' ? (
                     <div style={{ width: "100%", height: "100%", background: "#FAF8EC", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
                       <div style={{ color: "#7a1c1c", fontWeight: 600, fontSize: 16, marginBottom: 8, fontFamily: "Archia, sans-serif" }}>{t('receive.errors.revealLoadFailed')}</div>
                       <button type="button" onClick={() => {
-                        cachedBlobRef.current = null;
-                        generationPromiseRef.current = null;
-                        cacheKeyRef.current = "";
+                        setRevealState('completing');
                         setRetryTrigger(prev => prev + 1);
                       }} style={{ background: "#050505", color: "#FAF8EC", border: "none", borderRadius: 999, padding: "10px 20px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: "Archia, sans-serif" }}>
                         {t('common.retry')}
                       </button>
                     </div>
+                  ) : revealObjectUrl ? (
+                    <img src={revealObjectUrl} alt={t('receive.cardAlt')} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  ) : (
+                    <RenderFallbackCard data={data} t={t} />
                   )}
                 </div>
 
@@ -903,3 +944,116 @@ function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
     </div>
   );
 }
+
+const RenderFallbackCard = ({ data, t }) => {
+  const isArabic = /[\u0600-\u06FF]/.test(data.message || "");
+  const recipientName = data.recipient?.name || data.toName || '';
+  
+  return (
+    <div style={{
+      width: "100%",
+      height: "100%",
+      position: "relative",
+      background: "#050505",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden"
+    }}>
+      {/* Background Image */}
+      {data.cropImageUrl && (
+        <img
+          src={data.cropImageUrl}
+          alt=""
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            zIndex: 0
+          }}
+        />
+      )}
+      
+      {/* Vignette Overlay */}
+      <div style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        background: "radial-gradient(circle at 50% 42%, rgba(23,19,13,0.34) 0%, rgba(5,5,5,0.76) 78%, rgba(5,5,5,0.76) 100%)",
+        zIndex: 1
+      }} />
+      
+      {/* Content wrapper */}
+      <div style={{
+        position: "relative",
+        zIndex: 2,
+        width: "100%",
+        padding: "32px",
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center"
+      }}>
+        {/* Recipient Name */}
+        {recipientName && (
+          <div style={{
+            color: "#E6C67F",
+            fontSize: "12px",
+            fontWeight: 500,
+            letterSpacing: isArabic ? "normal" : "0.1em",
+            fontFamily: isArabic ? "'Noto Sans Arabic', sans-serif" : "'JetBrains Mono', monospace",
+            marginBottom: "16px",
+            textTransform: "uppercase"
+          }}>
+            {recipientName}
+          </div>
+        )}
+        
+        {/* Message */}
+        {(data.message || "").split("\n").map((line, idx) => (
+          <p key={idx} style={{
+            color: "#F3ECDD",
+            fontSize: "18px",
+            fontStyle: isArabic ? "normal" : "italic",
+            fontFamily: isArabic ? "'Noto Naskh Arabic', serif" : "'Playfair Display', Georgia, serif",
+            lineHeight: 1.4,
+            margin: "0 0 8px 0",
+            textShadow: "0 2px 4px rgba(0,0,0,0.5)"
+          }}>
+            {line}
+          </p>
+        ))}
+        
+        {/* Separator */}
+        <div style={{
+          width: "40px",
+          height: "1.5px",
+          background: "rgba(243,236,221,0.5)",
+          margin: "16px 0"
+        }} />
+        
+        {/* Sender Name */}
+        {data.senderName && (
+          <div style={{
+            color: "rgba(238,232,220,0.82)",
+            fontSize: "11.5px",
+            fontWeight: 500,
+            letterSpacing: isArabic ? "normal" : "0.08em",
+            fontFamily: isArabic ? "'Noto Sans Arabic', sans-serif" : "'JetBrains Mono', monospace",
+            textTransform: "uppercase"
+          }}>
+            {data.senderName}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
