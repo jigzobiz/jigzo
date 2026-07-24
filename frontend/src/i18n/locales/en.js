@@ -1118,7 +1118,12 @@ const en = {
     pendingSub: 'Your payment is still being processed. Once captured, the puzzle will be sent.',
     failedSub: 'We could not complete your payment. Please try again or use another payment method.',
     backToCreate: 'Create Another JIGZO',
-    solvingHint: 'You can check your puzzle or create another one.'
+    solvingHint: 'You can check your puzzle or create another one.',
+    successTitle: 'Your JIGZO is ready! ✨',
+    successFirstLine: 'Payment successful.',
+    successOneRecipient: 'Your JIGZO has been created for <strong>1</strong> recipient.',
+    successMultipleRecipients: 'Your JIGZO has been created for <strong>{{count}}</strong> recipients.',
+    successFinalLine: 'Each recipient will receive their private puzzle link shortly.'
   },
   meta: {
     title: 'JIGZO | Turn Any Photo Into a Puzzle Surprise',

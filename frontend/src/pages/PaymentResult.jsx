@@ -26,6 +26,7 @@ export default function PaymentResult() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('verifying'); // verifying, success, pending, failed
   const [errorMsg, setErrorMsg] = useState('');
+  const [recipientCount, setRecipientCount] = useState(null);
 
   const isAr = i18n.language === 'ar';
   const direction = isAr ? 'rtl' : 'ltr';
@@ -44,6 +45,9 @@ export default function PaymentResult() {
         if (res.success) {
           if (res.status === 'CAPTURED') {
             setStatus('success');
+            if (res.recipientCount !== undefined) {
+              setRecipientCount(res.recipientCount);
+            }
           } else if (['INITIATED', 'PENDING', 'IN_PROGRESS'].includes(res.status)) {
             setStatus('pending');
           } else {
@@ -89,19 +93,7 @@ export default function PaymentResult() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         );
-        
-        const isProdEnv = window.location.hostname === 'jigzo.biz' || window.location.hostname === 'www.jigzo.biz';
-        if (isProdEnv) {
-          title = isAr ? 'تم الدفع بنجاح!' : 'Payment successful!';
-          description = isAr 
-            ? 'تم إنشاء جيقزو بنجاح.' 
-            : 'Your JIGZO has been created successfully.';
-        } else {
-          title = isAr ? 'تمت عملية الدفع التجريبية بنجاح!' : 'Sandbox payment successful!';
-          description = isAr 
-            ? 'تم تأكيد الدفعة التجريبية وإنشاء جيقزو. لم يتم إرسال أي رسالة من بيئة الاختبار.' 
-            : 'Your test payment was confirmed and your JIGZO was created. No message was sent from staging.';
-        }
+        title = t('payment.successTitle');
         color = T.successGreen;
         break;
       case 'pending':
@@ -139,12 +131,33 @@ export default function PaymentResult() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '20px' }}>
         <div style={{ marginBottom: 20 }}>{icon}</div>
-        <h1 style={{ fontSize: '28px', color: color, marginBottom: 12, fontWeight: 700 }}>
+        <h1 style={{ fontSize: '28px', color: color, marginBottom: 16, fontWeight: 700 }}>
           {title}
         </h1>
-        <p style={{ color: T.ink74, fontSize: '16px', lineHeight: 1.6, maxWidth: '460px', marginBottom: 32 }}>
-          {description}
-        </p>
+        {status === 'success' ? (
+          <>
+            <p style={{ color: T.ink, fontSize: '16px', fontWeight: 600, marginBottom: 8, lineHeight: 1.6 }}>
+              {t('payment.successFirstLine')}
+            </p>
+            {recipientCount !== null && recipientCount !== undefined && (
+              <p
+                style={{ color: T.ink74, fontSize: '16px', marginBottom: 8, lineHeight: 1.6 }}
+                dangerouslySetInnerHTML={{
+                  __html: recipientCount === 1
+                    ? t('payment.successOneRecipient')
+                    : t('payment.successMultipleRecipients', { count: recipientCount })
+                }}
+              />
+            )}
+            <p style={{ color: T.ink74, fontSize: '16px', marginBottom: 32, lineHeight: 1.6 }}>
+              {t('payment.successFinalLine')}
+            </p>
+          </>
+        ) : (
+          <p style={{ color: T.ink74, fontSize: '16px', lineHeight: 1.6, maxWidth: '460px', marginBottom: 32 }}>
+            {description}
+          </p>
+        )}
         <Link
           to="/create"
           style={{
