@@ -740,8 +740,11 @@ async function runAllTests() {
     assert.strictEqual(capturedPayload.template.name, 'jigzo_puzzle_solved');
     assert.strictEqual(capturedPayload.template.language.code, 'en_US'); // Pending confirmation is false, so en_US
     assert.deepStrictEqual(capturedPayload.template.components[0].parameters, [
+      { type: 'text', text: 'Someone' },
       { type: 'text', text: 'Sam' },
-      { type: 'text', text: '2m 35s' }
+      { type: 'text', text: 'occasion' },
+      { type: 'text', text: '2m 35s' },
+      { type: 'text', text: 'https://jigzo.biz/p/lc' }
     ]);
     console.log('✓ Scenario 8.2: Reveal alert template name and parameters are formatted correctly: Success');
 

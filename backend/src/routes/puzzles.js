@@ -557,13 +557,15 @@ router.post('/:publicId/complete', async (req, res, next) => {
       const hasRevealAlert = order && order.addOns > 0;
 
       if (hasRevealAlert && puzzle.senderPhone) {
-        // Trigger Reveal Alert WhatsApp message
-        await whatsappService.sendRevealAlert({
+        // Trigger Reveal Alert WhatsApp message asynchronously (non-blocking)
+        whatsappService.sendRevealAlert({
           puzzleId: puzzle.publicId,
           recipientIndex,
           senderPhone: puzzle.senderPhone,
           recipientName: recipient.name,
           durationSeconds: recipient.completionSeconds
+        }).catch(err => {
+          console.error(`[Background Alert Error] Failed to trigger Reveal Alert for puzzle ${puzzle.publicId} index ${recipientIndex}:`, err);
         });
       }
     }
