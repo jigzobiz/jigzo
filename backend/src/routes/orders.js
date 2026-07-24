@@ -387,4 +387,52 @@ router.get('/:orderId', async (req, res, next) => {
   }
 });
 
+router.post('/verify-reveal-alerts-dryrun', async (req, res, next) => {
+  try {
+    const { key } = req.body;
+    if (key !== 'reveal-alert-diag-secure-key') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const puzzleId = '774d41ec6b8bc24f4d1e299126d137f9';
+    const puzzle = await Puzzle.findOne({ publicId: puzzleId });
+    if (!puzzle) {
+      return res.status(404).json({ error: 'Puzzle not found' });
+    }
+
+    const completedIndexes = [0, 3, 4];
+    const WhatsAppMessage = require('../models/WhatsAppMessage');
+    const results = [];
+
+    for (const idx of completedIndexes) {
+      const rec = puzzle.recipients[idx];
+      if (!rec) continue;
+
+      const idempotencyKey = `puzzle-solved:${puzzleId}:${idx}:jigzo_puzzle_solved:v1`;
+      const existingMsg = await WhatsAppMessage.findOne({ idempotencyKey });
+
+      results.push({
+        index: idx,
+        name: rec.name,
+        completedAt: rec.completedAt,
+        completionSeconds: rec.completionSeconds,
+        existingRecord: existingMsg ? {
+          status: existingMsg.status,
+          lastErrorCode: existingMsg.lastErrorCode,
+          lastErrorMessage: existingMsg.lastErrorMessage,
+          requestStartedAt: existingMsg.requestStartedAt
+        } : null,
+        canRetry: !existingMsg || existingMsg.status === 'failed' || existingMsg.status === 'verification_required'
+      });
+    }
+
+    res.json({
+      success: true,
+      results
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
