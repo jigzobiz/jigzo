@@ -300,6 +300,10 @@ class WhatsAppService {
       return { success: true, status: 'disabled' };
     }
 
+    const puzzle = await Puzzle.findOne({ publicId: puzzleId });
+    const senderDisplayName = puzzle ? (puzzle.senderName || 'Someone') : 'Someone';
+    const occasionName = puzzle ? (puzzle.occasion || 'occasion') : 'occasion';
+
     const destinationPhone = this.normalizePhone(senderPhone);
     const destinationMasked = maskPhone(destinationPhone);
 
@@ -373,8 +377,11 @@ class WhatsAppService {
           {
             type: 'body',
             parameters: [
+              { type: 'text', text: senderDisplayName },
               { type: 'text', text: recipientName || '' },
-              { type: 'text', text: durationText }
+              { type: 'text', text: occasionName },
+              { type: 'text', text: durationText },
+              { type: 'text', text: `https://jigzo.biz/p/${puzzleId}` }
             ]
           }
         ]
