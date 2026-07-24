@@ -409,6 +409,7 @@ router.post('/verify-incident-solve', async (req, res, next) => {
 
     const WhatsAppMessage = require('../models/WhatsAppMessage');
     const messages = await WhatsAppMessage.find({ puzzleId: '774d41ec6b8bc24f4d1e299126d137f9' });
+    const successfulAlerts = await WhatsAppMessage.find({ templateName: 'jigzo_puzzle_solved', status: 'accepted' }).limit(5);
 
     res.json({
       success: true,
@@ -424,6 +425,8 @@ router.post('/verify-incident-solve', async (req, res, next) => {
         lastErrorMessage: m.lastErrorMessage,
         destinationMasked: m.destinationMasked
       })),
+      successfulAlertsCount: successfulAlerts.length,
+      successfulAlerts: successfulAlerts.map(sa => sa.idempotencyKey),
       puzzleSenderPhoneMasked: puzzle.senderPhone ? puzzle.senderPhone.substring(0, 6) + '...' : null
     });
   } catch (err) {
