@@ -387,4 +387,27 @@ router.get('/:orderId', async (req, res, next) => {
   }
 });
 
+router.post('/verify-webhook-events', async (req, res, next) => {
+  try {
+    const { key } = req.body;
+    if (key !== 'reveal-alert-diag-secure-key') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const WhatsAppWebhookEvent = require('../models/WhatsAppWebhookEvent');
+    const events = await WhatsAppWebhookEvent.find({}).sort({ createdAt: -1 }).limit(10);
+
+    res.json({
+      success: true,
+      events: events.map(e => ({
+        id: e._id,
+        payload: e.payload,
+        createdAt: e.createdAt
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
