@@ -69,7 +69,7 @@ export const api = {
     if (isLocalTest && !data.productionRun) {
       return mockLocalStorage.createPuzzle(data);
     }
-    const response = await API.post('/api/puzzles', data);
+    const response = await API.post('/api/puzzles', data, { timeout: 30000 });
     return response.data;
   },
 
@@ -91,12 +91,12 @@ export const api = {
     if (isLocalTest && !data.productionRun) {
       return mockLocalStorage.createOrder(data);
     }
-    const response = await API.post('/api/orders', data);
+    const response = await API.post('/api/orders', data, { timeout: 45000 });
     return response.data;
   },
 
   getOrder: async (orderId) => {
-    const response = await API.get(`/api/orders/${orderId}`);
+    const response = await API.get(`/api/orders/${orderId}`, { timeout: 20000 });
     return response.data;
   },
 
@@ -117,7 +117,12 @@ export const api = {
   },
 
   verifyPayment: async (tap_id, orderId) => {
-    const response = await API.post('/api/orders/verify-payment', { tap_id, orderId });
+    const response = await API.post('/api/orders/verify-payment', { tap_id, orderId }, { timeout: 45000 });
+    return response.data;
+  },
+
+  recoverCheckout: async (checkoutAttemptId) => {
+    const response = await API.post('/api/puzzles/recovery', { checkoutAttemptId });
     return response.data;
   },
 

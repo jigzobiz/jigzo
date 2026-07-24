@@ -67,6 +67,7 @@ const PuzzleSchema = new mongoose.Schema({
   pieceCount: { type: Number, default: 12 },
   experienceLanguage: { type: String, enum: ['en', 'ar'], default: 'en' },
   recipients: [RecipientSchema],
+  checkoutAttemptId: { type: String, unique: true, sparse: true, index: true },
   createdAt: { type: Date, default: Date.now },
   expiresAt: { type: Date, default: null }
 });

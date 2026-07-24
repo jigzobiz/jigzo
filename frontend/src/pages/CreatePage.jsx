@@ -151,6 +151,7 @@ export default function CreatePage() {
   // resolve the same value — previously only StepProgressBar had a local
   // `isAr`, so references in CreatePage's body threw "isAr is not defined".
   const isAr = i18n.language === 'ar';
+  const isSubmittingRef = useRef(false);
 
   const [currency, setCurrency] = useState(resolveVisitorCurrency());
 
@@ -630,8 +631,19 @@ export default function CreatePage() {
 
   // Submit Handler integrating server-side API pricing and orders
   const handlePayAndSend = async () => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsProcessing(true);
     setProcessingContext("payment");
+    setPaymentError('');
+
+    // Generate or retrieve checkoutAttemptId
+    let attemptId = sessionStorage.getItem('jigzo:checkoutAttemptId');
+    if (!attemptId) {
+      attemptId = 'att_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+      sessionStorage.setItem('jigzo:checkoutAttemptId', attemptId);
+    }
+
     try {
       const formattedRecipients = recipients.map(r => {
         const method = r.deliveryMethod === "email" ? "email" : "whatsapp";
@@ -666,7 +678,8 @@ export default function CreatePage() {
           revealIdentity,
           pieceCount,
           recipients: formattedRecipients,
-          experienceLanguage: i18n.language
+          experienceLanguage: i18n.language,
+          checkoutAttemptId: attemptId
         });
 
         publicId = puzzleRes.puzzle.publicId;
@@ -696,17 +709,63 @@ export default function CreatePage() {
           setIsProcessing(false);
           setIsSuccess(true);
           setTestLink(`/p/${publicId}?r=0`);
+          sessionStorage.removeItem('jigzo:checkoutAttemptId');
+          isSubmittingRef.current = false;
         }, 2600);
       } else {
         analytics.track('payment_started', { orderId, isLocalTest: false });
+        sessionStorage.removeItem('jigzo:checkoutAttemptId');
         // Redirect to production payment gateway checkout session
         window.location.href = checkoutUrl;
       }
     } catch (err) {
       console.error(err);
-      const safeMsg = err.response?.data?.error?.message || err.response?.data?.message || err.message || t('create.review.paymentErrorFallback');
-      setPaymentError(safeMsg);
-      setIsProcessing(false);
+      
+      const isTimeout = err.code === 'ECONNABORTED' || err.message?.toLowerCase().includes('timeout') || err.message?.toLowerCase().includes('network error');
+      
+      if (isTimeout) {
+        // Show slow checkout message
+        setPaymentError(t('create.review.payment.slowMessage'));
+        
+        try {
+          // Wait 3 seconds then attempt recovery
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          const recoverRes = await api.recoverCheckout(attemptId);
+          if (recoverRes && recoverRes.success && recoverRes.puzzle) {
+            const { publicId, orderId, checkoutUrl } = recoverRes.puzzle;
+            if (publicId) {
+              setCreatedPuzzleId(publicId);
+            }
+            if (checkoutUrl) {
+              const isLocalTest = import.meta.env.VITE_ENABLE_LOCAL_TEST === 'true';
+              if (isLocalTest && checkoutUrl.includes('mock-payment.com')) {
+                await api.triggerMockPayment(orderId, publicId);
+                setTimeout(() => {
+                  setIsProcessing(false);
+                  setIsSuccess(true);
+                  setTestLink(`/p/${publicId}?r=0`);
+                  sessionStorage.removeItem('jigzo:checkoutAttemptId');
+                  isSubmittingRef.current = false;
+                }, 2600);
+                return;
+              } else {
+                sessionStorage.removeItem('jigzo:checkoutAttemptId');
+                window.location.href = checkoutUrl;
+                return;
+              }
+            }
+          }
+        } catch (recoverError) {
+          console.error('Checkout recovery attempt failed:', recoverError);
+        }
+        
+        // Keep Pay & Send locked: DO NOT set isProcessing = false or isSubmittingRef = false
+      } else {
+        const safeMsg = err.response?.data?.error?.message || err.response?.data?.message || err.message || t('create.review.paymentErrorFallback');
+        setPaymentError(safeMsg);
+        setIsProcessing(false);
+        isSubmittingRef.current = false;
+      }
     }
   };
 

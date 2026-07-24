@@ -242,6 +242,9 @@ const ar = {
       createTestReveal: 'إنشاء أحجية اختبار مجانية',
       paymentErrorPrefix: 'لم يتمكن Tap من بدء عملية الدفع.',
       paymentErrorFallback: 'يرجى المحاولة مرة أخرى أو الاتصال بالدعم.',
+      payment: {
+        slowMessage: 'يستغرق فتح صفحة الدفع الآمنة وقتًا أطول من المعتاد. يرجى إبقاء هذه الصفحة مفتوحة.'
+      },
       bhdNoticeHeadline: '💳 سيتم الدفع بالدينار البحريني (BHD) 🇧🇭',
       bhdNoticeMulticurrencySub: 'سيبقى المبلغ المقابل بعملتك المختارة ظاهرًا للمرجع.',
       bhdNoticeBhdOnlySub: 'ستتم معالجة دفعتك بأمان بالدينار البحريني.',
@@ -1131,7 +1134,10 @@ const ar = {
     successFirstLine: 'تم الدفع بنجاح.',
     successOneRecipient: 'تم إنشاء جيقزو الخاص بك <strong>لمستلم واحد</strong>.',
     successMultipleRecipients: 'تم إنشاء جيقزو الخاص بك لـ <strong>{{count}}</strong> مستلمين.',
-    successFinalLine: 'سيحصل كل مستلم على رابط أحجيته الخاص قريبًا.'
+    successFinalLine: 'سيحصل كل مستلم على رابط أحجيته الخاص قريبًا.',
+    confirming: 'جارٍ تأكيد دفعتك…',
+    unresolvedTitle: 'ما زلنا نتحقق من دفعتك',
+    unresolvedMessage: 'قد تكون دفعتك قد اكتملت بالفعل. يرجى عدم الدفع مرة أخرى، وسنواصل التحقق منها.'
   },
   meta: {
     title: 'JIGZO | حوّل أي صورة إلى مفاجأة على هيئة أحجية',

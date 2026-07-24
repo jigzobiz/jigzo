@@ -6,6 +6,7 @@ const Puzzle = require('../models/Puzzle');
 const paymentService = require('../services/paymentService');
 const { markOrderAndPuzzlePaid } = require('../services/paymentCompletion');
 const { getExchangeRates, SUPPORTED_CURRENCIES } = require('./pricing');
+const { getFrontendOrigin } = require('../utils/runtimeConfig');
 
 // Helper to determine package rules by count
 function getPackageDetails(count) {
@@ -192,7 +193,8 @@ router.post('/', async (req, res, next) => {
     const host = req.get('host');
     const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
     const baseUrl = isLocal ? 'https://staging.jigzo.biz' : `${req.protocol}://${host}`;
-    const redirectUrl = `https://staging.jigzo.biz/payment/result?orderId=${order.orderId}`;
+    const frontendUrl = getFrontendOrigin();
+    const redirectUrl = `${frontendUrl}/payment/result?orderId=${order.orderId}`;
     const postUrl = `${baseUrl}/api/webhooks/payment`;
 
     // Create Tap Charge session

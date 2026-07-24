@@ -24,8 +24,31 @@ router.post('/', async (req, res, next) => {
       tone,
       pieceCount,
       recipients,
-      experienceLanguage
+      experienceLanguage,
+      checkoutAttemptId
     } = req.body;
+
+    if (checkoutAttemptId) {
+      const existing = await Puzzle.findOne({ checkoutAttemptId });
+      if (existing) {
+        return res.status(200).json({
+          success: true,
+          puzzle: {
+            publicId: existing.publicId,
+            status: existing.status,
+            cropImageUrl: existing.cropImageUrl,
+            message: existing.message,
+            senderName: existing.senderName,
+            revealIdentity: existing.revealIdentity,
+            pieceCount: existing.pieceCount,
+            recipients: existing.recipients.map(r => ({
+              name: r.name,
+              deliveryStatus: r.deliveryStatus
+            }))
+          }
+        });
+      }
+    }
 
     if (!cropData) {
       return res.status(400).json({ error: 'cropData (base64 image) is required.' });
@@ -160,10 +183,36 @@ router.post('/', async (req, res, next) => {
       tone: tone || '',
       pieceCount: parseInt(pieceCount) || 12,
       experienceLanguage: (experienceLanguage === 'ar' || experienceLanguage === 'en') ? experienceLanguage : 'en',
-      recipients: formattedRecipients
+      recipients: formattedRecipients,
+      checkoutAttemptId: checkoutAttemptId || undefined
     });
 
-    await puzzle.save();
+    try {
+      await puzzle.save();
+    } catch (err) {
+      if (err.code === 11000 || err.message.includes('duplicate key') || err.message.includes('E11000')) {
+        const existing = await Puzzle.findOne({ checkoutAttemptId });
+        if (existing) {
+          return res.status(200).json({
+            success: true,
+            puzzle: {
+              publicId: existing.publicId,
+              status: existing.status,
+              cropImageUrl: existing.cropImageUrl,
+              message: existing.message,
+              senderName: existing.senderName,
+              revealIdentity: existing.revealIdentity,
+              pieceCount: existing.pieceCount,
+              recipients: existing.recipients.map(r => ({
+                name: r.name,
+                deliveryStatus: r.deliveryStatus
+              }))
+            }
+          });
+        }
+      }
+      throw err;
+    }
 
     res.status(201).json({
       success: true,
@@ -179,6 +228,41 @@ router.post('/', async (req, res, next) => {
           name: r.name,
           deliveryStatus: r.deliveryStatus
         }))
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/puzzles/recovery
+ * Safely recovers details of a puzzle/order by checkoutAttemptId.
+ * Does not expose recipient details or puzzle content.
+ */
+router.post('/recovery', async (req, res, next) => {
+  try {
+    const { checkoutAttemptId } = req.body;
+    if (!checkoutAttemptId) {
+      return res.status(400).json({ error: 'checkoutAttemptId is required.' });
+    }
+
+    const puzzle = await Puzzle.findOne({ checkoutAttemptId });
+    if (!puzzle) {
+      return res.status(404).json({ error: 'Puzzle not found.' });
+    }
+
+    const Order = require('../models/Order');
+    const order = await Order.findOne({ puzzleId: puzzle.publicId }).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      puzzle: {
+        publicId: puzzle.publicId,
+        status: puzzle.status,
+        orderId: order ? order.orderId : null,
+        paymentStatus: order ? order.paymentStatus : 'unpaid',
+        checkoutUrl: order ? order.paymentReference : null
       }
     });
   } catch (error) {

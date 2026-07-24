@@ -32,6 +32,11 @@ export default function PaymentResult() {
   const direction = isAr ? 'rtl' : 'ltr';
 
   useEffect(() => {
+    let active = true;
+    let attempts = 0;
+    const maxAttempts = 30; // 30 * 3s = 90s
+    const intervalMs = 3000;
+
     async function verify() {
       if (!tap_id || !orderId) {
         setStatus('failed');
@@ -40,33 +45,79 @@ export default function PaymentResult() {
         return;
       }
 
-      try {
-        const res = await api.verifyPayment(tap_id, orderId);
-        if (res.success) {
-          if (res.status === 'CAPTURED') {
-            setStatus('success');
-            if (res.recipientCount !== undefined) {
-              setRecipientCount(res.recipientCount);
+      setStatus('verifying');
+      setLoading(true);
+
+      const runVerify = async () => {
+        try {
+          const res = await api.verifyPayment(tap_id, orderId);
+          if (!active) return;
+
+          if (res.success) {
+            if (res.status === 'CAPTURED') {
+              setStatus('success');
+              if (res.recipientCount !== undefined) {
+                setRecipientCount(res.recipientCount);
+              }
+              setLoading(false);
+              return;
+            } else if (['INITIATED', 'PENDING', 'IN_PROGRESS'].includes(res.status)) {
+              scheduleNext();
+            } else if (['DECLINED', 'CANCELLED', 'FAILED', 'ABANDONED', 'VOID'].includes(res.status)) {
+              setStatus('failed');
+              setErrorMsg(res.status);
+              setLoading(false);
+            } else {
+              setStatus('unresolved');
+              setLoading(false);
             }
-          } else if (['INITIATED', 'PENDING', 'IN_PROGRESS'].includes(res.status)) {
-            setStatus('pending');
+          } else {
+            scheduleNext();
+          }
+        } catch (err) {
+          if (!active) return;
+          console.error('Error verifying payment:', err);
+
+          const errStatus = err.response?.status;
+          const errorText = err.response?.data?.error;
+
+          const isMismatch = errStatus === 400 && (String(errorText).includes('mismatch') || String(errorText).includes('verification'));
+          if (isMismatch) {
+            setStatus('unresolved');
+            setLoading(false);
+            return;
+          }
+
+          const isRetryable = !errStatus || errStatus >= 500 || err.code === 'ECONNABORTED' || String(err.message).toLowerCase().includes('timeout') || String(err.message).toLowerCase().includes('network error');
+          if (isRetryable) {
+            scheduleNext();
           } else {
             setStatus('failed');
-            setErrorMsg(res.status); // e.g. CANCELLED, DECLINED, FAILED
+            setErrorMsg(errorText || t('payment.unableToVerify'));
+            setLoading(false);
           }
-        } else {
-          setStatus('failed');
-          setErrorMsg(t('payment.unableToVerify'));
         }
-      } catch (err) {
-        console.error('Error verifying payment:', err);
-        setStatus('failed');
-        setErrorMsg(err.response?.data?.error || t('payment.unableToVerify'));
-      } finally {
-        setLoading(false);
-      }
+      };
+
+      const scheduleNext = () => {
+        attempts++;
+        if (attempts >= maxAttempts) {
+          setStatus('unresolved');
+          setLoading(false);
+        } else {
+          setTimeout(() => {
+            if (active) runVerify();
+          }, intervalMs);
+        }
+      };
+
+      runVerify();
     }
     verify();
+
+    return () => {
+      active = false;
+    };
   }, [tap_id, orderId, t]);
 
   const renderContent = () => {
@@ -79,7 +130,7 @@ export default function PaymentResult() {
             animation: 'spin 1s linear infinite', marginBottom: 20
           }} />
           <h2 style={{ color: T.ink, margin: 0, fontSize: '24px' }}>
-            {t('payment.verifying')}
+            {status === 'verifying' ? t('payment.confirming') : t('payment.verifying')}
           </h2>
         </div>
       );
@@ -104,6 +155,16 @@ export default function PaymentResult() {
         );
         title = t('payment.pending');
         description = t('payment.pendingSub');
+        color = T.pendingOrange;
+        break;
+      case 'unresolved':
+        icon = (
+          <svg style={{ width: 64, height: 64, color: T.pendingOrange }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        );
+        title = t('payment.unresolvedTitle');
+        description = t('payment.unresolvedMessage');
         color = T.pendingOrange;
         break;
       case 'failed':
