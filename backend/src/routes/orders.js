@@ -400,7 +400,7 @@ router.post('/verify-template-params', async (req, res, next) => {
       return res.status(500).json({ error: 'Credentials missing' });
     }
 
-    const fetch = require('node:fetch');
+    const fetchFn = global.fetch || fetch;
     const apiVersion = 'v24.0';
     const url = `https://api.kapso.ai/meta/whatsapp/${apiVersion}/${phoneId}/messages`;
 
@@ -417,7 +417,7 @@ router.post('/verify-template-params', async (req, res, next) => {
         }
       };
 
-      const response = await fetch(url, {
+      const response = await fetchFn(url, {
         method: 'POST',
         headers: {
           'X-API-Key': apiKey,
