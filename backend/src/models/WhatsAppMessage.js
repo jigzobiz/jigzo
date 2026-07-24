@@ -1,5 +1,14 @@
 const mongoose = require('mongoose');
 
+const RetryAttemptSchema = new mongoose.Schema({
+  attemptNumber: { type: Number, required: true },
+  requestStartedAt: { type: Date },
+  failedAt: { type: Date },
+  errorCode: { type: String },
+  errorMessage: { type: String },
+  payloadHash: { type: String }
+});
+
 const WhatsAppMessageSchema = new mongoose.Schema({
   puzzleId: { type: String, required: true },
   recipientIndex: { type: Number, required: true },
@@ -29,6 +38,8 @@ const WhatsAppMessageSchema = new mongoose.Schema({
   attemptCount: { type: Number, default: 0 },
   claimedAt: { type: Date },
   requestStartedAt: { type: Date },
+  retryStartedAt: { type: Date },
+  retryHistory: [RetryAttemptSchema],
   acceptedAt: { type: Date },
   sentAt: { type: Date },
   deliveredAt: { type: Date },

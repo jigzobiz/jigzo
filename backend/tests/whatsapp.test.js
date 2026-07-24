@@ -41,7 +41,7 @@ const MockPaymentService = {
 };
 
 const MockWhatsAppMessage = function(data) {
-  this._data = { ...data, attemptCount: data.attemptCount || 0 };
+  this._data = { ...data, attemptCount: data.attemptCount || 0, retryHistory: data.retryHistory || [] };
   Object.defineProperty(this, 'puzzleId', { get: () => this._data.puzzleId });
   Object.defineProperty(this, 'recipientIndex', { get: () => this._data.recipientIndex });
   Object.defineProperty(this, 'idempotencyKey', { get: () => this._data.idempotencyKey });
@@ -63,6 +63,14 @@ const MockWhatsAppMessage = function(data) {
   Object.defineProperty(this, 'requestStartedAt', {
     get: () => this._data.requestStartedAt,
     set: (v) => { this._data.requestStartedAt = v; }
+  });
+  Object.defineProperty(this, 'retryStartedAt', {
+    get: () => this._data.retryStartedAt,
+    set: (v) => { this._data.retryStartedAt = v; }
+  });
+  Object.defineProperty(this, 'retryHistory', {
+    get: () => this._data.retryHistory,
+    set: (v) => { this._data.retryHistory = v; }
   });
   Object.defineProperty(this, 'attemptCount', {
     get: () => this._data.attemptCount,
@@ -124,6 +132,22 @@ MockWhatsAppMessage.findOne = async (query) => {
   if (query.idempotencyKey) return mockDb.messages[query.idempotencyKey] || null;
   if (query.providerMessageId) {
     return Object.values(mockDb.messages).find(m => m.providerMessageId === query.providerMessageId) || null;
+  }
+  return null;
+};
+MockWhatsAppMessage.findOneAndUpdate = async (query, update, options) => {
+  const existing = mockDb.messages[query.idempotencyKey];
+  if (existing) {
+    // Check status matches query condition
+    const validStatuses = query.status ? query.status.$in : null;
+    if (validStatuses && !validStatuses.includes(existing.status)) {
+      return null;
+    }
+    // Perform update
+    if (update.$set) {
+      Object.assign(existing._data, update.$set);
+    }
+    return existing;
   }
   return null;
 };
@@ -209,6 +233,13 @@ MockWhatsAppWebhookEvent.findOneAndUpdate = async (query, update, options) => {
 const Module = require('module');
 const originalRequire = Module.prototype.require;
 Module.prototype.require = function(path) {
+  if (path.includes('@vercel/functions')) {
+    return {
+      waitUntil: (promise) => {
+        if (global.__mockWaitUntil) global.__mockWaitUntil(promise);
+      }
+    };
+  }
   if (path.includes('models/WhatsAppMessage')) return MockWhatsAppMessage;
   if (path.includes('models/Puzzle')) return MockPuzzle;
   if (path.includes('models/WhatsAppWebhookEvent')) return MockWhatsAppWebhookEvent;
@@ -816,6 +847,173 @@ async function runAllTests() {
   assert.strictEqual(providerIdx[0][1].sparse, undefined);
   assert.deepStrictEqual(providerIdx[0][1].partialFilterExpression, { providerMessageId: { $type: 'string', $gt: '' } });
   console.log('✓ Scenario 7.4: Provider Message partial unique index excludes empty strings: Success');
+
+  // ==========================================
+  // Group 9: waitUntil Decoupling & Retry/RetryHistory Reliability
+  // ==========================================
+  console.log('\n--- Group 9: waitUntil Decoupling & Retry/RetryHistory Reliability ---');
+
+  // Scenario 9.1: Meta parameters count is exactly five
+  process.env.WHATSAPP_ENABLED = 'true';
+  process.env.KAPSO_API_KEY = 'test_key';
+  process.env.KAPSO_PHONE_NUMBER_ID = 'test_phone';
+
+  mockDb.puzzles['puz-solved-9'] = {
+    publicId: 'puz-solved-9',
+    senderName: 'NadiaSender',
+    occasion: 'Anniversary',
+    senderPhone: '97333111111',
+    save: async function() { return this; }
+  };
+  MockPuzzle.findOne = async (q) => mockDb.puzzles['puz-solved-9'] || null;
+
+  let capturedPayloadSolved = null;
+  global.fetch = async (url, options) => {
+    capturedPayloadSolved = JSON.parse(options.body);
+    return {
+      ok: true,
+      text: async () => JSON.stringify({ messages: [{ id: 'msg-solved-999' }] })
+    };
+  };
+
+  const alertRes9 = await whatsappService.sendRevealAlert({
+    puzzleId: 'puz-solved-9',
+    recipientIndex: 0,
+    senderPhone: '97333111111',
+    recipientName: 'NadiaRecip',
+    durationSeconds: 125
+  });
+
+  assert.strictEqual(alertRes9.success, true);
+  assert.strictEqual(capturedPayloadSolved.template.name, 'jigzo_puzzle_solved');
+  assert.strictEqual(capturedPayloadSolved.template.components[0].parameters.length, 5);
+  assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[0], { type: 'text', text: 'NadiaSender' });
+  assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[1], { type: 'text', text: 'NadiaRecip' });
+  assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[2], { type: 'text', text: 'Anniversary' });
+  assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[3], { type: 'text', text: '2m 5s' });
+  assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[4], { type: 'text', text: 'https://jigzo.biz/p/puz-solved-9' });
+  console.log('✓ Scenario 9.1: Meta parameter count is exactly five and mapped in correct order: Success');
+
+  // Scenario 9.2: Failed records are preserved and retryHistory is retained
+  const failKey = `puzzle-solved:puz-solved-9:0:jigzo_puzzle_solved:v1`;
+  const failRecord = mockDb.messages[failKey];
+  failRecord.status = 'failed';
+  failRecord.lastErrorCode = '132000';
+  failRecord.lastErrorMessage = 'Parameter count mismatch';
+  failRecord.attemptCount = 1;
+
+  // Trigger retry
+  const retryRes = await whatsappService.sendRevealAlert({
+    puzzleId: 'puz-solved-9',
+    recipientIndex: 0,
+    senderPhone: '97333111111',
+    recipientName: 'NadiaRecip',
+    durationSeconds: 125
+  });
+
+  assert.strictEqual(retryRes.success, true);
+  const updatedRecord = mockDb.messages[failKey];
+  assert.strictEqual(updatedRecord.attemptCount, 2);
+  assert.ok(updatedRecord.retryStartedAt);
+  assert.strictEqual(updatedRecord.retryHistory.length, 1);
+  assert.strictEqual(updatedRecord.retryHistory[0].attemptNumber, 1);
+  assert.strictEqual(updatedRecord.retryHistory[0].errorCode, '132000');
+  console.log('✓ Scenario 9.2: Failed records are preserved and retryHistory is correctly populated: Success');
+
+  // Scenario 9.3: Concurrent retry attempts cannot duplicate an alert
+  updatedRecord.status = 'sending';
+  const concurrentRes = await whatsappService.sendRevealAlert({
+    puzzleId: 'puz-solved-9',
+    recipientIndex: 0,
+    senderPhone: '97333111111',
+    recipientName: 'NadiaRecip',
+    durationSeconds: 125
+  });
+  assert.strictEqual(concurrentRes.success, false);
+  assert.strictEqual(concurrentRes.reason, 'duplicate_request');
+  console.log('✓ Scenario 9.3: Concurrent retry attempts are safely rejected: Success');
+
+  // Scenario 9.4: Accepted/sent/delivered/read alerts are always skipped
+  updatedRecord.status = 'accepted';
+  const skippedRes = await whatsappService.sendRevealAlert({
+    puzzleId: 'puz-solved-9',
+    recipientIndex: 0,
+    senderPhone: '97333111111',
+    recipientName: 'NadiaRecip',
+    durationSeconds: 125
+  });
+  assert.strictEqual(skippedRes.success, false);
+  assert.strictEqual(skippedRes.reason, 'duplicate_request');
+  console.log('✓ Scenario 9.4: Non-failed alerts (accepted/sent/delivered) are skipped on retry: Success');
+
+  // Scenario 9.5: Express completion response returns immediately while registered background alert task runs afterward
+  let waitUntilPromise = null;
+  global.__mockWaitUntil = (promise) => {
+    waitUntilPromise = promise;
+  };
+
+  // Mock sendRevealAlert to delay its completion
+  let resolveRevealAlert = null;
+  const originalSend = whatsappService.sendRevealAlert;
+  whatsappService.sendRevealAlert = async () => {
+    return new Promise((resolve) => {
+      resolveRevealAlert = () => resolve({ success: true });
+    });
+  };
+
+  // Mock puzzle route call context
+  let hasResolvedResponse = false;
+  const runRoute = async () => {
+    const puzzleRoute = require('../src/routes/puzzles');
+    const solveRoute = puzzleRoute.stack.find(s => s.route?.path === '/:publicId/complete');
+    const solveHandler = solveRoute?.route?.stack[0]?.handle;
+    
+    const req = {
+      params: { publicId: 'puz-solved-9' },
+      query: { r: '0' },
+      body: { durationSeconds: 10 }
+    };
+    const res = {
+      status: function() { return this; },
+      json: function(data) {
+        hasResolvedResponse = true;
+      }
+    };
+    
+    // Setup Order and Puzzle models for the route
+    MockPuzzle.findOne = async () => ({
+      publicId: 'puz-solved-9',
+      senderPhone: '97333111111',
+      recipients: [{ name: 'NadiaRecip', completedAt: null, completionSeconds: 0 }],
+      save: async function() { return this; }
+    });
+    const MockOrderModel = require('../src/models/Order');
+    MockOrderModel.findOne = async () => ({ puzzleId: 'puz-solved-9', addOns: 1, paymentStatus: 'paid' });
+
+    await solveHandler(req, res, () => {});
+  };
+
+  await runRoute();
+  
+  // Assert response returned immediately
+  assert.strictEqual(hasResolvedResponse, true);
+  assert.ok(waitUntilPromise);
+  
+  // Assert background work was not yet resolved, then resolve it
+  let resolvedBackgroundWork = false;
+  waitUntilPromise.then(() => { resolvedBackgroundWork = true; });
+  assert.strictEqual(resolvedBackgroundWork, false);
+  
+  resolveRevealAlert();
+  await waitUntilPromise;
+  assert.strictEqual(resolvedBackgroundWork, true);
+  
+  // Restore
+  whatsappService.sendRevealAlert = originalSend;
+  global.__mockWaitUntil = null;
+  console.log('✓ Scenario 9.5: Express completion route returns response immediately while waitUntil runs in background: Success');
+
+  process.env.WHATSAPP_ENABLED = 'false';
 
   console.log('\nAll JIGZO WhatsApp integration scenarios passed successfully!');
 }
