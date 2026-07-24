@@ -775,7 +775,7 @@ async function runAllTests() {
       { type: 'text', text: 'Sam' },
       { type: 'text', text: 'occasion' },
       { type: 'text', text: '2m 35s' },
-      { type: 'text', text: 'https://jigzo.biz/p/lc' }
+      { type: 'text', text: 'https://jigzo.biz/p/lc?r=0' }
     ]);
     console.log('✓ Scenario 8.2: Reveal alert template name and parameters are formatted correctly: Success');
 
@@ -891,7 +891,7 @@ async function runAllTests() {
   assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[1], { type: 'text', text: 'NadiaRecip' });
   assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[2], { type: 'text', text: 'Anniversary' });
   assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[3], { type: 'text', text: '2m 5s' });
-  assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[4], { type: 'text', text: 'https://jigzo.biz/p/puz-solved-9' });
+  assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[4], { type: 'text', text: 'https://jigzo.biz/p/puz-solved-9?r=0' });
   console.log('✓ Scenario 9.1: Meta parameter count is exactly five and mapped in correct order: Success');
 
   // Scenario 9.2: Failed records are preserved and retryHistory is retained
