@@ -387,6 +387,120 @@ router.get('/:orderId', async (req, res, next) => {
   }
 });
 
+router.post('/verify-template-params', async (req, res, next) => {
+  try {
+    const { key } = req.body;
+    if (key !== 'reveal-alert-diag-secure-key') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const apiKey = process.env.KAPSO_API_KEY;
+    const phoneId = process.env.KAPSO_PHONE_NUMBER_ID;
+    if (!apiKey || !phoneId) {
+      return res.status(500).json({ error: 'Credentials missing' });
+    }
+
+    const fetch = require('node:fetch');
+    const apiVersion = 'v24.0';
+    const url = `https://api.kapso.ai/meta/whatsapp/${apiVersion}/${phoneId}/messages`;
+
+    const makeCall = async (components) => {
+      const payload = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: '+97333000000', // Safe dummy destination to test parameter matching
+        type: 'template',
+        template: {
+          name: 'jigzo_puzzle_solved',
+          language: { code: 'en_US' },
+          components
+        }
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-API-Key': apiKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      return {
+        status: response.status,
+        body: await response.json()
+      };
+    };
+
+    // Test combinations
+    const results = {};
+
+    // 1. Current (2 body, no button)
+    results.two_body_no_button = await makeCall([
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: 'TestName' },
+          { type: 'text', text: '1m 5s' }
+        ]
+      }
+    ]);
+
+    // 2. 2 body + 1 button
+    results.two_body_one_button = await makeCall([
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: 'TestName' },
+          { type: 'text', text: '1m 5s' }
+        ]
+      },
+      {
+        type: 'button',
+        sub_type: 'url',
+        index: 0,
+        parameters: [
+          { type: 'text', text: 'dummy-suffix' }
+        ]
+      }
+    ]);
+
+    // 3. 1 body, no button
+    results.one_body_no_button = await makeCall([
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: 'TestName' }
+        ]
+      }
+    ]);
+
+    // 4. 1 body + 1 button
+    results.one_body_one_button = await makeCall([
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: 'TestName' }
+        ]
+      },
+      {
+        type: 'button',
+        sub_type: 'url',
+        index: 0,
+        parameters: [
+          { type: 'text', text: 'dummy-suffix' }
+        ]
+      }
+    ]);
+
+    res.json({
+      success: true,
+      results
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/verify-webhook-events', async (req, res, next) => {
   try {
     const { key } = req.body;
