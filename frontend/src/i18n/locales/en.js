@@ -234,6 +234,9 @@ const en = {
       createTestReveal: 'Create Free Test Puzzle',
       paymentErrorPrefix: 'Tap could not start the payment.',
       paymentErrorFallback: 'Please try again or contact support.',
+      payment: {
+        slowMessage: 'Secure checkout is taking a little longer than usual. Please keep this page open.'
+      },
       bhdNoticeHeadline: '💳 You’ll be charged in Bahraini dinars (BHD) 🇧🇭',
       bhdNoticeMulticurrencySub: 'The equivalent amount in your selected currency will remain visible for reference.',
       bhdNoticeBhdOnlySub: 'Your payment will be processed securely in BHD.',
@@ -787,7 +790,10 @@ const en = {
     successFirstLine: 'Payment successful.',
     successOneRecipient: 'Your JIGZO has been created for <strong>1</strong> recipient.',
     successMultipleRecipients: 'Your JIGZO has been created for <strong>{{count}}</strong> recipients.',
-    successFinalLine: 'Each recipient will receive their private puzzle link shortly.'
+    successFinalLine: 'Each recipient will receive their private puzzle link shortly.',
+    confirming: 'Confirming your payment…',
+    unresolvedTitle: 'We’re still confirming your payment',
+    unresolvedMessage: 'Your payment may already be complete. Please do not pay again. We’ll continue checking it.'
   },
   meta: {
     title: 'JIGZO | Turn Any Photo Into a Puzzle Surprise',
