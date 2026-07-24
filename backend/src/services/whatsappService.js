@@ -413,7 +413,7 @@ class WhatsAppService {
               { type: 'text', text: recipientName || '' },
               { type: 'text', text: occasionName },
               { type: 'text', text: durationText },
-              { type: 'text', text: `https://jigzo.biz/p/${puzzleId}` }
+              { type: 'text', text: `https://jigzo.biz/p/${puzzleId}?r=${recipientIndex}` }
             ]
           }
         ]
