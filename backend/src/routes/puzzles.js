@@ -557,8 +557,13 @@ router.post('/:publicId/complete', async (req, res, next) => {
       const hasRevealAlert = order && order.addOns > 0;
 
       if (hasRevealAlert && puzzle.senderPhone) {
-        // Trigger Reveal Alert WhatsApp message asynchronously (non-blocking)
-        whatsappService.sendRevealAlert({
+        // Trigger Reveal Alert WhatsApp message asynchronously (non-blocking via vercel waitUntil)
+        let vercelWaitUntil;
+        try {
+          vercelWaitUntil = require('@vercel/functions').waitUntil;
+        } catch (e) {}
+
+        const alertPromise = whatsappService.sendRevealAlert({
           puzzleId: puzzle.publicId,
           recipientIndex,
           senderPhone: puzzle.senderPhone,
@@ -567,6 +572,10 @@ router.post('/:publicId/complete', async (req, res, next) => {
         }).catch(err => {
           console.error(`[Background Alert Error] Failed to trigger Reveal Alert for puzzle ${puzzle.publicId} index ${recipientIndex}:`, err);
         });
+
+        if (vercelWaitUntil) {
+          vercelWaitUntil(alertPromise);
+        }
       }
     }
 

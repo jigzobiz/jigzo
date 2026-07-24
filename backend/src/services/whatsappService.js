@@ -324,17 +324,49 @@ class WhatsAppService {
       await messageRecord.save();
     } catch (err) {
       if (err.code === 11000) {
-        // Already claimed or sent
-        const existing = await WhatsAppMessage.findOne({ idempotencyKey });
-        return { success: false, reason: 'duplicate_request', status: existing.status, providerMessageId: existing.providerMessageId };
+        // Attempt to atomically claim the record for a retry if its status is failed/verification_required
+        const existing = await WhatsAppMessage.findOneAndUpdate(
+          {
+            idempotencyKey,
+            status: { $in: ['failed', 'verification_required'] }
+          },
+          {
+            $set: {
+              status: 'claimed',
+              claimedAt: new Date()
+            }
+          },
+          { new: true }
+        );
+
+        if (existing) {
+          // Add previous attempt to retryHistory
+          existing.retryHistory.push({
+            attemptNumber: existing.attemptCount,
+            requestStartedAt: existing.requestStartedAt || existing.createdAt,
+            failedAt: existing.failedAt || existing.updatedAt,
+            errorCode: existing.lastErrorCode,
+            errorMessage: existing.lastErrorMessage,
+            payloadHash: existing.payloadHash
+          });
+          existing.retryStartedAt = new Date();
+          messageRecord = existing;
+        } else {
+          // If already accepted/sent/delivered or currently claimed/sending
+          const finalRecord = await WhatsAppMessage.findOne({ idempotencyKey });
+          return { success: false, reason: 'duplicate_request', status: finalRecord.status, providerMessageId: finalRecord.providerMessageId };
+        }
+      } else {
+        throw err;
       }
-      throw err;
     }
 
-    // Step 2: Acquire claim
-    messageRecord.status = 'claimed';
-    messageRecord.claimedAt = new Date();
-    await messageRecord.save();
+    // Step 2: Acquire claim (only needed if it wasn't a retry)
+    if (messageRecord.status !== 'claimed') {
+      messageRecord.status = 'claimed';
+      messageRecord.claimedAt = new Date();
+      await messageRecord.save();
+    }
 
     // Validate environment variables
     const apiKey = process.env.KAPSO_API_KEY;
