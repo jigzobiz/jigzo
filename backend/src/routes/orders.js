@@ -434,23 +434,28 @@ router.post('/verify-template-params', async (req, res, next) => {
     // Test combinations
     const results = {};
 
-    // 1. Current (2 body, no button)
-    results.two_body_no_button = await makeCall([
+    // 1. 5 body parameters, no button
+    results.five_body_no_button = await makeCall([
       {
         type: 'body',
         parameters: [
-          { type: 'text', text: 'TestName' },
-          { type: 'text', text: '1m 5s' }
+          { type: 'text', text: 'SenderName' },
+          { type: 'text', text: 'RecipientName' },
+          { type: 'text', text: 'Occasion' },
+          { type: 'text', text: '1m 5s' },
+          { type: 'text', text: 'https://jigzo.biz/p/774d41ec6b8bc24f4d1e299126d137f9' }
         ]
       }
     ]);
 
-    // 2. 2 body + 1 button
-    results.two_body_one_button = await makeCall([
+    // 2. 4 body + 1 button
+    results.four_body_one_button = await makeCall([
       {
         type: 'body',
         parameters: [
-          { type: 'text', text: 'TestName' },
+          { type: 'text', text: 'SenderName' },
+          { type: 'text', text: 'RecipientName' },
+          { type: 'text', text: 'Occasion' },
           { type: 'text', text: '1m 5s' }
         ]
       },
@@ -464,22 +469,36 @@ router.post('/verify-template-params', async (req, res, next) => {
       }
     ]);
 
-    // 3. 1 body, no button
-    results.one_body_no_button = await makeCall([
+    // 3. 3 body + 1 button
+    results.three_body_one_button = await makeCall([
       {
         type: 'body',
         parameters: [
-          { type: 'text', text: 'TestName' }
+          { type: 'text', text: 'SenderName' },
+          { type: 'text', text: 'RecipientName' },
+          { type: 'text', text: '1m 5s' }
+        ]
+      },
+      {
+        type: 'button',
+        sub_type: 'url',
+        index: 0,
+        parameters: [
+          { type: 'text', text: 'dummy-suffix' }
         ]
       }
     ]);
 
-    // 4. 1 body + 1 button
-    results.one_body_one_button = await makeCall([
+    // 4. 5 body + 1 button
+    results.five_body_one_button = await makeCall([
       {
         type: 'body',
         parameters: [
-          { type: 'text', text: 'TestName' }
+          { type: 'text', text: 'P1' },
+          { type: 'text', text: 'P2' },
+          { type: 'text', text: 'P3' },
+          { type: 'text', text: 'P4' },
+          { type: 'text', text: 'P5' }
         ]
       },
       {
