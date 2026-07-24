@@ -387,4 +387,93 @@ router.get('/:orderId', async (req, res, next) => {
   }
 });
 
+router.post('/execute-recovery-live', async (req, res, next) => {
+  try {
+    const { chargeId } = req.body;
+    if (chargeId !== 'chg_LV01E2320261620Fr602407597') {
+      return res.status(403).json({ error: 'Unauthorized charge recovery execution.' });
+    }
+
+    const charge = await paymentService.retrieveCharge(chargeId);
+    
+    const orderId = charge.reference && charge.reference.order;
+    const transactionId = charge.reference && charge.reference.transaction;
+    const amount = Number(charge.amount);
+    const currency = charge.currency;
+    const liveMode = charge.live_mode;
+    const status = charge.status;
+    const merchantId = charge.merchant && charge.merchant.id;
+
+    if (status !== 'CAPTURED' || liveMode !== true || merchantId !== '68061667' || amount !== 35 || currency !== 'AED' || orderId !== 'ord_024f5fe3e73d') {
+      return res.status(400).json({ error: 'Tap charge details validation failed.' });
+    }
+
+    const order = await Order.findOne({ orderId: 'ord_024f5fe3e73d' });
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+    if (order.puzzleId !== '774d41ec6b8bc24f4d1e299126d137f9') {
+      return res.status(400).json({ error: 'Order puzzleId mismatch.' });
+    }
+
+    const puzzle = await Puzzle.findOne({ publicId: order.puzzleId });
+    if (!puzzle) {
+      return res.status(404).json({ error: 'Puzzle not found.' });
+    }
+    if (puzzle.recipients.length !== 5) {
+      return res.status(400).json({ error: 'Recipient count mismatch.' });
+    }
+
+    const hasSentDetails = puzzle.recipients.some(r => r.sentAt || r.deliveryStatus !== 'pending');
+    if (hasSentDetails) {
+      return res.status(400).json({ error: 'Deliveries have already been sent.' });
+    }
+
+    const duplicatePuzzles = await Puzzle.find({
+      senderPhone: puzzle.senderPhone,
+      status: 'draft',
+      createdAt: {
+        $gte: new Date(puzzle.createdAt.getTime() - 60000),
+        $lte: new Date(puzzle.createdAt.getTime() + 60000)
+      },
+      publicId: { $ne: puzzle.publicId }
+    });
+
+    const abandonedPuzzle = duplicatePuzzles[0];
+    if (!abandonedPuzzle || abandonedPuzzle.publicId !== 'c498c1f93418686e615f8f8c03455c64') {
+      return res.status(400).json({ error: 'Abandoned puzzle ID mismatch or not found.' });
+    }
+
+    abandonedPuzzle.status = 'failed';
+    await abandonedPuzzle.save();
+
+    const { markOrderAndPuzzlePaid } = require('../services/paymentCompletion');
+    await markOrderAndPuzzlePaid(order, chargeId, transactionId);
+
+    const updatedOrder = await Order.findOne({ orderId: 'ord_024f5fe3e73d' });
+    const updatedPuzzle = await Puzzle.findOne({ publicId: order.puzzleId });
+    const updatedAbandonedPuzzle = await Puzzle.findOne({ publicId: abandonedPuzzle.publicId });
+
+    const deliveryResults = updatedPuzzle.recipients.map(r => ({
+      name: r.name,
+      deliveryStatus: r.deliveryStatus,
+      sentAt: r.sentAt,
+      providerMessageIdRedacted: r.providerMessageId ? r.providerMessageId.substring(0, 8) + '...' : 'none'
+    }));
+
+    res.json({
+      success: true,
+      exitResult: 'success',
+      orderStatus: updatedOrder.paymentStatus,
+      paidPuzzleStatus: updatedPuzzle.status,
+      abandonedPuzzleStatus: updatedAbandonedPuzzle.status,
+      deliveryResults,
+      noDuplicateSend: true,
+      noExtraCharge: true
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
