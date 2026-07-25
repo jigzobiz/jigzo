@@ -265,6 +265,31 @@ router.post('/recovery', async (req, res, next) => {
         checkoutUrl: order ? order.paymentReference : null
       }
     });
+});
+
+/**
+ * POST /api/puzzles/reconcile-ob-external
+ * Temporary endpoint to inspect raw webhook events for O.B logs.
+ */
+router.post('/reconcile-ob-external', async (req, res, next) => {
+  try {
+    const WhatsAppWebhookEvent = require('../models/WhatsAppWebhookEvent');
+    
+    // Find any webhook events in the DB
+    const allEvents = await WhatsAppWebhookEvent.find({});
+    
+    // Filter events matching O.B's puzzle solved parameters
+    const matches = allEvents.filter(e => {
+      const str = JSON.stringify(e);
+      return str.includes('774d41ec6b8bc24f4d1e299126d137f9') && str.includes('O.B');
+    });
+
+    res.json({
+      success: true,
+      totalEvents: allEvents.length,
+      matchedEventsCount: matches.length,
+      matches
+    });
   } catch (error) {
     next(error);
   }
