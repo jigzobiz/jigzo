@@ -265,6 +265,9 @@ router.post('/recovery', async (req, res, next) => {
         checkoutUrl: order ? order.paymentReference : null
       }
     });
+  } catch (error) {
+    next(error);
+  }
 });
 
 /**
