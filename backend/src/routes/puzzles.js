@@ -270,6 +270,102 @@ router.post('/recovery', async (req, res, next) => {
   }
 });
 
+/**
+ * POST /api/puzzles/recover-ob-live
+ * Temporary endpoint to execute live recovery of O.B's alert.
+ */
+router.post('/recover-ob-live', async (req, res, next) => {
+  try {
+    const puzzleId = '774d41ec6b8bc24f4d1e299126d137f9';
+    const idx = 3;
+    const puzzle = await Puzzle.findOne({ publicId: puzzleId });
+    if (!puzzle) {
+      return res.status(404).json({ error: 'Puzzle not found.' });
+    }
+
+    const rec = puzzle.recipients[idx];
+    if (!rec) {
+      return res.status(404).json({ error: 'Recipient index 3 not found.' });
+    }
+
+    const WhatsAppMessage = require('../models/WhatsAppMessage');
+    const idempotencyKey = `puzzle-solved:${puzzleId}:${idx}:jigzo_puzzle_solved:v1`;
+    const existingMsg = await WhatsAppMessage.findOne({ idempotencyKey });
+
+    if (!existingMsg) {
+      return res.status(400).json({ error: 'O.B alert record not found in DB.' });
+    }
+
+    // Verify conditions before recovery
+    if (existingMsg.status !== 'verification_required') {
+      return res.status(400).json({ error: `O.B alert status is "${existingMsg.status}", expected "verification_required".` });
+    }
+    if (existingMsg.providerMessageId) {
+      return res.status(400).json({ error: 'providerMessageId is not null.' });
+    }
+
+    // Solve Date format check
+    const completedAt = rec.completedAt;
+    const completionDateText = new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'Asia/Bahrain'
+    }).format(completedAt);
+
+    const completionTimeText = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Asia/Bahrain'
+    }).format(completedAt).toLowerCase();
+
+    const m = Math.floor(rec.completionSeconds / 60);
+    const s = rec.completionSeconds % 60;
+    const durationText = m > 0 ? `${m}m ${s}s` : `${s}s`;
+
+    if (completionDateText !== '24 Jul 2026') {
+      return res.status(400).json({ error: `Completion Date is "${completionDateText}", expected "24 Jul 2026".` });
+    }
+    if (completionTimeText !== '8:13 pm') {
+      return res.status(400).json({ error: `Completion Time is "${completionTimeText}", expected "8:13 pm".` });
+    }
+    if (durationText !== '1m 51s') {
+      return res.status(400).json({ error: `Duration is "${durationText}", expected "1m 51s".` });
+    }
+
+    // Execute recovery
+    const result = await whatsappService.sendRevealAlert({
+      puzzleId,
+      recipientIndex: idx,
+      senderPhone: puzzle.senderPhone,
+      recipientName: rec.name,
+      durationSeconds: rec.completionSeconds
+    });
+
+    const updatedMsg = await WhatsAppMessage.findOne({ idempotencyKey });
+
+    res.json({
+      success: true,
+      previousStatus: 'verification_required',
+      finalStatus: updatedMsg ? updatedMsg.status : 'none',
+      providerMessageId: updatedMsg ? updatedMsg.providerMessageId : null,
+      acceptedAt: updatedMsg ? updatedMsg.acceptedAt : null,
+      attemptCount: updatedMsg ? updatedMsg.attemptCount : 0,
+      retryHistoryCount: updatedMsg && updatedMsg.retryHistory ? updatedMsg.retryHistory.length : 0,
+      retryHistory: updatedMsg ? updatedMsg.retryHistory : [],
+      sentParameters: [
+        puzzle.senderName || 'Someone',
+        rec.name,
+        completionDateText,
+        completionTimeText,
+        durationText
+      ]
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 /**
  * GET /api/puzzles/:publicId
