@@ -756,6 +756,15 @@ async function runAllTests() {
     };
   };
 
+  mockDb.puzzles['lc'] = {
+    publicId: 'lc',
+    senderName: 'Someone',
+    senderPhone: '97333333333',
+    recipients: [{ name: 'Sam', completedAt: new Date('2026-07-24T17:13:08.828Z'), completionSeconds: 155 }],
+    save: async function() { return this; }
+  };
+  MockPuzzle.findOne = async (q) => mockDb.puzzles[q.publicId] || null;
+
   try {
     const alertRes = await whatsappService.sendRevealAlert({
       puzzleId: 'lc',
@@ -773,9 +782,9 @@ async function runAllTests() {
     assert.deepStrictEqual(capturedPayload.template.components[0].parameters, [
       { type: 'text', text: 'Someone' },
       { type: 'text', text: 'Sam' },
-      { type: 'text', text: 'occasion' },
-      { type: 'text', text: '2m 35s' },
-      { type: 'text', text: 'https://jigzo.biz/p/lc?r=0' }
+      { type: 'text', text: '24 Jul 2026' },
+      { type: 'text', text: '8:13 pm' },
+      { type: 'text', text: '2m 35s' }
     ]);
     console.log('✓ Scenario 8.2: Reveal alert template name and parameters are formatted correctly: Success');
 
@@ -863,6 +872,7 @@ async function runAllTests() {
     senderName: 'NadiaSender',
     occasion: 'Anniversary',
     senderPhone: '97333111111',
+    recipients: [{ name: 'NadiaRecip', completedAt: new Date('2026-07-24T17:13:08.828Z'), completionSeconds: 125 }],
     save: async function() { return this; }
   };
   MockPuzzle.findOne = async (q) => mockDb.puzzles['puz-solved-9'] || null;
@@ -889,9 +899,9 @@ async function runAllTests() {
   assert.strictEqual(capturedPayloadSolved.template.components[0].parameters.length, 5);
   assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[0], { type: 'text', text: 'NadiaSender' });
   assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[1], { type: 'text', text: 'NadiaRecip' });
-  assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[2], { type: 'text', text: 'Anniversary' });
-  assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[3], { type: 'text', text: '2m 5s' });
-  assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[4], { type: 'text', text: 'https://jigzo.biz/p/puz-solved-9?r=0' });
+  assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[2], { type: 'text', text: '24 Jul 2026' });
+  assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[3], { type: 'text', text: '8:13 pm' });
+  assert.deepStrictEqual(capturedPayloadSolved.template.components[0].parameters[4], { type: 'text', text: '2m 5s' });
   console.log('✓ Scenario 9.1: Meta parameter count is exactly five and mapped in correct order: Success');
 
   // Scenario 9.2: Failed records are preserved and retryHistory is retained

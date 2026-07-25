@@ -391,6 +391,25 @@ class WhatsAppService {
     const s = durationSeconds % 60;
     const durationText = m > 0 ? `${m}m ${s}s` : `${s}s`;
 
+    let completedAt = new Date();
+    if (puzzle && puzzle.recipients && puzzle.recipients[recipientIndex]) {
+      completedAt = puzzle.recipients[recipientIndex].completedAt || new Date();
+    }
+
+    const completionDateText = new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'Asia/Bahrain'
+    }).format(completedAt);
+
+    const completionTimeText = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Asia/Bahrain'
+    }).format(completedAt).toLowerCase();
+
     // English Marketing versions are approved. Arabic templates are prepared but not enabled.
     const isArabicConfirmed = false; // Set to true once verified
     const langCode = isArabicConfirmed ? 'ar' : 'en_US';
@@ -411,9 +430,9 @@ class WhatsAppService {
             parameters: [
               { type: 'text', text: senderDisplayName },
               { type: 'text', text: recipientName || '' },
-              { type: 'text', text: occasionName },
-              { type: 'text', text: durationText },
-              { type: 'text', text: `https://jigzo.biz/p/${puzzleId}?r=${recipientIndex}` }
+              { type: 'text', text: completionDateText },
+              { type: 'text', text: completionTimeText },
+              { type: 'text', text: durationText }
             ]
           }
         ]
