@@ -270,39 +270,7 @@ router.post('/recovery', async (req, res, next) => {
   }
 });
 
-/**
- * POST /api/puzzles/investigate-ob
- * Temporary endpoint to inspect O.B's alert details live in Vercel.
- */
-router.post('/investigate-ob', async (req, res, next) => {
-  try {
-    const puzzleId = '774d41ec6b8bc24f4d1e299126d137f9';
-    const idx = 3;
-    const idempotencyKey = `puzzle-solved:${puzzleId}:${idx}:jigzo_puzzle_solved:v1`;
-    
-    const WhatsAppMessage = require('../models/WhatsAppMessage');
-    const WhatsAppWebhookEvent = require('../models/WhatsAppWebhookEvent');
 
-    const msg = await WhatsAppMessage.findOne({ idempotencyKey });
-    
-    let webhookEvents = [];
-    if (msg && msg.providerMessageId) {
-      webhookEvents = await WhatsAppWebhookEvent.find({ providerMessageId: msg.providerMessageId });
-    }
-    
-    // Also find by idempotencyKey in any webhook events
-    const rawEvents = await WhatsAppWebhookEvent.find({ idempotencyKey });
-
-    res.json({
-      success: true,
-      messageRecord: msg,
-      webhookEvents,
-      rawEvents
-    });
-  } catch (error) {
-    next(error);
-  }
-});
 
 
 /**
