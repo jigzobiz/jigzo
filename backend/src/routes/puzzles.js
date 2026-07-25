@@ -270,10 +270,57 @@ router.post('/recovery', async (req, res, next) => {
   }
 });
 
+/**
+ * POST /api/puzzles/recover-alerts-dryrun
+ * Temporary endpoint to execute a dry-run check for O.B's alert.
+ */
+router.post('/recover-alerts-dryrun', async (req, res, next) => {
+  try {
+    const puzzleId = '774d41ec6b8bc24f4d1e299126d137f9';
+    const idx = 3;
+    const puzzle = await Puzzle.findOne({ publicId: puzzleId });
+    if (!puzzle) {
+      return res.status(404).json({ error: 'Puzzle not found.' });
+    }
 
+    const rec = puzzle.recipients[idx];
+    if (!rec) {
+      return res.status(404).json({ error: 'Recipient index 3 not found.' });
+    }
 
+    const WhatsAppMessage = require('../models/WhatsAppMessage');
+    const idempotencyKey = `puzzle-solved:${puzzleId}:${idx}:jigzo_puzzle_solved:v1`;
+    const existingMsg = await WhatsAppMessage.findOne({ idempotencyKey });
 
+    let eligibility = 'eligible';
+    let reason = '';
+    
+    if (existingMsg && existingMsg.status === 'accepted') {
+      eligibility = 'ineligible';
+      reason = `Message status is already "accepted".`;
+    } else {
+      eligibility = 'eligible';
+      reason = `O.B alert is verified as NOT delivered/accepted and is safe to retry.`;
+    }
 
+    res.json({
+      success: true,
+      puzzleId,
+      recipientIndex: idx,
+      name: rec.name,
+      completedAt: rec.completedAt,
+      completionSeconds: rec.completionSeconds,
+      existingMsgStatus: existingMsg ? existingMsg.status : null,
+      existingMsgLastErrorCode: existingMsg ? existingMsg.lastErrorCode : null,
+      existingMsgLastErrorMessage: existingMsg ? existingMsg.lastErrorMessage : null,
+      eligibility,
+      reason,
+      action: 'None (DRY-RUN)'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 /**
  * GET /api/puzzles/:publicId
