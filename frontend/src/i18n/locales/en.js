@@ -234,9 +234,6 @@ const en = {
       createTestReveal: 'Create Free Test Puzzle',
       paymentErrorPrefix: 'Tap could not start the payment.',
       paymentErrorFallback: 'Please try again or contact support.',
-      payment: {
-        slowMessage: 'Secure checkout is taking a little longer than usual. Please keep this page open.'
-      },
       bhdNoticeHeadline: '💳 You’ll be charged in Bahraini dinars (BHD) 🇧🇭',
       bhdNoticeMulticurrencySub: 'The equivalent amount in your selected currency will remain visible for reference.',
       bhdNoticeBhdOnlySub: 'Your payment will be processed securely in BHD.',
@@ -259,6 +256,7 @@ const en = {
         added: 'Reveal Alert Added'
       },
       payment: {
+        slowMessage: 'Secure checkout is taking a little longer than usual. Please keep this page open.',
         total: 'Total',
         checkoutDisabled: 'Checkout is currently disabled.',
         termsAgreement: 'By proceeding, you agree to our Terms of Service & Privacy Policy.',

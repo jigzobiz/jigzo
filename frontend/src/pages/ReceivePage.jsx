@@ -7,6 +7,7 @@ import RevealBeat from '../components/RevealBeat';
 import LoaderOrbit from '../components/LoaderOrbit';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import { analytics } from '../services/analytics';
+import { getDeviceWallpaperDimensions, getCompositionRules } from '../utils/wallpaperHelpers';
 
 const GRID_FOR = {
   6: { cols: 2, rows: 3 },
@@ -405,6 +406,26 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
   const actionsRef = useRef(null);
   const pieceRefs = useRef([]);
 
+  const deviceWallpaper = useMemo(() => {
+    return getDeviceWallpaperDimensions(window.screen?.width, window.screen?.height);
+  }, []);
+
+  const [cardDims, setCardDims] = useState({ width: 340, height: 604 });
+
+  useEffect(() => {
+    if (!showReveal || !cardRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setCardDims({ width, height });
+        }
+      }
+    });
+    observer.observe(cardRef.current);
+    return () => observer.disconnect();
+  }, [showReveal]);
+
   const fit = useCallback(() => {
     const wrap = wrapRef.current;
     if (!wrap) return;
@@ -595,9 +616,9 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
     }
     const generationKey = getExportKey();
     const promise = new Promise((resolve, reject) => {
-      const CW = 1080, CH = 1920;
-      const cardW = 340;
-      const S = CW / cardW;
+      const { width: CW, height: CH } = deviceWallpaper;
+      const rules = getCompositionRules(CW, CH);
+      const S = rules.S;
       const CREAM = "rgb(250,248,236)";
       const isArabic = /[\u0600-\u06FF]/.test(data.message || "");
 
@@ -619,18 +640,18 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
             ctx.drawImage(img, (CW - dw) / 2, (CH - dh) / 2, dw, dh);
           } else { ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, CW, CH); }
 
-          const cx = CW * 0.5, cy = CH * 0.42;
-          const R = Math.hypot(Math.max(cx, CW - cx), Math.max(cy, CH - cy)) * 1.02;
+          const cx = rules.cx, cy = rules.cy;
+          const R = rules.R;
           const vg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
           vg.addColorStop(0, "rgba(23,19,13,0.34)");
           vg.addColorStop(0.78, "rgba(5,5,5,0.76)");
           vg.addColorStop(1, "rgba(5,5,5,0.76)");
           ctx.fillStyle = vg; ctx.fillRect(0, 0, CW, CH);
 
-          const contentW = 842;
+          const contentW = rules.contentW;
           ctx.font = isArabic
-            ? `400 ${20 * S}px "Noto Naskh Arabic", serif`
-            : `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`;
+            ? `400 ${rules.message.fontSize}px "Noto Naskh Arabic", serif`
+            : `italic 400 ${rules.message.fontSize}px "Playfair Display", Georgia, serif`;
 
           const msgLines = [];
           (data.message || "").split("\n").forEach((para) => {
@@ -649,31 +670,31 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
             rows.push({
               type: "text",
               t: recipientName,
-              f: isArabic ? `500 ${12.5 * S}px "Noto Sans Arabic", sans-serif` : `500 ${12.5 * S}px "JetBrains Mono", monospace`,
+              f: isArabic ? `500 ${rules.recipient.fontSize}px "Noto Sans Arabic", sans-serif` : `500 ${rules.recipient.fontSize}px "JetBrains Mono", monospace`,
               color: "#E6C67F",
-              ls: isArabic ? 0 : 0.1 * 12.5 * S,
-              lh: 12.5 * S * 1.3,
-              gap: 18 * S
+              ls: isArabic ? 0 : 0.1 * rules.recipient.fontSize,
+              lh: rules.recipient.lineHeight,
+              gap: rules.recipient.gap
             });
           }
           msgLines.forEach((ln, i) => rows.push({
             type: "text",
             t: ln,
-            f: isArabic ? `400 ${20 * S}px "Noto Naskh Arabic", serif` : `italic 400 ${20 * S}px "Playfair Display", Georgia, serif`,
+            f: isArabic ? `400 ${rules.message.fontSize}px "Noto Naskh Arabic", serif` : `italic 400 ${rules.message.fontSize}px "Playfair Display", Georgia, serif`,
             color: "#F3ECDD",
-            lh: 20 * S * 1.32,
+            lh: rules.message.lineHeight,
             shadow: true,
-            gap: i === msgLines.length - 1 ? 18 * S : 0
+            gap: i === msgLines.length - 1 ? rules.message.gap : 0
           }));
-          rows.push({ type: "rule", h: 2 * S, w: 44 * S, gap: data.senderName ? 14 * S : 0 });
+          rows.push({ type: "rule", h: rules.separator.height, w: rules.separator.width, gap: data.senderName ? rules.separator.gap : 0 });
           if (data.senderName) {
             rows.push({
               type: "text",
               t: data.senderName,
-              f: isArabic ? `500 ${12 * S}px "Noto Sans Arabic", sans-serif` : `500 ${12 * S}px "JetBrains Mono", monospace`,
+              f: isArabic ? `500 ${rules.sender.fontSize}px "Noto Sans Arabic", sans-serif` : `500 ${rules.sender.fontSize}px "JetBrains Mono", monospace`,
               color: "rgba(238,232,220,0.82)",
-              ls: isArabic ? 0 : 0.08 * 12 * S,
-              lh: 12 * S * 1.3,
+              ls: isArabic ? 0 : 0.08 * rules.sender.fontSize,
+              lh: rules.sender.lineHeight,
               gap: 0
             });
           }
@@ -824,91 +845,90 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
         )}
 
         {/* interactive stage (scaled to fit width & height) */}
-        <div ref={wrapRef} style={{ width: "100%", maxWidth: stageW, margin: "0 auto", height: stageH * scale, position: "relative" }}>
-          <div
-            ref={stageRef}
+        {showReveal ? (
+          <div ref={cardRef} id="revealCard" className="reveal-card-wrapper"
             style={{
-              width: stageW,
-              height: stageH,
-              transform: `translateX(-50%) scale(${scale})`,
-              transformOrigin: "top center",
-              position: "absolute",
-              top: 0,
-              left: "50%",
-              background: showReveal ? "transparent" : "#FAF8EC",
-              borderRadius: 16,
-              boxShadow: showReveal ? "none" : "0 4px 24px rgba(5,5,5,0.06)"
-            }}
-          >
-            {/* board frame — hidden when solved to avoid background tray showing */}
-            {!showReveal && (
+              position: "relative",
+              width: "100%",
+              aspectRatio: `${deviceWallpaper.width} / ${deviceWallpaper.height}`,
+              maxWidth: "420px",
+              margin: "0 auto",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              overflow: "hidden",
+              borderRadius: "20px",
+              boxShadow: "0 10px 30px rgba(5,5,5,0.15)",
+              zIndex: 40,
+              animation: "jzFade 0.6s ease"
+            }}>
+            <div className="reveal-card" style={{ width: "100%", height: "100%", position: "relative", display: "block" }}>
+              {revealState === 'error' ? (
+                <div style={{ width: "100%", height: "100%", background: "#FAF8EC", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                  <div style={{ color: "#7a1c1c", fontWeight: 600, fontSize: 16, marginBottom: 8, fontFamily: "Archia, sans-serif" }}>{t('receive.errors.revealLoadFailed')}</div>
+                  <button type="button" onClick={() => {
+                    setRevealState('completing');
+                    setRetryTrigger(prev => prev + 1);
+                  }} style={{ background: "#050505", color: "#FAF8EC", border: "none", borderRadius: 999, padding: "10px 20px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: "Archia, sans-serif" }}>
+                    {t('common.retry')}
+                  </button>
+                </div>
+              ) : revealObjectUrl ? (
+                <img src={revealObjectUrl} alt={t('receive.cardAlt')} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              ) : (
+                <RenderFallbackCard data={data} t={t} rules={getCompositionRules(cardDims.width, cardDims.height)} />
+              )}
+            </div>
+
+            {/* Puzzle Reveal Transition beat — plays over the card exactly, then dissolves */}
+            {loaderRunning && <RevealBeat radius={100} />}
+          </div>
+        ) : (
+          <div ref={wrapRef} style={{ width: "100%", maxWidth: stageW, margin: "0 auto", height: stageH * scale, position: "relative" }}>
+            <div
+              ref={stageRef}
+              style={{
+                width: stageW,
+                height: stageH,
+                transform: `translateX(-50%) scale(${scale})`,
+                transformOrigin: "top center",
+                position: "absolute",
+                top: 0,
+                left: "50%",
+                background: "#FAF8EC",
+                borderRadius: 16,
+                boxShadow: "0 4px 24px rgba(5,5,5,0.06)"
+              }}
+            >
+              {/* board frame — hidden when solved to avoid background tray showing */}
               <div style={{ position: "absolute", left: PAD, top: PAD, width: BW, height: BH, borderRadius: 14,
                 zIndex: 0, boxShadow: "inset 0 0 0 1.5px rgba(5,5,5,0.16)", background: "rgba(5,5,5,0.02)" }} />
-            )}
 
-            {/* pieces — positioned with GPU-friendly translate3d */}
-            {!showReveal && homes.map((h, i) => {
-              const pos = positions[i];
-              const d = piecePath(h.r, h.c, cols, rows, pieceW, pieceH, edgeMap);
-              return (
-                <div key={i} data-piece={i}
-                  ref={(el) => { pieceRefs.current[i] = el; }}
-                  onPointerDown={(e) => onDown(i, e)}
-                  style={{ position: "absolute", left: 0, top: 0, width: elemW, height: elemH,
-                    transform: `translate3d(${pos.x - tabPad}px, ${pos.y - tabPad}px, 0) rotate(${pos.rot || 0}deg)`,
-                    transition: SETTLE, cursor: placed[i] ? "default" : "grab", touchAction: "none",
-                    zIndex: placed[i] ? 10 : 20, filter: REST_SHADOW }}>
-                  <svg viewBox={`${-tabPad} ${-tabPad} ${elemW} ${elemH}`} width={elemW} height={elemH} style={{ display: "block", pointerEvents: "none", overflow: "visible" }}>
-                    <defs><clipPath id={`rp-${i}`}><path d={d} /></clipPath></defs>
-                    <g clipPath={`url(#rp-${i})`}>
-                      <image href={data.cropImageUrl} x={-h.c * pieceW} y={-h.r * pieceH} width={BW} height={BH} preserveAspectRatio="xMidYMid slice" />
-                    </g>
-                    <path d={d} fill="none" stroke="rgba(5,5,5,0.32)" strokeWidth="1.1" />
-                  </svg>
-                </div>
-              );
-            })}
-
-            {/* reveal card (also the download target) */}
-            {showReveal && (
-              <div ref={cardRef} id="revealCard" className="reveal-card-wrapper"
-                style={{
-                  position: "relative",
-                  height: "100%",
-                  aspectRatio: "9 / 16",
-                  marginInline: "auto",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  overflow: "hidden",
-                  borderRadius: "14px",
-                  zIndex: 40,
-                  animation: "jzFade 0.6s ease"
-                }}>
-                <div className="reveal-card" style={{ width: "100%", height: "100%", position: "relative", display: "block", marginInline: "auto", left: "auto", right: "auto", transform: "none" }}>
-                  {revealState === 'error' ? (
-                    <div style={{ width: "100%", height: "100%", background: "#FAF8EC", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
-                      <div style={{ color: "#7a1c1c", fontWeight: 600, fontSize: 16, marginBottom: 8, fontFamily: "Archia, sans-serif" }}>{t('receive.errors.revealLoadFailed')}</div>
-                      <button type="button" onClick={() => {
-                        setRevealState('completing');
-                        setRetryTrigger(prev => prev + 1);
-                      }} style={{ background: "#050505", color: "#FAF8EC", border: "none", borderRadius: 999, padding: "10px 20px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: "Archia, sans-serif" }}>
-                        {t('common.retry')}
-                      </button>
-                    </div>
-                  ) : revealObjectUrl ? (
-                    <img src={revealObjectUrl} alt={t('receive.cardAlt')} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                  ) : (
-                    <RenderFallbackCard data={data} t={t} />
-                  )}
-                </div>
-
-                {/* Puzzle Reveal Transition beat — plays over the card exactly, then dissolves */}
-                {loaderRunning && <RevealBeat radius={100} />}
-              </div>
-            )}
+              {/* pieces — positioned with GPU-friendly translate3d */}
+              {homes.map((h, i) => {
+                const pos = positions[i];
+                const d = piecePath(h.r, h.c, cols, rows, pieceW, pieceH, edgeMap);
+                return (
+                  <div key={i} data-piece={i}
+                    ref={(el) => { pieceRefs.current[i] = el; }}
+                    onPointerDown={(e) => onDown(i, e)}
+                    style={{ position: "absolute", left: 0, top: 0, width: elemW, height: elemH,
+                      transform: `translate3d(${pos.x - tabPad}px, ${pos.y - tabPad}px, 0) rotate(${pos.rot || 0}deg)`,
+                      transition: SETTLE, cursor: placed[i] ? "default" : "grab", touchAction: "none",
+                      zIndex: placed[i] ? 10 : 20, filter: REST_SHADOW }}>
+                    <svg viewBox={`${-tabPad} ${-tabPad} ${elemW} ${elemH}`} width={elemW} height={elemH} style={{ display: "block", pointerEvents: "none", overflow: "visible" }}>
+                      <defs><clipPath id={`rp-${i}`}><path d={d} /></clipPath></defs>
+                      <g clipPath={`url(#rp-${i})`}>
+                        <image href={data.cropImageUrl} x={-h.c * pieceW} y={-h.r * pieceH} width={BW} height={BH} preserveAspectRatio="xMidYMid slice" />
+                      </g>
+                      <path d={d} fill="none" stroke="rgba(5,5,5,0.32)" strokeWidth="1.1" />
+                    </svg>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* solved controls */}
         {showReveal && !loaderRunning && (
@@ -945,9 +965,10 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
   );
 }
 
-const RenderFallbackCard = ({ data, t }) => {
+const RenderFallbackCard = ({ data, t, rules }) => {
   const isArabic = /[\u0600-\u06FF]/.test(data.message || "");
   const recipientName = data.recipient?.name || data.toName || '';
+  const msgLines = (data.message || "").split("\n");
   
   return (
     <div style={{
@@ -985,32 +1006,35 @@ const RenderFallbackCard = ({ data, t }) => {
         left: 0,
         width: "100%",
         height: "100%",
-        background: "radial-gradient(circle at 50% 42%, rgba(23,19,13,0.34) 0%, rgba(5,5,5,0.76) 78%, rgba(5,5,5,0.76) 100%)",
+        background: `radial-gradient(circle at ${rules.cx}px ${rules.cy}px, rgba(23,19,13,0.34) 0%, rgba(5,5,5,0.76) 78%, rgba(5,5,5,0.76) 100%)`,
         zIndex: 1
       }} />
       
       {/* Content wrapper */}
       <div style={{
-        position: "relative",
+        position: "absolute",
         zIndex: 2,
-        width: "100%",
-        padding: "32px",
-        boxSizing: "border-box",
+        top: `${rules.topSafe}px`,
+        bottom: `${rules.bottomSafe}px`,
+        left: `${rules.horizontalPadding}px`,
+        right: `${rules.horizontalPadding}px`,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        textAlign: "center"
+        textAlign: "center",
+        boxSizing: "border-box"
       }}>
         {/* Recipient Name */}
         {recipientName && (
           <div style={{
             color: "#E6C67F",
-            fontSize: "12px",
+            fontSize: `${rules.recipient.fontSize}px`,
+            lineHeight: `${rules.recipient.lineHeight}px`,
             fontWeight: 500,
-            letterSpacing: isArabic ? "normal" : "0.1em",
+            letterSpacing: isArabic ? "normal" : `${0.1 * rules.recipient.fontSize}px`,
             fontFamily: isArabic ? "'Noto Sans Arabic', sans-serif" : "'JetBrains Mono', monospace",
-            marginBottom: "16px",
+            marginBottom: `${rules.recipient.gap}px`,
             textTransform: "uppercase"
           }}>
             {recipientName}
@@ -1018,15 +1042,15 @@ const RenderFallbackCard = ({ data, t }) => {
         )}
         
         {/* Message */}
-        {(data.message || "").split("\n").map((line, idx) => (
+        {msgLines.map((line, idx) => (
           <p key={idx} style={{
             color: "#F3ECDD",
-            fontSize: "18px",
+            fontSize: `${rules.message.fontSize}px`,
+            lineHeight: `${rules.message.lineHeight}px`,
             fontStyle: isArabic ? "normal" : "italic",
             fontFamily: isArabic ? "'Noto Naskh Arabic', serif" : "'Playfair Display', Georgia, serif",
-            lineHeight: 1.4,
-            margin: "0 0 8px 0",
-            textShadow: "0 2px 4px rgba(0,0,0,0.5)"
+            margin: `0 0 ${idx === msgLines.length - 1 ? rules.message.gap : 0}px 0`,
+            textShadow: `0 ${2 * rules.S}px ${9 * rules.S}px rgba(5,5,5,0.92)`
           }}>
             {line}
           </p>
@@ -1034,19 +1058,20 @@ const RenderFallbackCard = ({ data, t }) => {
         
         {/* Separator */}
         <div style={{
-          width: "40px",
-          height: "1.5px",
+          width: `${rules.separator.width}px`,
+          height: `${rules.separator.height}px`,
           background: "rgba(243,236,221,0.5)",
-          margin: "16px 0"
+          marginBottom: `${data.senderName ? rules.separator.gap : 0}px`
         }} />
         
         {/* Sender Name */}
         {data.senderName && (
           <div style={{
             color: "rgba(238,232,220,0.82)",
-            fontSize: "11.5px",
+            fontSize: `${rules.sender.fontSize}px`,
+            lineHeight: `${rules.sender.lineHeight}px`,
             fontWeight: 500,
-            letterSpacing: isArabic ? "normal" : "0.08em",
+            letterSpacing: isArabic ? "normal" : `${0.08 * rules.sender.fontSize}px`,
             fontFamily: isArabic ? "'Noto Sans Arabic', sans-serif" : "'JetBrains Mono', monospace",
             textTransform: "uppercase"
           }}>
