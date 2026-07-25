@@ -1,6 +1,16 @@
 const dotenv = require('dotenv');
 const path = require('path');
-dotenv.config();
+const fs = require('fs');
+const prodEnvPath = path.resolve(__dirname, '../../.env.production');
+const prodLocalEnvPath = path.resolve(__dirname, '../../.env.production.local');
+
+if (fs.existsSync(prodLocalEnvPath)) {
+  dotenv.config({ path: prodLocalEnvPath });
+} else if (fs.existsSync(prodEnvPath)) {
+  dotenv.config({ path: prodEnvPath });
+} else {
+  dotenv.config();
+}
 
 const connectDB = require('../src/config/database');
 const Puzzle = require('../src/models/Puzzle');
