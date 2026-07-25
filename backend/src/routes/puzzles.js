@@ -264,6 +264,10 @@ router.post('/recovery', async (req, res, next) => {
         paymentStatus: order ? order.paymentStatus : 'unpaid',
         checkoutUrl: order ? order.paymentReference : null
       }
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 /**
