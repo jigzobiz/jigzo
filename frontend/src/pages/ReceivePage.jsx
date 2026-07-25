@@ -412,18 +412,57 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
 
   const [cardDims, setCardDims] = useState({ width: 340, height: 604 });
 
+  const fitReveal = useCallback(() => {
+    if (!showReveal) return;
+    const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const viewportWidth = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+
+    // Reserve 230px space for header, language switcher, buttons, and padding
+    const reservedHeight = 230;
+    const maxCardH = Math.max(250, viewportHeight - reservedHeight);
+
+    const aspect = deviceWallpaper.width / deviceWallpaper.height;
+
+    let cardW = viewportWidth - 28;
+    if (cardW > 420) cardW = 420;
+
+    let cardH = cardW / aspect;
+
+    if (cardH > maxCardH) {
+      cardH = maxCardH;
+      cardW = cardH * aspect;
+    }
+
+    setCardDims({ width: Math.round(cardW), height: Math.round(cardH) });
+  }, [showReveal, deviceWallpaper]);
+
   useEffect(() => {
-    if (!showReveal || !cardRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        const { width, height } = entry.contentRect;
-        if (width > 0 && height > 0) {
-          setCardDims({ width, height });
-        }
+    if (!showReveal) return;
+    fitReveal();
+    window.addEventListener("resize", fitReveal);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", fitReveal);
+    }
+    return () => {
+      window.removeEventListener("resize", fitReveal);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", fitReveal);
       }
-    });
-    observer.observe(cardRef.current);
-    return () => observer.disconnect();
+    };
+  }, [showReveal, fitReveal]);
+
+  useEffect(() => {
+    if (showReveal) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
   }, [showReveal]);
 
   const fit = useCallback(() => {
@@ -819,7 +858,8 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
 
   return (
     <div className="receive-page" style={{ fontFamily: "Archia,sans-serif", color: "#1C1913",
-      display: "flex", flexDirection: "column", alignItems: "center", padding: "10px 14px 20px", direction: isAr ? 'rtl' : 'ltr' }}>
+      display: "flex", flexDirection: "column", alignItems: "center", padding: "10px 14px 20px", direction: isAr ? 'rtl' : 'ltr',
+      height: showReveal ? "100dvh" : "auto", overflow: showReveal ? "hidden" : "visible" }}>
       <style>{`
         @keyframes jzFade { from { opacity:0; } to { opacity:1; } }
       `}</style>
@@ -849,9 +889,8 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
           <div ref={cardRef} id="revealCard" className="reveal-card-wrapper"
             style={{
               position: "relative",
-              width: "100%",
-              aspectRatio: `${deviceWallpaper.width} / ${deviceWallpaper.height}`,
-              maxWidth: "420px",
+              width: `${cardDims.width}px`,
+              height: `${cardDims.height}px`,
               margin: "0 auto",
               display: "flex",
               justifyContent: "center",
