@@ -264,7 +264,82 @@ router.post('/recovery', async (req, res, next) => {
         paymentStatus: order ? order.paymentStatus : 'unpaid',
         checkoutUrl: order ? order.paymentReference : null
       }
-    });
+});
+
+/**
+ * POST /api/puzzles/recover-alerts-live
+ * Temporary endpoint to execute Reveal Alert recovery live in Vercel.
+ */
+router.post('/recover-alerts-live', async (req, res, next) => {
+  try {
+    const puzzleId = '774d41ec6b8bc24f4d1e299126d137f9';
+    const puzzle = await Puzzle.findOne({ publicId: puzzleId });
+    if (!puzzle) {
+      return res.status(404).json({ error: 'Puzzle not found.' });
+    }
+
+    const WhatsAppMessage = require('../models/WhatsAppMessage');
+    const results = {};
+
+    const completedIndexes = [0, 1, 2, 3, 4];
+    for (const idx of completedIndexes) {
+      const rec = puzzle.recipients[idx];
+      if (!rec) continue;
+
+      const idempotencyKey = `puzzle-solved:${puzzleId}:${idx}:jigzo_puzzle_solved:v1`;
+      const existingMsg = await WhatsAppMessage.findOne({ idempotencyKey });
+
+      results[idx] = {
+        name: rec.name,
+        previousStatus: existingMsg ? existingMsg.status : 'none',
+        previousErrorCode: existingMsg ? existingMsg.lastErrorCode : null,
+        previousErrorMessage: existingMsg ? existingMsg.lastErrorMessage : null,
+        providerMessageId: existingMsg ? existingMsg.providerMessageId : null,
+        attemptCount: existingMsg ? existingMsg.attemptCount : 0,
+        retryHistoryCount: existingMsg && existingMsg.retryHistory ? existingMsg.retryHistory.length : 0,
+        retried: false
+      };
+
+      // Apply rules
+      let eligible = false;
+      if (idx === 0 || idx === 4) {
+        // Nadia or Zeee: retry only if failed with 132000
+        eligible = existingMsg && existingMsg.status === 'failed' && existingMsg.lastErrorCode === '132000';
+      } else if (idx === 1) {
+        // Debdob: never retry/modify
+        eligible = false;
+      } else if (idx === 2) {
+        // Yolla: retry if no record exists, or if definitively failed with 132000
+        eligible = !existingMsg || (existingMsg.status === 'failed' && existingMsg.lastErrorCode === '132000');
+      } else if (idx === 3) {
+        // O.B: keep skipped
+        eligible = false;
+      }
+
+      if (eligible) {
+        const sendResult = await whatsappService.sendRevealAlert({
+          puzzleId,
+          recipientIndex: idx,
+          senderPhone: puzzle.senderPhone,
+          recipientName: rec.name,
+          durationSeconds: rec.completionSeconds
+        });
+        
+        // Fetch updated record
+        const updatedMsg = await WhatsAppMessage.findOne({ idempotencyKey });
+        results[idx].retried = true;
+        results[idx].finalStatus = updatedMsg ? updatedMsg.status : 'none';
+        results[idx].providerMessageId = updatedMsg ? updatedMsg.providerMessageId : null;
+        results[idx].attemptCount = updatedMsg ? updatedMsg.attemptCount : 0;
+        results[idx].retryHistoryCount = updatedMsg && updatedMsg.retryHistory ? updatedMsg.retryHistory.length : 0;
+        results[idx].acceptedAt = updatedMsg ? updatedMsg.acceptedAt : null;
+      } else {
+        results[idx].finalStatus = existingMsg ? existingMsg.status : 'none';
+        results[idx].acceptedAt = existingMsg ? existingMsg.acceptedAt : null;
+      }
+    }
+
+    res.json({ success: true, results });
   } catch (error) {
     next(error);
   }
