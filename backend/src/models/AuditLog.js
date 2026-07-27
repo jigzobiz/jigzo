@@ -7,7 +7,11 @@ const AuditLogSchema = new mongoose.Schema({
   targetId: { type: String },
   ipAddress: { type: String },
   userAgent: { type: String },
+  beforeValues: { type: mongoose.Schema.Types.Mixed },
+  afterValues: { type: mongoose.Schema.Types.Mixed },
+  reason: { type: String },
   timestamp: { type: Date, default: Date.now }
-});
+}, { collection: 'auditlogs' });
 
 module.exports = mongoose.model('AuditLog', AuditLogSchema);
+
