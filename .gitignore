@@ -20,3 +20,5 @@ backend/uploads/
 Thumbs.db
 # Local environment overrides
 **/.env.local
+.env*
+.vercel

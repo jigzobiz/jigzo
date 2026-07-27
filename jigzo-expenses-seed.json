@@ -1,0 +1,262 @@
+{
+  "source": "JIGZO_Expenses.xlsx",
+  "importType": "one_time_migration",
+  "expectedRecordCount": 15,
+  "expectedTotalBHD": "930.538",
+  "baseCurrency": "BHD",
+  "historicalImportRule": "Preserve every imported original amount, currency, historical rate, and BHD amount exactly. Do not recalculate imported records using current or future FX rates.",
+  "categories": [
+    "Government & Licensing",
+    "Rent & Incubator",
+    "Software & Subscriptions",
+    "Marketing & Advertising",
+    "Product Samples",
+    "Shipping & Logistics",
+    "Domain & Hosting",
+    "Design & Content",
+    "Payment Gateway",
+    "Other"
+  ],
+  "vendors": [
+    "MOIC / Sijilat",
+    "MAZ Business",
+    "Anthropic (Claude)",
+    "Google",
+    "Meta (Facebook)",
+    "Alibaba",
+    "Canva",
+    "invideo",
+    "Kling AI",
+    "Tap Payments",
+    "Other"
+  ],
+  "currencyReferenceRatesFromWorkbook": [
+    {
+      "currency": "BHD",
+      "rateToBHD": "1.000",
+      "note": "Base currency"
+    },
+    {
+      "currency": "USD",
+      "rateToBHD": "0.376",
+      "note": "Workbook historical reference"
+    },
+    {
+      "currency": "EUR",
+      "rateToBHD": "0.440",
+      "note": "Workbook historical reference"
+    },
+    {
+      "currency": "GBP",
+      "rateToBHD": "0.510",
+      "note": "Workbook reference; no imported GBP expenses"
+    },
+    {
+      "currency": "SAR",
+      "rateToBHD": "0.100",
+      "note": "Workbook reference; no imported SAR expenses"
+    },
+    {
+      "currency": "AED",
+      "rateToBHD": "0.102",
+      "note": "Workbook reference; no imported AED expenses"
+    }
+  ],
+  "expenses": [
+    {
+      "migrationKey": "xlsx-2026-05-26-anthropic-claude-pro-23-usd",
+      "date": "2026-05-26",
+      "category": "Software & Subscriptions",
+      "vendor": "Anthropic (Claude)",
+      "description": "Claude Pro (26 May - 26 Jun)",
+      "originalAmount": "23.00",
+      "currency": "USD",
+      "fxRateToBHD": "0.376",
+      "amountBHD": "8.648",
+      "paymentMethod": "Visa 0524",
+      "comments": null
+    },
+    {
+      "migrationKey": "xlsx-2026-05-26-anthropic-prepaid-11-5-usd",
+      "date": "2026-05-26",
+      "category": "Software & Subscriptions",
+      "vendor": "Anthropic (Claude)",
+      "description": "Prepaid extra usage credit",
+      "originalAmount": "11.50",
+      "currency": "USD",
+      "fxRateToBHD": "0.376",
+      "amountBHD": "4.324",
+      "paymentMethod": "Visa 0524",
+      "comments": null
+    },
+    {
+      "migrationKey": "xlsx-2026-05-27-meta-old-ad-clearance-9-38-usd",
+      "date": "2026-05-27",
+      "category": "Marketing & Advertising",
+      "vendor": "Meta (Facebook)",
+      "description": "Old ad account clearance",
+      "originalAmount": "9.38",
+      "currency": "USD",
+      "fxRateToBHD": "0.376",
+      "amountBHD": "3.527",
+      "paymentMethod": null,
+      "comments": null
+    },
+    {
+      "migrationKey": "xlsx-2026-05-31-google-domain-jigzo-biz-12-eur",
+      "date": "2026-05-31",
+      "category": "Domain & Hosting",
+      "vendor": "Google",
+      "description": "Domain registration jigzo.biz (1 year)",
+      "originalAmount": "12.00",
+      "currency": "EUR",
+      "fxRateToBHD": "0.440",
+      "amountBHD": "5.280",
+      "paymentMethod": null,
+      "comments": null
+    },
+    {
+      "migrationKey": "xlsx-2026-06-17-moic-new-cr-50-bhd",
+      "date": "2026-06-17",
+      "category": "Government & Licensing",
+      "vendor": "MOIC / Sijilat",
+      "description": "New CR without license (CR 197771-1)",
+      "originalAmount": "50.000",
+      "currency": "BHD",
+      "fxRateToBHD": "1.000",
+      "amountBHD": "50.000",
+      "paymentMethod": "Online",
+      "comments": null
+    },
+    {
+      "migrationKey": "xlsx-2026-06-21-maz-incubator-660-bhd",
+      "date": "2026-06-21",
+      "category": "Rent & Incubator",
+      "vendor": "MAZ Business",
+      "description": "Incubator unit INC-23, 12 months rent to 20 Jun 2027",
+      "originalAmount": "660.000",
+      "currency": "BHD",
+      "fxRateToBHD": "1.000",
+      "amountBHD": "660.000",
+      "paymentMethod": "Bank transfer",
+      "comments": "Ref APP2606200001018"
+    },
+    {
+      "migrationKey": "xlsx-2026-06-24-alibaba-product-samples-34-33-usd",
+      "date": "2026-06-24",
+      "category": "Product Samples",
+      "vendor": "Alibaba",
+      "description": "Product samples",
+      "originalAmount": "34.33",
+      "currency": "USD",
+      "fxRateToBHD": "0.376",
+      "amountBHD": "12.908",
+      "paymentMethod": null,
+      "comments": null
+    },
+    {
+      "migrationKey": "xlsx-2026-06-24-alibaba-shipping-88-37-usd",
+      "date": "2026-06-24",
+      "category": "Shipping & Logistics",
+      "vendor": "Alibaba",
+      "description": "Sample shipping",
+      "originalAmount": "88.37",
+      "currency": "USD",
+      "fxRateToBHD": "0.376",
+      "amountBHD": "33.227",
+      "paymentMethod": null,
+      "comments": null
+    },
+    {
+      "migrationKey": "xlsx-2026-06-30-google-workspace-5-21-eur",
+      "date": "2026-06-30",
+      "category": "Software & Subscriptions",
+      "vendor": "Google",
+      "description": "Google Workspace Business Standard (8-30 Jun)",
+      "originalAmount": "5.21",
+      "currency": "EUR",
+      "fxRateToBHD": "0.440",
+      "amountBHD": "2.292",
+      "paymentMethod": "Auto-charge",
+      "comments": null
+    },
+    {
+      "migrationKey": "xlsx-2026-06-30-anthropic-claude-pro-23-usd",
+      "date": "2026-06-30",
+      "category": "Software & Subscriptions",
+      "vendor": "Anthropic (Claude)",
+      "description": "Claude Pro (30 Jun - 30 Jul)",
+      "originalAmount": "23.00",
+      "currency": "USD",
+      "fxRateToBHD": "0.376",
+      "amountBHD": "8.648",
+      "paymentMethod": "Account credit",
+      "comments": null
+    },
+    {
+      "migrationKey": "xlsx-2026-07-08-moic-license-activity-bcci-128-bhd",
+      "date": "2026-07-08",
+      "category": "Government & Licensing",
+      "vendor": "MOIC / Sijilat",
+      "description": "Get License BD20 + Activity fee BD100 + BCCI BD8",
+      "originalAmount": "128.000",
+      "currency": "BHD",
+      "fxRateToBHD": "1.000",
+      "amountBHD": "128.000",
+      "paymentMethod": "Online",
+      "comments": "Renewals due 17 Jun 2027 (BD28) and 8 Jul 2027 (BD100)"
+    },
+    {
+      "migrationKey": "xlsx-2026-07-11-google-antigravity-5-49-usd",
+      "date": "2026-07-11",
+      "category": "Software & Subscriptions",
+      "vendor": "Google",
+      "description": "Antigravity",
+      "originalAmount": "5.49",
+      "currency": "USD",
+      "fxRateToBHD": "0.376",
+      "amountBHD": "2.064",
+      "paymentMethod": null,
+      "comments": null
+    },
+    {
+      "migrationKey": "xlsx-2026-07-13-canva-0-5-bhd",
+      "date": "2026-07-13",
+      "category": "Design & Content",
+      "vendor": "Canva",
+      "description": "Canva",
+      "originalAmount": "0.500",
+      "currency": "BHD",
+      "fxRateToBHD": "1.000",
+      "amountBHD": "0.500",
+      "paymentMethod": null,
+      "comments": null
+    },
+    {
+      "migrationKey": "xlsx-2026-07-26-invideo-ai-plus-20-usd",
+      "date": "2026-07-26",
+      "category": "Software & Subscriptions",
+      "vendor": "invideo",
+      "description": "invideo AI Plus (26 Jul - 26 Aug)",
+      "originalAmount": "20.00",
+      "currency": "USD",
+      "fxRateToBHD": "0.376",
+      "amountBHD": "7.520",
+      "paymentMethod": "Mastercard 0887",
+      "comments": null
+    },
+    {
+      "migrationKey": "xlsx-2026-07-27-tap-live-test-3-6-bhd",
+      "date": "2026-07-27",
+      "category": "Payment Gateway",
+      "vendor": "Tap Payments",
+      "description": "Live purchase testing on jigzo.biz",
+      "originalAmount": "3.600",
+      "currency": "BHD",
+      "fxRateToBHD": "1.000",
+      "amountBHD": "3.600",
+      "paymentMethod": null,
+      "comments": null
+    }
+  ]
+}
