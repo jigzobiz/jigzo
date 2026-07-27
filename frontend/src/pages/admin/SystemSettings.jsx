@@ -8,7 +8,7 @@ export default function SystemSettings() {
   if (loading) return <><PageHeader title="System" explain={EXPLAIN} /><Loading /></>;
   if (error) return <><PageHeader title="System" explain={EXPLAIN} /><ErrorNote error={error} /></>;
 
-  const { services, fxRates, categories, vendors, auditLogs } = data;
+  const { services, expenseReferenceRates, liveCheckoutPricing, categories, vendors, auditLogs } = data;
 
   return (
     <>
@@ -24,30 +24,32 @@ export default function SystemSettings() {
           ))}
         </Card>
 
-        <Card title="FX rates" subtitle="Reference rates to BHD">
-          <DataTable
-            columns={[
-              { key: 'currency', label: 'Currency' },
-              { key: 'rateToBHD', label: 'Rate → BHD', align: 'right' },
-              { key: 'isPegged', label: 'Pegged', render: (r) => r.isPegged ? 'yes' : 'no' },
-              { key: 'source', label: 'Source' }
-            ]}
-            rows={fxRates.map((f, i) => ({ ...f, _key: f.currency || i }))}
-            emptyText="No FX rates."
-          />
+        <Card title="Live checkout pricing" subtitle="Authoritative BHD charge engine">
+          <div style={{ fontSize: 13.5, color: T.ink74, lineHeight: 1.6 }}>{liveCheckoutPricing.engine}</div>
+          <div style={{ fontSize: 12.5, color: T.ink50, marginTop: 8, lineHeight: 1.6 }}>{liveCheckoutPricing.note}</div>
         </Card>
       </div>
 
+      <Card title="Expense / reference FX rates" subtitle="Historical workbook defaults for expense records — NOT the live checkout pricing source. Editing a reference rate must never change historical sales or expenses." style={{ marginTop: 16 }}>
+        <DataTable
+          columns={[
+            { key: 'currency', label: 'Currency', render: (r) => <span style={{ fontWeight: 700 }}>{r.currency}</span> },
+            { key: 'rateToBHD', label: 'Rate → BHD', align: 'right' },
+            { key: 'pegType', label: 'Peg', render: (r) => <span style={{ color: T.ink66 }}>{r.pegType}</span> },
+            { key: 'pegged', label: 'Pegged', render: (r) => <Badge tone={r.pegged ? 'good' : 'neutral'}>{r.pegged ? 'pegged' : 'floating'}</Badge> },
+            { key: 'source', label: 'Source' }
+          ]}
+          rows={expenseReferenceRates.map((f, i) => ({ ...f, _key: f.currency || i }))}
+          emptyText="No FX rates."
+        />
+      </Card>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginTop: 16 }}>
         <Card title={`Categories (${categories.length})`}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {categories.length ? categories.map((c) => <Badge key={c}>{c}</Badge>) : <span style={{ color: T.ink50, fontSize: 13 }}>None</span>}
-          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>{categories.length ? categories.map((c) => <Badge key={c}>{c}</Badge>) : <span style={{ color: T.ink50, fontSize: 13 }}>None</span>}</div>
         </Card>
         <Card title={`Vendors (${vendors.length})`}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {vendors.length ? vendors.map((v) => <Badge key={v}>{v}</Badge>) : <span style={{ color: T.ink50, fontSize: 13 }}>None</span>}
-          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>{vendors.length ? vendors.map((v) => <Badge key={v}>{v}</Badge>) : <span style={{ color: T.ink50, fontSize: 13 }}>None</span>}</div>
         </Card>
       </div>
 
@@ -70,4 +72,4 @@ export default function SystemSettings() {
 }
 
 const EXPLAIN =
-  'The technical health of JIGZO in one place: which services are enabled (checkout, WhatsApp, email), the reference FX rates used to convert to BHD, the expense categories and vendors, and a read-only audit log of admin and migration events.';
+  'The technical health of JIGZO: which services are enabled, the live checkout pricing engine versus the historical expense/reference FX rates (clearly separated, with peg relationships), expense categories and vendors, and a read-only audit log of admin and migration events.';

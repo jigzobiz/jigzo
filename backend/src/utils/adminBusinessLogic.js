@@ -1,0 +1,157 @@
+/**
+ * Shared admin business-logic utilities.
+ *
+ * Every admin surface (Home, Customers, Customer Detail, Orders & Puzzles,
+ * Delivery Centre, Finance) MUST derive its figures from these helpers so the
+ * whole portal counts, dedupes and converts money identically.
+ *
+ * Money rules:
+ *  - The authoritative BHD sale amount is the amount actually captured by Tap,
+ *    stored on the order as `finalBhdFils` (integer minor units, 1 BHD = 1000).
+ *  - A localised display amount (e.g. AED 35) is NEVER multiplied by an
+ *    unrelated USD->BHD rate to produce the BHD sale value.
+ *  - Historical expense-workbook FX rates are for expense records only and are
+ *    never used as the live sale/checkout pricing engine.
+ */
+
+const THREE_DECIMAL_CURRENCIES = ['BHD', 'KWD', 'OMR', 'LYD', 'IQD', 'TND'];
+
+/** A completed order is one whose payment was actually captured. */
+function isCompletedPaidOrder(order) {
+  return !!order && order.paymentStatus === 'paid';
+}
+
+/**
+ * An abandoned / incomplete checkout: a real attempt (customer info exists)
+ * that never captured payment.
+ */
+function isAbandonedCheckout(order) {
+  return !!order && (order.paymentStatus === 'pending' || order.paymentStatus === 'failed');
+}
+
+/**
+ * The authoritative BHD amount for a sale, taken from what Tap actually
+ * captured. Returns a 3-decimal string, or null when it cannot be determined
+ * WITHOUT inventing a conversion.
+ */
+function getAuthoritativeBhdSaleAmount(order) {
+  if (!order) return null;
+  if (order.finalBhdFils !== undefined && order.finalBhdFils !== null && !isNaN(Number(order.finalBhdFils))) {
+    return (Number(order.finalBhdFils) / 1000).toFixed(3);
+  }
+  // Only trust order.total when the charge currency itself was BHD.
+  if (order.currency === 'BHD' && order.total !== undefined && order.total !== null) {
+    return Number(order.total).toFixed(3);
+  }
+  return null; // Unknown — never fabricate via an unrelated FX rate.
+}
+
+/** Normalised customer identity key: digits of the sender phone (E.164-ish). */
+function normalizeCustomerIdentity(phone) {
+  return String(phone || '').replace(/\D/g, '');
+}
+
+/**
+ * The single successful puzzle document for a PAID order. Failed/abandoned
+ * duplicate puzzle attempts (a second puzzle doc for the same sender) are not
+ * returned, because they are not the puzzle the paid order points at.
+ */
+function getSuccessfulPuzzleForOrder(order, puzzleByPublicId) {
+  if (!isCompletedPaidOrder(order)) return null;
+  const pz = puzzleByPublicId instanceof Map ? puzzleByPublicId.get(order.puzzleId) : puzzleByPublicId[order.puzzleId];
+  return pz || null;
+}
+
+/**
+ * Count of paid recipient-specific puzzles: recipients belonging only to the
+ * puzzles of captured/paid orders. One paid order with five recipients = 5.
+ * A duplicate failed puzzle attempt for the same customer does NOT add to this.
+ */
+function countPaidRecipientPuzzles(orders, puzzleByPublicId) {
+  let n = 0;
+  for (const order of orders) {
+    const pz = getSuccessfulPuzzleForOrder(order, puzzleByPublicId);
+    if (pz) n += (pz.recipients && pz.recipients.length) || 0;
+  }
+  return n;
+}
+
+/**
+ * Operational state of a recipient, using the strict priority:
+ *   Solved > Opened > Delivered > Sent > Pending
+ * A solved/opened state is authoritative even if provider delivery
+ * confirmation was never recorded.
+ */
+function getRecipientOperationalState(r) {
+  if (!r) return 'pending';
+  if (r.completedAt) return 'solved';
+  if (r.openedAt) return 'opened';
+  const ds = r.deliveryStatus || 'pending';
+  if (ds === 'delivered') return 'delivered';
+  if (ds === 'sent' || r.sentAt) return 'sent';
+  return 'pending';
+}
+
+/**
+ * True data conflicts only — logically impossible / genuinely contradictory
+ * data. A missing WhatsApp delivery confirmation while the recipient has
+ * opened/solved is NOT a conflict.
+ */
+function detectRecipientConflicts(r, puzzle) {
+  const conflicts = [];
+  if (!r) return conflicts;
+  const created = puzzle && puzzle.createdAt ? new Date(puzzle.createdAt).getTime() : null;
+  const solved = r.completedAt ? new Date(r.completedAt).getTime() : null;
+  const opened = r.openedAt ? new Date(r.openedAt).getTime() : null;
+
+  if (created && solved && solved < created) {
+    conflicts.push('Solved timestamp is before the puzzle was created.');
+  }
+  if (created && opened && opened < created) {
+    conflicts.push('Opened timestamp is before the puzzle was created.');
+  }
+  if (solved && opened && solved < opened) {
+    conflicts.push('Solved timestamp is before the opened timestamp.');
+  }
+  return conflicts;
+}
+
+/**
+ * Delivery-tracking label describing the provider confirmation, shown
+ * separately from the (stronger) operational state.
+ */
+function getDeliveryTracking(r) {
+  if (!r) return 'Unknown';
+  if (r.whatsappSendStatus === 'failed' || r.whatsappFailedAt) return 'Failed';
+  if (r.deliveryStatus === 'delivered' || r.whatsappDeliveredAt) return 'Delivered';
+  if (r.deliveryStatus === 'sent' || r.sentAt) return 'Sent';
+  return 'Unconfirmed';
+}
+
+/**
+ * Format a monetary amount for display in its OWN currency.
+ *  - BHD/KWD/OMR (and other 3-decimal currencies): three decimals.
+ *  - Everything else: two decimals.
+ * Returns just the number string (no currency label, no 6-decimal noise).
+ */
+function formatCurrencyAmount(amount, currency) {
+  const n = Number(amount);
+  if (!isFinite(n)) return (THREE_DECIMAL_CURRENCIES.includes(currency) ? '0.000' : '0.00');
+  return THREE_DECIMAL_CURRENCIES.includes(String(currency || '').toUpperCase())
+    ? n.toFixed(3)
+    : n.toFixed(2);
+}
+
+module.exports = {
+  THREE_DECIMAL_CURRENCIES,
+  isCompletedPaidOrder,
+  isAbandonedCheckout,
+  getAuthoritativeBhdSaleAmount,
+  normalizeCustomerIdentity,
+  getSuccessfulPuzzleForOrder,
+  countPaidRecipientPuzzles,
+  getRecipientOperationalState,
+  detectRecipientConflicts,
+  getDeliveryTracking,
+  formatCurrencyAmount
+};
