@@ -15,6 +15,7 @@ const webhooksRouter = require('./routes/webhooks');
 const interestRouter = require('./routes/interest');
 const analyticsRouter = require('./routes/analytics');
 const adminRouter = require('./routes/admin');
+const adminRebuildRouter = require('./routes/adminRebuild');
 const { router: pricingRouter } = require('./routes/pricing');
 const testRouter = require('./routes/test');
 const whatsappWebhookRouter = require('./routes/webhooks/whatsapp');
@@ -111,6 +112,7 @@ app.use('/api/orders', ordersRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/interest', interestRouter);
 app.use('/api/analytics', analyticsRouter);
+app.use('/api/admin/v2', adminRebuildRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/pricing', pricingRouter);
 

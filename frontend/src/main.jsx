@@ -5,7 +5,16 @@ import LandingPage from './pages/LandingPage';
 import CreatePage from './pages/CreatePage';
 import ReceivePage from './pages/ReceivePage';
 import TermsPage from './pages/TermsPage';
-import AdminPortal from './pages/AdminPortal';
+import AdminLayout from './pages/admin/AdminLayout';
+import Home from './pages/admin/Home';
+import Customers from './pages/admin/Customers';
+import CustomerDetail from './pages/admin/CustomerDetail';
+import Orders from './pages/admin/Orders';
+import OrderDetail from './pages/admin/OrderDetail';
+import DeliveryCentre from './pages/admin/DeliveryCentre';
+import FinanceOverview from './pages/admin/FinanceOverview';
+import Growth from './pages/admin/Growth';
+import SystemSettings from './pages/admin/SystemSettings';
 import ScrollConceptPage from './pages/ScrollConceptPage';
 import PaymentResult from './pages/PaymentResult';
 import './i18n';
@@ -39,7 +48,18 @@ const router = createBrowserRouter([
   },
   {
     path: '/admin',
-    element: <AdminPortal />
+    element: <AdminLayout />,
+    children: [
+      { index: true, element: <Home /> },
+      { path: 'customers', element: <Customers /> },
+      { path: 'customers/:customerId', element: <CustomerDetail /> },
+      { path: 'orders', element: <Orders /> },
+      { path: 'orders/:orderId', element: <OrderDetail /> },
+      { path: 'delivery', element: <DeliveryCentre /> },
+      { path: 'finance', element: <FinanceOverview /> },
+      { path: 'growth', element: <Growth /> },
+      { path: 'system', element: <SystemSettings /> }
+    ]
   },
   // Keep receive.html mapping as fallback for local dev compatibility
   {
