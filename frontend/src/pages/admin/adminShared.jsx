@@ -52,6 +52,73 @@ export async function adminGet(path) {
   }
 }
 
+function authHeaders() {
+  return { headers: { Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}` } };
+}
+async function mutate(method, base, path, body) {
+  try {
+    const url = `${getBaseUrl()}${base}${path}`;
+    const res = await axios({ method, url, data: body, ...authHeaders() });
+    return res.data;
+  } catch (err) {
+    if (err.response && err.response.status === 401) { localStorage.removeItem(TOKEN_KEY); window.location.reload(); }
+    throw err;
+  }
+}
+export const adminPost = (path, body) => mutate('post', '/api/admin/v2', path, body);
+export const adminPut = (path, body) => mutate('put', '/api/admin/v2', path, body);
+export const adminDelete = (path, body) => mutate('delete', '/api/admin/v2', path, body);
+/* Reuse of the existing, tested /api/admin routes (reveal links, waitlist email). */
+export const adminLegacyGet = (path) => mutate('get', '/api/admin', path);
+export const adminLegacyPost = (path, body) => mutate('post', '/api/admin', path, body);
+
+/* Format an amount in its own display currency (2dp, or 3dp for BHD-like). */
+const THREE_DP = ['BHD', 'KWD', 'OMR', 'LYD', 'IQD', 'TND'];
+export function formatMoney(currency, amount) {
+  const n = Number(amount);
+  const dp = THREE_DP.includes(String(currency || '').toUpperCase()) ? 3 : 2;
+  return `${currency} ${isFinite(n) ? n.toFixed(dp) : (0).toFixed(dp)}`;
+}
+
+export function Modal({ title, children, onClose, width = 520 }) {
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(28,25,19,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '6vh 16px', zIndex: 1000, overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: T.card, borderRadius: 16, boxShadow: '0 20px 60px rgba(28,25,19,0.3)', width: '100%', maxWidth: width, padding: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h2 style={{ margin: 0, fontSize: 18, color: T.ink }}>{title}</h2>
+          <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', color: T.ink50, lineHeight: 1 }}>×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function Button({ children, onClick, tone = 'default', disabled, type = 'button', size }) {
+  const map = {
+    default: { bg: T.card, fg: T.ink, bd: T.border },
+    primary: { bg: T.ink, fg: T.bg, bd: 'none' },
+    gold: { bg: T.goldWarm, fg: T.ink, bd: 'none' },
+    danger: { bg: T.redBg, fg: T.red, bd: `1px solid ${T.red}` }
+  };
+  const c = map[tone] || map.default;
+  return (
+    <button type={type} onClick={onClick} disabled={disabled} style={{ padding: size === 'sm' ? '5px 12px' : '9px 16px', borderRadius: 9, border: c.bd, background: c.bg, color: c.fg, fontSize: size === 'sm' ? 12.5 : 13.5, fontWeight: 600, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.6 : 1 }}>
+      {children}
+    </button>
+  );
+}
+
+export function Field({ label, children }) {
+  return (
+    <label style={{ display: 'block', marginBottom: 12 }}>
+      <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: T.ink66, marginBottom: 5 }}>{label}</span>
+      {children}
+    </label>
+  );
+}
+export const inputCss = { width: '100%', padding: '9px 11px', borderRadius: 9, border: T.border, background: T.bg, color: T.ink, fontSize: 13.5, outline: 'none', boxSizing: 'border-box' };
+
 /* ---- Money ---------------------------------------------------------------- */
 export function formatBHD(value) {
   const n = Number(value);

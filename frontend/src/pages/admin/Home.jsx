@@ -21,10 +21,16 @@ export default function Home() {
       </StatGrid>
 
       <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: T.goldDeep, fontWeight: 700, margin: '24px 0 10px' }}>Operations</div>
-      <StatGrid min={170}>
-        <StatTile label="Orders" value={counts.orders} hint="Paid & pending orders" />
-        <StatTile label="Puzzles" value={counts.puzzles} hint="Recipient puzzles created" />
-        <StatTile label="Customers" value={counts.customers} hint="Known customers" />
+      <StatGrid min={160}>
+        <StatTile label="Completed orders" value={counts.completedOrders} hint="Captured & paid only" tone="good" />
+        <StatTile label="Paid puzzles" value={counts.paidPuzzles} hint="Recipient puzzles on paid orders" />
+        <StatTile label="Customers" value={counts.customers} hint="Valid sender profiles" />
+      </StatGrid>
+
+      <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: T.goldDeep, fontWeight: 700, margin: '24px 0 10px' }}>Pipeline</div>
+      <StatGrid min={200}>
+        <StatTile label="Abandoned / incomplete checkouts" value={counts.abandonedCheckouts} hint="Started but never captured — not counted as orders" />
+        <StatTile label="Customers without a purchase" value={counts.customersWithoutPurchase} hint="Entered details, no completed order yet" />
       </StatGrid>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginTop: 24 }}>

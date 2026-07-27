@@ -33,6 +33,9 @@ const CustomerSchema = new mongoose.Schema({
   firstOrderAt: { type: Date },
   latestOrderAt: { type: Date },
   isArchived: { type: Boolean, default: false },
+  // Admin-only suppression for deleted test customers: keeps operational
+  // records intact while excluding the customer from all admin lists/metrics.
+  adminSuppressed: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 }, { collection: 'customers' });
