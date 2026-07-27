@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../services/api';
 import { packageForRecipientCount } from '../services/pricing';
 import { COUNTRIES } from '../config/countries';
-import { formatMoney, resolveVisitorCurrency } from '../services/jigzoPricing';
+import { formatMoney, resolveVisitorCurrency, getActiveQuote } from '../services/jigzoPricing';
 import { PACK_OPTIONS, UPGRADES } from '../config/packages';
 import { PIECE_OPTIONS, OCCASIONS, TONES, suggestedMessage } from '../config/difficulties';
 import WhatsAppPreview from '../components/WhatsAppPreview';
@@ -687,11 +687,13 @@ export default function CreatePage() {
       }
 
       // 2. Create Order
+      const activeQuote = getActiveQuote(currentPack.id, selectedUpgrades.includes("insights"));
       const orderRes = await api.createOrder({
         puzzleId: publicId,
         recipientCount: recipients.length,
         hasRevealAlert: selectedUpgrades.includes("insights"),
-        currency: resolveVisitorCurrency()
+        currency: resolveVisitorCurrency(),
+        quote: activeQuote
       });
 
       const { checkoutUrl, orderId } = orderRes.order;
@@ -1781,39 +1783,60 @@ export default function CreatePage() {
               </div>
             )}
 
-            {checkoutEnabled && (
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                padding: 12,
-                borderRadius: 12,
-                background: '#fdfbfa',
-                border: `1px solid ${T.goldWarm}40`,
-                marginBottom: 14,
-                textAlign: isAr ? 'right' : 'left',
-                direction: isAr ? 'rtl' : 'ltr'
-              }}>
+            {checkoutEnabled && (() => {
+              const activeQuoteForDisplay = getActiveQuote(currentPack.id, selectedUpgrades.includes("insights"));
+              const bhdAmountDisplay = activeQuoteForDisplay ? `BHD ${activeQuoteForDisplay.formattedBhdAmount}` : '';
+              return (
                 <div style={{
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: T.goldDeep,
-                  lineHeight: 1.35
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: 12,
+                  borderRadius: 12,
+                  background: '#fdfbfa',
+                  border: `1px solid ${T.goldWarm}40`,
+                  marginBottom: 14,
+                  textAlign: isAr ? 'right' : 'left',
+                  direction: isAr ? 'rtl' : 'ltr',
+                  gap: 12
                 }}>
-                  {t('create.review.bhdNoticeHeadline')}
+                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                    <div style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: T.goldDeep,
+                      lineHeight: 1.35
+                    }}>
+                      {t('create.review.bhdNoticeHeadline')}
+                    </div>
+                    <div style={{
+                      fontSize: 13,
+                      fontWeight: 'normal',
+                      color: T.ink74,
+                      lineHeight: 1.45,
+                      marginTop: 6
+                    }}>
+                      {currency === 'BHD'
+                        ? t('create.review.bhdNoticeBhdOnlySub')
+                        : t('create.review.bhdNoticeMulticurrencySub')}
+                    </div>
+                  </div>
+                  {bhdAmountDisplay && (
+                    <div style={{
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: T.goldDeep,
+                      whiteSpace: 'nowrap',
+                      direction: 'ltr',
+                      textAlign: 'right'
+                    }}>
+                      {bhdAmountDisplay}
+                    </div>
+                  )}
                 </div>
-                <div style={{
-                  fontSize: 13,
-                  fontWeight: 'normal',
-                  color: T.ink74,
-                  lineHeight: 1.45,
-                  marginTop: 6
-                }}>
-                  {currency === 'BHD'
-                    ? t('create.review.bhdNoticeBhdOnlySub')
-                    : t('create.review.bhdNoticeMulticurrencySub')}
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             <div className="footer-nav" style={{ flexDirection: 'column', gap: 12 }}>
               <div style={{ display: 'flex', gap: 12, width: '100%' }}>

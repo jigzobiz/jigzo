@@ -29,6 +29,12 @@ const OrderSchema = new mongoose.Schema({
   failedAt: { type: Date },
   lastPaymentError: { type: String },
   paymentAttempts: [PaymentAttemptSchema],
+  finalBhdFils: { type: Number },
+  checkoutDisplayCurrency: { type: String },
+  checkoutDisplayAmount: { type: String },
+  conversionRateUsed: { type: String },
+  conversionTimestamp: { type: Date },
+  checkoutQuoteTimestamp: { type: Date },
   createdAt: { type: Date, default: Date.now }
 });
 

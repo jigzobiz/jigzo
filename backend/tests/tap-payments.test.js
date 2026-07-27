@@ -14,6 +14,7 @@ const Order = require('../src/models/Order');
 const Puzzle = require('../src/models/Puzzle');
 const paymentService = require('../src/services/paymentService');
 const { markOrderAndPuzzlePaid } = require('../src/services/paymentCompletion');
+const { createQuote } = require('../src/utils/checkoutQuote');
 
 // Import routers for route-level handler tests
 const ordersRouter = require('../src/routes/orders');
@@ -113,6 +114,22 @@ function restoreTapRequest() {
 
 // Mock Request helper
 function makeMockReq(body) {
+  if (body && !body.quote && body.puzzleId) {
+    const rates = {
+      AED: 3.67,
+      BHD: 0.376,
+      USD: 1.0
+    };
+    const currency = body.currency || 'USD';
+    const hasRevealAlert = !!body.hasRevealAlert;
+    const count = body.recipientCount || 1;
+    let packageId = 'single';
+    if (count <= 1) packageId = 'single';
+    else if (count <= 5) packageId = 'small';
+    else if (count <= 20) packageId = 'friends';
+    else packageId = 'celebration';
+    body.quote = createQuote(packageId, hasRevealAlert, currency, rates);
+  }
   return {
     body,
     protocol: 'http',

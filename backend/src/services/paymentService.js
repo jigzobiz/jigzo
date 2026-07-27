@@ -102,9 +102,10 @@ class PaymentService {
       'lang_code': langCode
     };
 
+    const useBhd = order.finalBhdFils !== undefined && order.finalBhdFils !== null;
     const payload = {
-      amount: order.total,
-      currency: order.currency.toUpperCase(),
+      amount: useBhd ? Number((order.finalBhdFils / 1000).toFixed(3)) : order.total,
+      currency: useBhd ? 'BHD' : order.currency.toUpperCase(),
       customer_initiated: true,
       threeDSecure: true,
       save_card: false,

@@ -7,6 +7,7 @@ const paymentService = require('../services/paymentService');
 const { markOrderAndPuzzlePaid } = require('../services/paymentCompletion');
 const { getExchangeRates, SUPPORTED_CURRENCIES } = require('./pricing');
 const { getFrontendOrigin } = require('../utils/runtimeConfig');
+const { verifyQuote, calculateDisplayTotal } = require('../utils/checkoutQuote');
 
 // Helper to determine package rules by count
 function getPackageDetails(count) {
@@ -34,7 +35,7 @@ router.post('/', async (req, res, next) => {
       });
     }
 
-    const { puzzleId, recipientCount, hasRevealAlert, currency: clientCurrency } = req.body;
+    const { puzzleId, recipientCount, hasRevealAlert, currency: clientCurrency, quote } = req.body;
 
     if (!puzzleId) {
       return res.status(400).json({ error: 'puzzleId is required.' });
@@ -74,6 +75,31 @@ router.post('/', async (req, res, next) => {
     } else {
       convertedTotal = Math.ceil(rawConverted);
     }
+
+    // Verify checkout quote token
+    const verification = verifyQuote(quote);
+    if (!verification.valid) {
+      return res.status(400).json({
+        error: `Quote expired or invalid: ${verification.error}`,
+        code: 'QUOTE_EXPIRED'
+      });
+    }
+
+    const q = verification.payload;
+    if (q.packageId !== packageId) {
+      return res.status(400).json({ error: 'Quote package mismatch.', code: 'QUOTE_INVALID' });
+    }
+    if (q.hasRevealAlert !== !!hasRevealAlert) {
+      return res.status(400).json({ error: 'Quote Reveal Alert mismatch.', code: 'QUOTE_INVALID' });
+    }
+    if (q.selectedCurrency !== currency) {
+      return res.status(400).json({ error: 'Quote currency mismatch.', code: 'QUOTE_INVALID' });
+    }
+    if (q.selectedTotal !== convertedTotal) {
+      return res.status(400).json({ error: 'Quote total mismatch.', code: 'QUOTE_INVALID' });
+    }
+
+    const finalBhdFils = q.finalBhdFils;
 
     // Check if any order for this puzzle is already paid
     const paidOrder = await Order.findOne({ puzzleId: puzzle.publicId, paymentStatus: 'paid' });
@@ -137,7 +163,13 @@ router.post('/', async (req, res, next) => {
               total: order.total,
               currency: order.currency,
               paymentStatus: order.paymentStatus,
-              checkoutUrl: order.paymentReference
+              checkoutUrl: order.paymentReference,
+              finalBhdFils: order.finalBhdFils,
+              checkoutDisplayCurrency: order.checkoutDisplayCurrency,
+              checkoutDisplayAmount: order.checkoutDisplayAmount,
+              conversionRateUsed: order.conversionRateUsed,
+              conversionTimestamp: order.conversionTimestamp,
+              checkoutQuoteTimestamp: order.checkoutQuoteTimestamp
             }
           });
         }
@@ -159,7 +191,13 @@ router.post('/', async (req, res, next) => {
           addOns,
           total: convertedTotal,
           currency,
-          paymentStatus: 'pending'
+          paymentStatus: 'pending',
+          finalBhdFils,
+          checkoutDisplayCurrency: currency,
+          checkoutDisplayAmount: String(convertedTotal),
+          conversionRateUsed: String(q.crossRateUsed),
+          conversionTimestamp: new Date(q.timestamp),
+          checkoutQuoteTimestamp: new Date(q.timestamp)
         });
         await order.save();
       }
@@ -175,7 +213,13 @@ router.post('/', async (req, res, next) => {
         addOns,
         total: convertedTotal,
         currency,
-        paymentStatus: 'pending'
+        paymentStatus: 'pending',
+        finalBhdFils,
+        checkoutDisplayCurrency: currency,
+        checkoutDisplayAmount: String(convertedTotal),
+        conversionRateUsed: String(q.crossRateUsed),
+        conversionTimestamp: new Date(q.timestamp),
+        checkoutQuoteTimestamp: new Date(q.timestamp)
       });
       await order.save();
     }
@@ -265,7 +309,13 @@ router.post('/', async (req, res, next) => {
         total: order.total,
         currency: order.currency,
         paymentStatus: order.paymentStatus,
-        checkoutUrl: checkoutUrl
+        checkoutUrl: checkoutUrl,
+        finalBhdFils: order.finalBhdFils,
+        checkoutDisplayCurrency: order.checkoutDisplayCurrency,
+        checkoutDisplayAmount: order.checkoutDisplayAmount,
+        conversionRateUsed: order.conversionRateUsed,
+        conversionTimestamp: order.conversionTimestamp,
+        checkoutQuoteTimestamp: order.checkoutQuoteTimestamp
       }
     });
   } catch (error) {
@@ -295,8 +345,13 @@ router.post('/verify-payment', async (req, res, next) => {
 
     // Verify charge details
     const orderMatch = charge.reference && charge.reference.order === orderId;
-    const amountMatch = Number(charge.amount) === Number(order.total);
-    const currencyMatch = charge.currency && charge.currency.toUpperCase() === order.currency.toUpperCase();
+    const isBhdSnapshot = order.finalBhdFils !== undefined && order.finalBhdFils !== null;
+    const amountMatch = isBhdSnapshot
+      ? Math.round(Number(charge.amount) * 1000) === order.finalBhdFils
+      : Number(charge.amount) === Number(order.total);
+    const currencyMatch = isBhdSnapshot
+      ? charge.currency && charge.currency.toUpperCase() === 'BHD'
+      : charge.currency && charge.currency.toUpperCase() === order.currency.toUpperCase();
     
     let expectedLiveMode;
     try {

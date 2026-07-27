@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const https = require('https');
+const { createQuote } = require('../utils/checkoutQuote');
 
 // Supported currencies by the payment gateway
 const SUPPORTED_CURRENCIES = new Set([
@@ -183,6 +184,12 @@ router.get('/locale', async (req, res) => {
       };
     });
 
+    const bhdQuotes = {};
+    PACK_OPTIONS.forEach(pkg => {
+      bhdQuotes[`${pkg.id}_noalert`] = createQuote(pkg.id, false, currency, rates);
+      bhdQuotes[`${pkg.id}_alert`] = createQuote(pkg.id, true, currency, rates);
+    });
+
     res.json({
       success: true,
       country: country || null,
@@ -196,6 +203,7 @@ router.get('/locale', async (req, res) => {
         roundedAmount: roundPrice(5 * rate, currency),
         formatted: formatMoney(5 * rate, currency),
         packages: packagesQuote,
+        bhdQuotes,
         timestamp: Date.now()
       }
     });

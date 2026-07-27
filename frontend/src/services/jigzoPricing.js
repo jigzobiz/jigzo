@@ -62,6 +62,12 @@ export function resolveVisitorCurrency() {
   return quote.currency;
 }
 
+export function getActiveQuote(packageId, hasRevealAlert) {
+  const quote = BACKEND_QUOTE || FALLBACK_QUOTE;
+  const key = `${packageId}_${hasRevealAlert ? 'alert' : 'noalert'}`;
+  return quote.bhdQuotes ? quote.bhdQuotes[key] : null;
+}
+
 export function roundPrice(amount, currency) {
   const threeDecimalCurrencies = ['BHD', 'KWD', 'OMR', 'LYD', 'IQD', 'TND'];
   if (threeDecimalCurrencies.includes(currency)) {

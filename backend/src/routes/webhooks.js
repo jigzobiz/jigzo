@@ -38,8 +38,13 @@ router.post('/payment', async (req, res, next) => {
     }
 
     // Verify charge details match order
-    const amountMatch = Number(amount) === Number(order.total);
-    const currencyMatch = currency && currency.toUpperCase() === order.currency.toUpperCase();
+    const isBhdSnapshot = order.finalBhdFils !== undefined && order.finalBhdFils !== null;
+    const amountMatch = isBhdSnapshot
+      ? Math.round(Number(amount) * 1000) === order.finalBhdFils
+      : Number(amount) === Number(order.total);
+    const currencyMatch = isBhdSnapshot
+      ? currency && currency.toUpperCase() === 'BHD'
+      : currency && currency.toUpperCase() === order.currency.toUpperCase();
     
     let expectedLiveMode;
     try {
