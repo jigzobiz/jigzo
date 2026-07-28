@@ -34,9 +34,13 @@ function isAbandonedCheckout(order) {
  * captured. Returns a 3-decimal string, or null when it cannot be determined
  * WITHOUT inventing a conversion.
  *
- * Precedence (all are real captured/confirmed values, never an FX guess):
- *  1. sale.confirmedSettlementBHD  — admin-confirmed captured settlement (set
- *     by the idempotent Sale repair from the live Tap charge)
+ * This is the GROSS captured customer payment, used for gross sales reporting.
+ * It is deliberately NOT sale.confirmedSettlementBHD (that stays empty until a
+ * future Tap monthly statement is reconciled).
+ *
+ * Precedence (all are real captured values, never an FX guess):
+ *  1. sale.capturedAmountBHD       — gross captured payment (set by the Sale
+ *     repair from the live Tap charge, e.g. BHD 3.600)
  *  2. order.finalBhdFils / 1000    — immutable BHD snapshot from checkout
  *  3. order.total when the charge currency itself was BHD
  *  4. sale.calculatedAmountBHD/netCalculatedBHD when the sale's original
@@ -45,8 +49,8 @@ function isAbandonedCheckout(order) {
 function getAuthoritativeBhdSaleAmount(order, sale) {
   const pos = (v) => v !== undefined && v !== null && !isNaN(Number(v)) && Number(v) > 0;
 
-  if (sale && pos(sale.confirmedSettlementBHD)) {
-    return Number(sale.confirmedSettlementBHD.toString()).toFixed(3);
+  if (sale && pos(sale.capturedAmountBHD)) {
+    return Number(sale.capturedAmountBHD.toString()).toFixed(3);
   }
   if (order && order.finalBhdFils !== undefined && order.finalBhdFils !== null && !isNaN(Number(order.finalBhdFils)) && Number(order.finalBhdFils) > 0) {
     return (Number(order.finalBhdFils) / 1000).toFixed(3);

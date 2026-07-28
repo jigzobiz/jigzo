@@ -14,6 +14,9 @@ const SaleSchema = new mongoose.Schema({
   calculatedAmountBHD: { type: mongoose.Schema.Types.Decimal128, required: true },
   
   tapReference: { type: String, unique: true, sparse: true, index: true },
+  // Gross customer payment captured by Tap (e.g. BHD 3.600). This is the amount
+  // used for gross sales reporting. It is NOT a settlement figure.
+  capturedAmountBHD: { type: mongoose.Schema.Types.Decimal128 },
   paymentStatus: { type: String, enum: ['captured', 'refunded', 'failed'], required: true },
   refundAmount: { type: mongoose.Schema.Types.Decimal128, default: mongoose.Types.Decimal128.fromString('0.000000') },
   netCalculatedBHD: { type: mongoose.Schema.Types.Decimal128, required: true },
