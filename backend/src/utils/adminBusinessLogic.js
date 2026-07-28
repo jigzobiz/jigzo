@@ -33,15 +33,30 @@ function isAbandonedCheckout(order) {
  * The authoritative BHD amount for a sale, taken from what Tap actually
  * captured. Returns a 3-decimal string, or null when it cannot be determined
  * WITHOUT inventing a conversion.
+ *
+ * Precedence (all are real captured/confirmed values, never an FX guess):
+ *  1. sale.confirmedSettlementBHD  — admin-confirmed captured settlement (set
+ *     by the idempotent Sale repair from the live Tap charge)
+ *  2. order.finalBhdFils / 1000    — immutable BHD snapshot from checkout
+ *  3. order.total when the charge currency itself was BHD
+ *  4. sale.calculatedAmountBHD/netCalculatedBHD when the sale's original
+ *     currency was BHD (so no cross-rate was involved)
  */
-function getAuthoritativeBhdSaleAmount(order) {
-  if (!order) return null;
-  if (order.finalBhdFils !== undefined && order.finalBhdFils !== null && !isNaN(Number(order.finalBhdFils))) {
+function getAuthoritativeBhdSaleAmount(order, sale) {
+  const pos = (v) => v !== undefined && v !== null && !isNaN(Number(v)) && Number(v) > 0;
+
+  if (sale && pos(sale.confirmedSettlementBHD)) {
+    return Number(sale.confirmedSettlementBHD.toString()).toFixed(3);
+  }
+  if (order && order.finalBhdFils !== undefined && order.finalBhdFils !== null && !isNaN(Number(order.finalBhdFils)) && Number(order.finalBhdFils) > 0) {
     return (Number(order.finalBhdFils) / 1000).toFixed(3);
   }
-  // Only trust order.total when the charge currency itself was BHD.
-  if (order.currency === 'BHD' && order.total !== undefined && order.total !== null) {
+  if (order && order.currency === 'BHD' && order.total !== undefined && order.total !== null) {
     return Number(order.total).toFixed(3);
+  }
+  if (sale && String(sale.originalCurrency).toUpperCase() === 'BHD') {
+    const v = sale.netCalculatedBHD || sale.calculatedAmountBHD;
+    if (pos(v)) return Number(v.toString()).toFixed(3);
   }
   return null; // Unknown — never fabricate via an unrelated FX rate.
 }

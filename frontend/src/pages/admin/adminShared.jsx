@@ -141,6 +141,18 @@ export function formatDate(d) {
   return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+/* Bahrain local date + time, e.g. "24 Jul 2026, 8:42 PM". UTC stored unchanged. */
+export function formatDateTime(d, { blankWhenMissing = false } = {}) {
+  if (!d) return blankWhenMissing ? '—' : 'Not recorded';
+  const dt = new Date(d);
+  if (isNaN(dt)) return blankWhenMissing ? '—' : 'Not recorded';
+  const date = dt.toLocaleDateString('en-GB', { timeZone: 'Asia/Bahrain', day: '2-digit', month: 'short', year: 'numeric' });
+  const time = dt.toLocaleTimeString('en-US', { timeZone: 'Asia/Bahrain', hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${date}, ${time}`;
+}
+
+export const onlyDigits = (s) => String(s || '').replace(/\D/g, '');
+
 /* ---- Layout primitives ---------------------------------------------------- */
 export function PageHeader({ title, explain }) {
   return (
@@ -240,7 +252,16 @@ export function DataTable({ columns, rows, searchKeys, pageSize = 15, initialSor
   const filtered = useMemo(() => {
     if (!query.trim() || !searchKeys) return rows;
     const q = query.trim().toLowerCase();
-    return rows.filter((r) => searchKeys.some((k) => String(r[k] ?? '').toLowerCase().includes(q)));
+    const qDigits = q.replace(/\D/g, ''); // phone-normalized: 33931331 == +97333931331 == 0097333931331
+    return rows.filter((r) => searchKeys.some((k) => {
+      const raw = String(r[k] ?? '');
+      if (raw.toLowerCase().includes(q)) return true;
+      if (qDigits.length >= 3) {
+        const vd = raw.replace(/\D/g, '');
+        if (vd && vd.includes(qDigits)) return true;
+      }
+      return false;
+    }));
   }, [rows, query, searchKeys]);
 
   const sorted = useMemo(() => {

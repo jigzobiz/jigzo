@@ -13,7 +13,13 @@ export default function Growth() {
   const filtered = useMemo(() => {
     if (!data) return [];
     const q = query.trim().toLowerCase();
-    return data.list.filter((r) => !q || [r.email, r.phone, r.country, r.contactStatus].some((v) => String(v || '').toLowerCase().includes(q)));
+    const qDigits = q.replace(/\D/g, '');
+    return data.list.filter((r) => {
+      if (!q) return true;
+      if ([r.email, r.phone, r.country, r.contactStatus, r.signupSource, r.interestType, r.linkedCustomerId].some((v) => String(v || '').toLowerCase().includes(q))) return true;
+      if (qDigits.length >= 3 && String(r.phone || '').replace(/\D/g, '').includes(qDigits)) return true;
+      return false;
+    });
   }, [data, query]);
 
   if (loading) return <><PageHeader title="Growth" explain={EXPLAIN} /><Loading /></>;
@@ -29,11 +35,17 @@ export default function Growth() {
 
   return (
     <>
-      <PageHeader title="Growth" explain={EXPLAIN} />
+      <PageHeader title="Waitlist & Interest Signups" explain={EXPLAIN} />
       <StatGrid min={160}>
-        <StatTile label="Waitlist total" value={data.count} />
+        <StatTile label="Total signups" value={data.count} />
         {data.byContactStatus.map((s) => <StatTile key={s.status} label={s.status} value={s.count} />)}
+        {data.duplicateEmails > 0 && <StatTile label="Duplicate emails" value={data.duplicateEmails} tone="warn" />}
       </StatGrid>
+      {data.bySource && data.bySource.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+          {data.bySource.map((s) => <Badge key={s.source}>{s.source}: {s.count}</Badge>)}
+        </div>
+      )}
 
       <Card style={{ marginTop: 20, padding: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -48,20 +60,23 @@ export default function Growth() {
             <thead>
               <tr>
                 <th style={th}><input type="checkbox" checked={allSelected} onChange={toggleAll} /></th>
-                {['Email', 'Phone', 'Country', 'Joined', 'Contact status', 'Last contacted', 'Converted'].map((h) => <th key={h} style={th}>{h}</th>)}
+                {['Email', 'Phone', 'Country', 'Signup source', 'Interest type', 'Joined', 'Contact status', 'Last contacted', 'Linked customer', 'Converted'].map((h) => <th key={h} style={th}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? <tr><td colSpan={8} style={{ padding: 24, textAlign: 'center', color: T.ink50 }}>No waitlist entries.</td></tr>
+              {filtered.length === 0 ? <tr><td colSpan={11} style={{ padding: 24, textAlign: 'center', color: T.ink50 }}>No signup entries.</td></tr>
                 : filtered.map((r) => (
                   <tr key={r.id}>
                     <td style={td}><input type="checkbox" disabled={!r.email} checked={!!selected[r.id]} onChange={(e) => setSelected((s) => ({ ...s, [r.id]: e.target.checked }))} /></td>
-                    <td style={td}>{r.email || <span style={{ color: T.ink50 }}>—</span>}</td>
+                    <td style={td}>{r.email || <span style={{ color: T.ink50 }}>—</span>}{r.isDuplicate && <Badge tone="warn">duplicate</Badge>}</td>
                     <td style={td}>{r.phone || '—'}</td>
                     <td style={td}>{r.country || '—'}</td>
+                    <td style={td}>{r.signupSource}</td>
+                    <td style={td}>{r.interestType || <span style={{ color: T.ink50 }}>—</span>}</td>
                     <td style={td}>{formatDate(r.createdAt)}</td>
                     <td style={td}><Badge tone={contactTone(r.contactStatus)}>{r.contactStatus}</Badge></td>
                     <td style={td}>{formatDate(r.lastContactedDate)}</td>
+                    <td style={td}>{r.linkedCustomerId || <span style={{ color: T.ink50 }}>—</span>}</td>
                     <td style={td}>{r.converted ? <Badge tone="good">yes</Badge> : <span style={{ color: T.ink50 }}>no</span>}</td>
                   </tr>
                 ))}
@@ -128,4 +143,4 @@ const th = { textAlign: 'left', padding: '10px 12px', borderBottom: `2px solid $
 const td = { padding: '10px 12px', borderBottom: `1px solid ${T.ink08}`, color: T.ink74, whiteSpace: 'nowrap' };
 
 const EXPLAIN =
-  'The waitlist manager. View everyone who signed up, enrich them with admin-only follow-up metadata, and email selected contacts (or all filtered) using the existing approved send flow. Sends are idempotent — already-contacted people are skipped — and every send is audit-logged. The original waitlist records are never written to from here.';
+  'These are people who submitted their email through JIGZO’s pre-launch, waitlist or product-interest forms. Each row shows its signup source and interest type from the actual record (never guessed — unknown values show “Unknown source”), plus admin-only follow-up metadata. Repeated emails are flagged as duplicates but never auto-merged or deleted. You can email selected contacts using the existing approved send flow; sends are idempotent and audit-logged, and the original signup records are never written to from here.';

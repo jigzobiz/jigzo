@@ -39,20 +39,40 @@ function OverviewTab() {
 }
 
 function SalesTab() {
-  const { data, loading, error } = useAdminData(() => adminGet('/finance/sales'));
+  const [reload, setReload] = useState(0);
+  const [busy, setBusy] = useState('');
+  const [msg, setMsg] = useState('');
+  const { data, loading, error } = useAdminData(() => adminGet('/finance/sales'), [reload]);
   if (loading) return <Loading />;
   if (error) return <ErrorNote error={error} />;
+
+  const repair = async (orderId) => {
+    setBusy(orderId); setMsg('');
+    try {
+      const res = await adminPost(`/finance/repair-sale/${orderId}`);
+      setMsg(`Sale ${orderId} repaired: captured ${formatBHD(res.capturedBhd)} (source: ${res.source}).`);
+      setReload((n) => n + 1);
+    } catch (e) {
+      setMsg((e.response && e.response.data && e.response.data.error) || 'Repair failed.');
+    } finally { setBusy(''); }
+  };
+
+  const needsAny = data.list.some((s) => s.needsRepair);
+
   return (
     <Card style={{ padding: 16 }}>
       <div style={{ fontSize: 13, color: T.ink66, marginBottom: 12 }}>{data.capturedCount} captured sale{data.capturedCount === 1 ? '' : 's'} · total {formatBHD(data.totalBHD)} · BHD figures are the amount actually captured by Tap</div>
+      {needsAny && <div style={{ fontSize: 12.5, color: T.amber, background: T.amberBg, borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>A captured sale has no resolvable BHD amount. Use “Repair” to confirm the captured amount from the live Tap charge (idempotent; never alters the payment).</div>}
+      {msg && <div style={{ fontSize: 12.5, color: T.ink, background: T.bg, borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>{msg}</div>}
       <DataTable
         columns={[
           { key: 'saleReference', label: 'Reference' },
           { key: 'customerName', label: 'Customer' },
           { key: 'date', label: 'Date', sortable: true, render: (r) => formatDate(r.date) },
           { key: 'display', label: 'Displayed price', render: (r) => (r.displayAmount ? formatMoney(r.displayCurrency, r.displayAmount) : '—') },
-          { key: 'amountBHD', label: 'Charged (BHD)', align: 'right', sortable: true, render: (r) => formatBHD(r.amountBHD) },
-          { key: 'reconciliationStatus', label: 'Reconciliation' }
+          { key: 'amountBHD', label: 'Charged (BHD)', align: 'right', sortable: true, render: (r) => (r.needsRepair ? <Badge tone="warn">needs repair</Badge> : formatBHD(r.amountBHD)) },
+          { key: 'reconciliationStatus', label: 'Reconciliation' },
+          { key: 'actions', label: '', render: (r) => (r.needsRepair ? <Button size="sm" tone="gold" disabled={busy === r.orderId} onClick={() => repair(r.orderId)}>{busy === r.orderId ? '…' : 'Repair'}</Button> : null) }
         ]}
         rows={data.list.map((s, i) => ({ ...s, _key: s.orderId || i }))}
         searchKeys={['saleReference', 'customerName', 'orderId']}
