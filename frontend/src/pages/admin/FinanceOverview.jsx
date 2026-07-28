@@ -73,59 +73,112 @@ function SalesTab() {
 }
 
 function RepairSaleModal({ orderId, onClose, onDone }) {
+  // Manual confirmation inputs
   const [manual, setManual] = useState('');
-  const [reload, setReload] = useState(0);
+  const [reason, setReason] = useState('');
+  const [evidence, setEvidence] = useState('');
+  const [manualChecked, setManualChecked] = useState(false); // "this is a manual BHD reporting value"
+  const [reviewing, setReviewing] = useState(false);         // second review screen
+  const [previewArgs, setPreviewArgs] = useState('');        // query string that drives the preview fetch
   const [confirmChecked, setConfirmChecked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const { data, loading, error } = useAdminData(() => adminGet(`/finance/repair-sale/${orderId}/preview${manual ? `?capturedBhd=${encodeURIComponent(manual)}` : ''}`), [orderId, reload]);
+  const { data, loading, error } = useAdminData(() => adminGet(`/finance/repair-sale/${orderId}/preview${previewArgs}`), [orderId, previewArgs]);
 
   const p = data && data.preview;
+
+  const startReview = () => {
+    const params = new URLSearchParams();
+    if (manual.trim()) params.set('capturedBhd', manual.trim());
+    if (reason.trim()) params.set('reason', reason.trim());
+    if (evidence.trim()) params.set('evidence', evidence.trim());
+    setPreviewArgs(params.toString() ? `?${params.toString()}` : '');
+    setReviewing(true);
+  };
+
   const apply = async () => {
     setBusy(true); setErr('');
     try {
       const body = { confirm: true };
-      if (manual.trim()) body.capturedBhd = manual.trim(); // decimal STRING
+      if (p.manual.required && manual.trim()) { body.capturedBhd = manual.trim(); body.reason = reason.trim(); body.evidence = evidence.trim(); }
       const res = await adminPost(`/finance/repair-sale/${orderId}`, body);
-      onDone(`Sale ${orderId} repaired: gross captured ${formatBHD(res.capturedBhd)} for ${res.customer ? res.customer.name : 'customer'} (source: ${res.source}).`);
+      onDone(`Sale ${orderId} repaired: BHD ${res.capturedBhd} for ${res.customer ? res.customer.name : 'customer'}${res.manual ? ' (manual confirmation)' : ` (source: ${res.source})`}.`);
     } catch (e) { setErr((e.response && e.response.data && e.response.data.error) || 'Repair failed.'); } finally { setBusy(false); }
   };
 
+  const machineBhd = p && p.bhdEvidence && p.bhdEvidence.found;
+  const manualValid = /^\d+(\.\d{1,6})?$/.test(manual.trim()) && reason.trim().length > 0 && manualChecked;
+
   return (
-    <Modal title="Repair captured sale" onClose={() => !busy && onClose()} width={560}>
+    <Modal title="Repair captured sale" onClose={() => !busy && onClose()} width={580}>
       {loading ? <Loading /> : error ? <ErrorNote error={error} /> : (
         <>
-          <p style={{ fontSize: 13, color: T.ink66, marginTop: 0 }}>Review the live Tap charge before saving. This records the <b>gross captured customer payment</b> in <code>capturedAmountBHD</code>; the monthly settlement figure stays empty until a Tap statement is reconciled. The payment and Tap record are never modified.</p>
+          <p style={{ fontSize: 13, color: T.ink66, marginTop: 0 }}>This records the <b>gross captured customer payment</b> in <code>capturedAmountBHD</code>. The monthly settlement figure stays empty until a Tap statement is reconciled. The order, payment and Tap record are never modified.</p>
+
+          {/* Provider facts — each amount labelled in its own currency */}
           <div style={{ background: T.bg, borderRadius: 10, padding: 14, marginBottom: 14 }}>
             <Line label="Order ID" value={p.orderId} />
             <Line label="Customer" value={`${p.customer.name}${p.customer.customerId && p.customer.customerId !== 'Unlinked' ? ` (${p.customer.customerId})` : ''}`} />
-            <Line label="Tap reference" value={p.tapReference || '—'} />
-            <Line label="Tap status" value={p.tapStatus || (p.checks.tapReachable ? '—' : 'Tap not reachable')} ok={p.checks.statusCaptured} want="captured" />
-            <Line label="Tap currency" value={p.tapCurrency || '—'} ok={p.checks.currencyBHD} want="BHD" />
-            <Line label="Tap amount" value={p.tapAmountBHD ? formatBHD(p.tapAmountBHD) : '—'} />
-            <Line label="Displayed amount" value={p.displayLabel || '—'} />
+            <Line label="Tap reference" value={p.provider.reference || '—'} />
+            <Line label="Tap status" value={p.provider.status || (p.provider.reachable ? '—' : 'Tap not reachable')} ok={p.checks.statusCaptured} want="captured" />
+            <Line label="Provider captured amount" value={p.provider.label || '—'} strong />
+            <Line label="Displayed / local price" value={p.displayLabel || '—'} />
             <div style={{ borderTop: `1px solid ${T.ink08}`, marginTop: 8, paddingTop: 8 }}>
-              <Line label="Gross captured to store" value={p.capturedBhd ? formatBHD(p.capturedBhd) : 'Not resolved'} strong />
+              {machineBhd
+                ? <Line label="Actual captured payment (BHD)" value={formatBHD(p.bhdEvidence.amount)} strong badge={<Badge tone="good">from {p.bhdEvidence.fieldPath}</Badge>} />
+                : <Line label="BHD reporting amount" value="Unresolved — no BHD field in the Tap charge" strong />}
             </div>
           </div>
 
-          {!p.checks.amountPresent && (
-            <Field label='If Tap is unreachable, enter the confirmed captured amount as a decimal string (e.g. "3.600")'>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="3.600" style={inputCss} />
-                <Button onClick={() => setReload((n) => n + 1)}>Preview</Button>
+          {/* Case B: no machine BHD -> require an explicit manual confirmation */}
+          {!machineBhd && !reviewing && (
+            <div style={{ border: `1px solid ${T.amberBg}`, background: T.amberBg, borderRadius: 10, padding: 14, marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Badge tone="warn">Manual confirmation</Badge>
+                <span style={{ fontSize: 12.5, color: T.ink66 }}>Tap captured {p.provider.label || 'a non-BHD amount'}; enter the confirmed BHD reporting amount.</span>
               </div>
-            </Field>
+              <Field label='Confirmed captured amount, BHD (decimal string, e.g. "3.600")'>
+                <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="3.600" style={inputCss} />
+              </Field>
+              <Field label="Reason (required)">
+                <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Confirmed from bank/Tap receipt" style={inputCss} />
+              </Field>
+              <Field label="Evidence / source description">
+                <input value={evidence} onChange={(e) => setEvidence(e.target.value)} placeholder="Tap settlement receipt #, statement date…" style={inputCss} />
+              </Field>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: T.ink74 }}>
+                <input type="checkbox" checked={manualChecked} onChange={(e) => setManualChecked(e.target.checked)} style={{ marginTop: 2 }} />
+                This is a manual BHD reporting value, confirmed from evidence outside the live Tap charge.
+              </label>
+            </div>
           )}
 
-          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: T.ink74, margin: '8px 0 14px' }}>
-            <input type="checkbox" checked={confirmChecked} onChange={(e) => setConfirmChecked(e.target.checked)} style={{ marginTop: 3 }} />
-            I confirm this is the gross captured payment for {p.customer.name} on order {p.orderId}.
-          </label>
+          {/* Second review screen before saving (manual path) */}
+          {!machineBhd && reviewing && (
+            <div style={{ background: T.bg, borderRadius: 10, padding: 14, marginBottom: 14 }}>
+              <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: T.goldDeep, fontWeight: 700, marginBottom: 8 }}>Review before saving</div>
+              <Line label="Provider captured amount" value={p.provider.label || '—'} />
+              <Line label="Manually confirmed reporting amount" value={p.capturedBhd ? formatBHD(p.capturedBhd) : '—'} strong badge={<Badge tone="warn">Manual confirmation</Badge>} />
+              <Line label="Reason / source" value={[p.manual.reason, p.manual.evidence].filter(Boolean).join(' — ') || '—'} />
+              <Line label="Customer" value={`${p.customer.name}${p.customer.customerId !== 'Unlinked' ? ` (${p.customer.customerId})` : ''}`} />
+              <Line label="Order ID" value={p.orderId} />
+              <Line label="Tap reference" value={p.provider.reference || '—'} />
+              {p.manualError && <div style={{ color: T.red, fontSize: 12.5, marginTop: 8 }}>{p.manualError}</div>}
+            </div>
+          )}
+
+          {(machineBhd || reviewing) && (
+            <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: T.ink74, margin: '8px 0 14px' }}>
+              <input type="checkbox" checked={confirmChecked} onChange={(e) => setConfirmChecked(e.target.checked)} style={{ marginTop: 3 }} />
+              I confirm this is the correct captured payment for {p.customer.name} on order {p.orderId}.
+            </label>
+          )}
+
           {err && <div style={{ color: T.red, fontSize: 13, marginBottom: 10 }}>{err}</div>}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <Button onClick={onClose} disabled={busy}>Cancel</Button>
-            <Button tone="primary" disabled={busy || !confirmChecked || !p.capturedBhd} onClick={apply}>{busy ? 'Saving…' : 'Confirm & repair'}</Button>
+            {!machineBhd && !reviewing && <Button tone="primary" disabled={!manualValid} onClick={startReview}>Preview</Button>}
+            {(machineBhd || reviewing) && <Button tone="primary" disabled={busy || !confirmChecked || !p.capturedBhd} onClick={apply}>{busy ? 'Saving…' : 'Confirm & repair'}</Button>}
           </div>
         </>
       )}
@@ -133,12 +186,13 @@ function RepairSaleModal({ orderId, onClose, onDone }) {
   );
 }
 
-function Line({ label, value, ok, want, strong }) {
+function Line({ label, value, ok, want, strong, badge }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', fontSize: 13.5 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', fontSize: 13.5, gap: 10 }}>
       <span style={{ color: T.ink50 }}>{label}</span>
-      <span style={{ color: T.ink, fontWeight: strong ? 700 : 500, display: 'flex', gap: 6, alignItems: 'center' }}>
+      <span style={{ color: T.ink, fontWeight: strong ? 700 : 500, display: 'flex', gap: 6, alignItems: 'center', textAlign: 'right' }}>
         {value}
+        {badge}
         {want !== undefined && (ok ? <Badge tone="good">✓</Badge> : <Badge tone="warn">expected {want}</Badge>)}
       </span>
     </div>
