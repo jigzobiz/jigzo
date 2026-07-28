@@ -40,29 +40,18 @@ function OverviewTab() {
 
 function SalesTab() {
   const [reload, setReload] = useState(0);
-  const [busy, setBusy] = useState('');
+  const [repairing, setRepairing] = useState(null); // orderId
   const [msg, setMsg] = useState('');
   const { data, loading, error } = useAdminData(() => adminGet('/finance/sales'), [reload]);
   if (loading) return <Loading />;
   if (error) return <ErrorNote error={error} />;
 
-  const repair = async (orderId) => {
-    setBusy(orderId); setMsg('');
-    try {
-      const res = await adminPost(`/finance/repair-sale/${orderId}`);
-      setMsg(`Sale ${orderId} repaired: captured ${formatBHD(res.capturedBhd)} (source: ${res.source}).`);
-      setReload((n) => n + 1);
-    } catch (e) {
-      setMsg((e.response && e.response.data && e.response.data.error) || 'Repair failed.');
-    } finally { setBusy(''); }
-  };
-
   const needsAny = data.list.some((s) => s.needsRepair);
 
   return (
     <Card style={{ padding: 16 }}>
-      <div style={{ fontSize: 13, color: T.ink66, marginBottom: 12 }}>{data.capturedCount} captured sale{data.capturedCount === 1 ? '' : 's'} · total {formatBHD(data.totalBHD)} · BHD figures are the amount actually captured by Tap</div>
-      {needsAny && <div style={{ fontSize: 12.5, color: T.amber, background: T.amberBg, borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>A captured sale has no resolvable BHD amount. Use “Repair” to confirm the captured amount from the live Tap charge (idempotent; never alters the payment).</div>}
+      <div style={{ fontSize: 13, color: T.ink66, marginBottom: 12 }}>{data.capturedCount} captured sale{data.capturedCount === 1 ? '' : 's'} · total {formatBHD(data.totalBHD)} · BHD figures are the gross amount captured by Tap</div>
+      {needsAny && <div style={{ fontSize: 12.5, color: T.amber, background: T.amberBg, borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>A captured sale has no resolvable BHD amount. Use “Repair” to review the live Tap charge and confirm the gross captured amount (idempotent; never alters the payment or Tap record).</div>}
       {msg && <div style={{ fontSize: 12.5, color: T.ink, background: T.bg, borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>{msg}</div>}
       <DataTable
         columns={[
@@ -70,15 +59,89 @@ function SalesTab() {
           { key: 'customerName', label: 'Customer' },
           { key: 'date', label: 'Date', sortable: true, render: (r) => formatDate(r.date) },
           { key: 'display', label: 'Displayed price', render: (r) => (r.displayAmount ? formatMoney(r.displayCurrency, r.displayAmount) : '—') },
-          { key: 'amountBHD', label: 'Charged (BHD)', align: 'right', sortable: true, render: (r) => (r.needsRepair ? <Badge tone="warn">needs repair</Badge> : formatBHD(r.amountBHD)) },
+          { key: 'amountBHD', label: 'Gross captured (BHD)', align: 'right', sortable: true, render: (r) => (r.needsRepair ? <Badge tone="warn">needs repair</Badge> : formatBHD(r.amountBHD)) },
           { key: 'reconciliationStatus', label: 'Reconciliation' },
-          { key: 'actions', label: '', render: (r) => (r.needsRepair ? <Button size="sm" tone="gold" disabled={busy === r.orderId} onClick={() => repair(r.orderId)}>{busy === r.orderId ? '…' : 'Repair'}</Button> : null) }
+          { key: 'actions', label: '', render: (r) => (r.needsRepair ? <Button size="sm" tone="gold" onClick={() => setRepairing(r.orderId)}>Repair</Button> : null) }
         ]}
         rows={data.list.map((s, i) => ({ ...s, _key: s.orderId || i }))}
         searchKeys={['saleReference', 'customerName', 'orderId']}
         emptyText="No captured sales."
       />
+      {repairing && <RepairSaleModal orderId={repairing} onClose={() => setRepairing(null)} onDone={(m) => { setRepairing(null); setMsg(m); setReload((n) => n + 1); }} />}
     </Card>
+  );
+}
+
+function RepairSaleModal({ orderId, onClose, onDone }) {
+  const [manual, setManual] = useState('');
+  const [reload, setReload] = useState(0);
+  const [confirmChecked, setConfirmChecked] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const { data, loading, error } = useAdminData(() => adminGet(`/finance/repair-sale/${orderId}/preview${manual ? `?capturedBhd=${encodeURIComponent(manual)}` : ''}`), [orderId, reload]);
+
+  const p = data && data.preview;
+  const apply = async () => {
+    setBusy(true); setErr('');
+    try {
+      const body = { confirm: true };
+      if (manual.trim()) body.capturedBhd = manual.trim(); // decimal STRING
+      const res = await adminPost(`/finance/repair-sale/${orderId}`, body);
+      onDone(`Sale ${orderId} repaired: gross captured ${formatBHD(res.capturedBhd)} for ${res.customer ? res.customer.name : 'customer'} (source: ${res.source}).`);
+    } catch (e) { setErr((e.response && e.response.data && e.response.data.error) || 'Repair failed.'); } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal title="Repair captured sale" onClose={() => !busy && onClose()} width={560}>
+      {loading ? <Loading /> : error ? <ErrorNote error={error} /> : (
+        <>
+          <p style={{ fontSize: 13, color: T.ink66, marginTop: 0 }}>Review the live Tap charge before saving. This records the <b>gross captured customer payment</b> in <code>capturedAmountBHD</code>; the monthly settlement figure stays empty until a Tap statement is reconciled. The payment and Tap record are never modified.</p>
+          <div style={{ background: T.bg, borderRadius: 10, padding: 14, marginBottom: 14 }}>
+            <Line label="Order ID" value={p.orderId} />
+            <Line label="Customer" value={`${p.customer.name}${p.customer.customerId && p.customer.customerId !== 'Unlinked' ? ` (${p.customer.customerId})` : ''}`} />
+            <Line label="Tap reference" value={p.tapReference || '—'} />
+            <Line label="Tap status" value={p.tapStatus || (p.checks.tapReachable ? '—' : 'Tap not reachable')} ok={p.checks.statusCaptured} want="captured" />
+            <Line label="Tap currency" value={p.tapCurrency || '—'} ok={p.checks.currencyBHD} want="BHD" />
+            <Line label="Tap amount" value={p.tapAmountBHD ? formatBHD(p.tapAmountBHD) : '—'} />
+            <Line label="Displayed amount" value={p.displayLabel || '—'} />
+            <div style={{ borderTop: `1px solid ${T.ink08}`, marginTop: 8, paddingTop: 8 }}>
+              <Line label="Gross captured to store" value={p.capturedBhd ? formatBHD(p.capturedBhd) : 'Not resolved'} strong />
+            </div>
+          </div>
+
+          {!p.checks.amountPresent && (
+            <Field label='If Tap is unreachable, enter the confirmed captured amount as a decimal string (e.g. "3.600")'>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="3.600" style={inputCss} />
+                <Button onClick={() => setReload((n) => n + 1)}>Preview</Button>
+              </div>
+            </Field>
+          )}
+
+          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: T.ink74, margin: '8px 0 14px' }}>
+            <input type="checkbox" checked={confirmChecked} onChange={(e) => setConfirmChecked(e.target.checked)} style={{ marginTop: 3 }} />
+            I confirm this is the gross captured payment for {p.customer.name} on order {p.orderId}.
+          </label>
+          {err && <div style={{ color: T.red, fontSize: 13, marginBottom: 10 }}>{err}</div>}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <Button onClick={onClose} disabled={busy}>Cancel</Button>
+            <Button tone="primary" disabled={busy || !confirmChecked || !p.capturedBhd} onClick={apply}>{busy ? 'Saving…' : 'Confirm & repair'}</Button>
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
+function Line({ label, value, ok, want, strong }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', fontSize: 13.5 }}>
+      <span style={{ color: T.ink50 }}>{label}</span>
+      <span style={{ color: T.ink, fontWeight: strong ? 700 : 500, display: 'flex', gap: 6, alignItems: 'center' }}>
+        {value}
+        {want !== undefined && (ok ? <Badge tone="good">✓</Badge> : <Badge tone="warn">expected {want}</Badge>)}
+      </span>
+    </div>
   );
 }
 

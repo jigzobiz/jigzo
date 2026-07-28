@@ -17,8 +17,8 @@ const obOrder = { orderId: 'JZ-ORD-OB', paymentStatus: 'paid', currency: 'AED', 
 // 1. Before repair: no resolvable BHD → null (so UI flags "needs repair", not a false zero)
 assert('Unrepaired O.B sale resolves to null (needs repair, not fake 0)', L.getAuthoritativeBhdSaleAmount(obOrder, null) === null);
 
-// 2. After repair: Sale.confirmedSettlementBHD = 3.600 → resolver returns 3.600, never 0
-const repairedSale = { confirmedSettlementBHD: D('3.600000'), originalCurrency: 'AED', netCalculatedBHD: D('3.600000') };
+// 2. After repair: Sale.capturedAmountBHD = 3.600 → resolver returns 3.600, never 0
+const repairedSale = { capturedAmountBHD: D('3.600000'), originalCurrency: 'AED', netCalculatedBHD: D('3.600000') };
 const resolved = L.getAuthoritativeBhdSaleAmount(obOrder, repairedSale);
 assert('Repaired captured sale reports BHD 3.600', resolved === '3.600', `got ${resolved}`);
 assert('A captured sale with a BHD charge is never 0.000', resolved !== '0.000' && Number(resolved) > 0);
