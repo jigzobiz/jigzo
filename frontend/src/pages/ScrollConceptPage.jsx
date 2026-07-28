@@ -575,7 +575,7 @@ export default function ScrollConceptPage() {
             <div className="cta-logo-wrap">
               <img
                 className="cta-symbol-jigzo"
-                src="/assets/JIGZO-Icon-Beige.png"
+                src="/assets/jigzo-brand-icon-1080.png"
                 alt="JIGZO Icon"
               />
             </div>

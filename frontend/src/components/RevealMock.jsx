@@ -144,7 +144,7 @@ export default function RevealMock() {
             <div className="reveal-mock-wa">
               <div className="reveal-mock-wa-head" style={{ flexDirection: isRtl ? 'row-reverse' : 'row' }}>
                 <div className="reveal-mock-wa-back" style={{ flexDirection: isRtl ? 'row-reverse' : 'row' }}><span className="chev">{isRtl ? '›' : '‹'}</span><span className="n">1</span></div>
-                <img className="reveal-mock-wa-av" src="/assets/JIGZO-Icon-Cream.svg" alt="JIGZO" />
+                <img className="reveal-mock-wa-av" src="/assets/reference-whatsapp-real.png" alt="JIGZO" />
                 <div className="reveal-mock-wa-name" style={{ flexDirection: isRtl ? 'row-reverse' : 'row', justifyContent: isRtl ? 'flex-end' : 'flex-start' }}><span className="nm">JIGZO</span><span className="reveal-mock-wa-badge">✓</span></div>
               </div>
               <div className="reveal-mock-wa-body" style={{ backgroundImage: doodle }}>

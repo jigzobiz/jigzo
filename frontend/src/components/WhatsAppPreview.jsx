@@ -33,7 +33,7 @@ export default function WhatsAppPreview({ senderName, showIdentity, receiverName
           <span style={{ fontSize: 22, lineHeight: 1, marginTop: -2 }}>{isRtl ? '›' : '‹'}</span>
           <span style={{ fontSize: 14, fontWeight: 600 }}>1</span>
         </div>
-        <img src="/assets/JIGZO-Icon-Cream.svg" alt="JIGZO"
+        <img src="/assets/reference-whatsapp-real.png" alt="JIGZO"
           style={{ width: 38, height: 38, borderRadius: "50%", flex: "none", display: "block", border: "1px solid rgba(0,0,0,0.1)" }} />
         <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: 1, flexDirection: isRtl ? 'row-reverse' : 'row', justifyContent: isRtl ? 'flex-end' : 'flex-start' }}>
           <span style={{ fontWeight: 600, fontSize: 15, color: "#111B21", whiteSpace: "nowrap" }}>JIGZO</span>
