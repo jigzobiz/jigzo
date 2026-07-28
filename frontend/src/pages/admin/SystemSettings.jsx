@@ -1,42 +1,49 @@
 import React from 'react';
 import { PageHeader, Card, DataTable, Badge, Loading, ErrorNote, useAdminData, adminGet, formatDate, T } from './adminShared';
 
-const svcTone = (s) => (s === 'enabled' || s === 'configured' ? 'good' : s === 'disabled' ? 'neutral' : 'warn');
+const svcTone = (s) => (s === 'enabled' ? 'good' : s === 'disabled' ? 'neutral' : s === 'configuration missing' || s === 'health check failed' ? 'bad' : 'warn');
 
 export default function SystemSettings() {
   const { data, loading, error } = useAdminData(() => adminGet('/system'));
   if (loading) return <><PageHeader title="System" explain={EXPLAIN} /><Loading /></>;
   if (error) return <><PageHeader title="System" explain={EXPLAIN} /><ErrorNote error={error} /></>;
 
-  const { services, expenseReferenceRates, liveCheckoutPricing, categories, vendors, auditLogs } = data;
+  const { services, expenseReferenceRates, liveCheckoutPricing, tapMode, categories, vendors, auditLogs } = data;
 
   return (
     <>
       <PageHeader title="System" explain={EXPLAIN} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
-        <Card title="Service status">
+        <Card title="Service status" subtitle="From the live backend runtime configuration">
           {services.map((s) => (
-            <div key={s.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', fontSize: 13.5, borderBottom: `1px solid ${T.ink08}` }}>
-              <span style={{ color: T.ink74 }}>{s.name}</span>
+            <div key={s.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', fontSize: 13.5, borderBottom: `1px solid ${T.ink08}` }}>
+              <div>
+                <div style={{ color: T.ink74 }}>{s.name}</div>
+                {s.config && <div style={{ fontSize: 11.5, color: s.config.includes('missing') ? T.red : T.ink50 }}>{s.config}</div>}
+              </div>
               <Badge tone={svcTone(s.status)}>{s.status}</Badge>
             </div>
           ))}
         </Card>
 
-        <Card title="Live checkout pricing" subtitle="Authoritative BHD charge engine">
+        <Card title="Live checkout pricing" subtitle="Authoritative BHD charge engine (separate from reference rates)">
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <Badge tone={svcTone(liveCheckoutPricing.status)}>{liveCheckoutPricing.status}</Badge>
+            {tapMode && <Badge>Tap: {tapMode}</Badge>}
+          </div>
           <div style={{ fontSize: 13.5, color: T.ink74, lineHeight: 1.6 }}>{liveCheckoutPricing.engine}</div>
           <div style={{ fontSize: 12.5, color: T.ink50, marginTop: 8, lineHeight: 1.6 }}>{liveCheckoutPricing.note}</div>
         </Card>
       </div>
 
-      <Card title="Expense / reference FX rates" subtitle="Historical workbook defaults for expense records — NOT the live checkout pricing source. Editing a reference rate must never change historical sales or expenses." style={{ marginTop: 16 }}>
+      <Card title="Expense / reference FX rates" subtitle="Historical workbook defaults for expense records — NOT the live checkout pricing source. Editing a reference rate must never change historical sales or expenses. Summary shows three decimals; the exact locked rate appears on each transaction." style={{ marginTop: 16 }}>
         <DataTable
           columns={[
             { key: 'currency', label: 'Currency', render: (r) => <span style={{ fontWeight: 700 }}>{r.currency}</span> },
-            { key: 'rateToBHD', label: 'Rate → BHD', align: 'right' },
-            { key: 'pegType', label: 'Peg', render: (r) => <span style={{ color: T.ink66 }}>{r.pegType}</span> },
-            { key: 'pegged', label: 'Pegged', render: (r) => <Badge tone={r.pegged ? 'good' : 'neutral'}>{r.pegged ? 'pegged' : 'floating'}</Badge> },
+            { key: 'rateToBHD', label: 'Rate → BHD', align: 'right', render: (r) => <span style={{ fontVariantNumeric: 'tabular-nums' }}>{r.rateToBHD}</span> },
+            { key: 'pegType', label: 'Relationship', render: (r) => <span style={{ color: r.isBase ? T.goldDeep : T.ink66, fontWeight: r.isBase ? 600 : 400 }}>{r.pegType}</span> },
+            { key: 'pegged', label: 'Status', render: (r) => <Badge tone={r.isBase ? 'good' : r.pegged ? 'neutral' : 'warn'}>{r.isBase ? 'base' : r.pegged ? 'pegged' : 'floating'}</Badge> },
             { key: 'source', label: 'Source' }
           ]}
           rows={expenseReferenceRates.map((f, i) => ({ ...f, _key: f.currency || i }))}
