@@ -545,13 +545,54 @@ router.get('/finance/reconciliation', authenticateAdmin, async (req, res, next) 
 // never a JavaScript number (float precision is unacceptable for money).
 const isDecimalString = (v) => typeof v === 'string' && /^\d+(\.\d{1,6})?$/.test(v.trim());
 
+// Format a provider amount in ITS OWN currency (the currency beside an amount
+// must come from the same provider field as that amount). Never force BHD.
+const labelAmount = (amount, currency) =>
+  (amount != null && currency) ? `${L.formatCurrencyAmount(amount, currency)} ${String(currency).toUpperCase()}` : null;
+
+/**
+ * Scan the full (non-sensitive) Tap charge for a machine-readable BHD amount:
+ * any node whose currency is BHD with a positive amount, or a paired
+ * *_currency=BHD / *_amount field. Returns { amount, path } or null. Card /
+ * customer / auth sub-trees are skipped and never read.
+ */
+function findBhdAmount(node, pathPrefix = 'charge', depth = 0, seen = new Set()) {
+  if (!node || typeof node !== 'object' || depth > 6 || seen.has(node)) return null;
+  seen.add(node);
+  const SENSITIVE = new Set(['card', 'source', 'customer', 'receipt', 'auth', 'authentication', 'threeDSecure', 'acquirer_card']);
+
+  const cur = node.currency || node.currency_code;
+  if (cur && String(cur).toUpperCase() === 'BHD' && node.amount != null && !isNaN(Number(node.amount)) && Number(node.amount) > 0) {
+    return { amount: Number(node.amount).toFixed(3), path: `${pathPrefix}.amount (${pathPrefix}.currency=BHD)` };
+  }
+  for (const key of Object.keys(node)) {
+    if (/currency/i.test(key) && String(node[key]).toUpperCase() === 'BHD') {
+      const amtKey = key.replace(/currency/i, 'amount');
+      if (node[amtKey] != null && !isNaN(Number(node[amtKey])) && Number(node[amtKey]) > 0) {
+        return { amount: Number(node[amtKey]).toFixed(3), path: `${pathPrefix}.${amtKey} (${pathPrefix}.${key}=BHD)` };
+      }
+    }
+  }
+  for (const key of Object.keys(node)) {
+    if (SENSITIVE.has(key)) continue;
+    const val = node[key];
+    if (val && typeof val === 'object') {
+      const found = findBhdAmount(val, `${pathPrefix}.${key}`, depth + 1, seen);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 /**
  * Build the repair context for a captured order: the displayed (localised)
  * amount, the sender/customer identity (the order owner, e.g. Z.D — never a
- * recipient), and the gross captured amount from the LIVE Tap charge (or an
- * owner-confirmed decimal string). Reads only; never mutates anything.
+ * recipient), the PROVIDER-captured amount labelled in its own currency, and
+ * any machine-readable BHD evidence found in the Tap charge. Reads only.
+ *
+ * opts: { reason, evidence } accompany a manual BHD confirmation.
  */
-async function buildRepairContext(order, bodyCaptured) {
+async function buildRepairContext(order, bodyCaptured, opts = {}) {
   const displayCurrency = order.checkoutDisplayCurrency || order.currency || 'BHD';
   const displayAmount = order.checkoutDisplayAmount != null ? String(order.checkoutDisplayAmount)
     : (order.total != null ? String(order.total) : null);
@@ -569,46 +610,60 @@ async function buildRepairContext(order, bodyCaptured) {
     }
   }
 
-  // Live Tap charge (source of truth for the gross captured amount).
-  const tap = { reference: order.providerChargeId || null, status: null, currency: null, amountBHD: null, reachable: false };
+  // Live Tap charge. The provider amount is reported in its OWN currency.
+  const provider = { reference: order.providerChargeId || null, status: null, currency: null, amount: null, label: null, reachable: false };
+  let bhdEvidence = { found: false, fieldPath: null, amount: null };
   if (order.providerChargeId) {
     try {
       const charge = await paymentService.retrieveCharge(order.providerChargeId);
       if (charge) {
-        tap.reachable = true;
-        tap.reference = (charge.reference && charge.reference.transaction) || charge.id || order.providerChargeId;
-        tap.status = charge.status || null;
-        tap.currency = charge.currency ? String(charge.currency).toUpperCase() : null;
-        if (charge.amount != null) tap.amountBHD = Number(charge.amount).toFixed(3);
+        provider.reachable = true;
+        provider.reference = (charge.reference && charge.reference.transaction) || charge.id || order.providerChargeId;
+        provider.status = charge.status || null;
+        provider.currency = charge.currency ? String(charge.currency).toUpperCase() : null;
+        provider.amount = charge.amount != null ? String(charge.amount) : null;
+        provider.label = labelAmount(provider.amount, provider.currency);
+        const bhd = findBhdAmount(charge);
+        if (bhd) bhdEvidence = { found: true, fieldPath: bhd.path, amount: bhd.amount };
       }
-    } catch (e) { /* Tap unreachable — a decimal-string override is required */ }
+    } catch (e) { /* Tap unreachable */ }
+  }
+  // The immutable checkout BHD snapshot is also machine BHD evidence.
+  if (!bhdEvidence.found && order.finalBhdFils != null && Number(order.finalBhdFils) > 0) {
+    bhdEvidence = { found: true, fieldPath: 'order.finalBhdFils/1000', amount: (Number(order.finalBhdFils) / 1000).toFixed(3) };
   }
 
-  // Resolve the gross captured BHD, preferring an owner-confirmed decimal string.
-  let capturedBhd = null, source = null;
-  if (bodyCaptured !== undefined && bodyCaptured !== null && bodyCaptured !== '') {
-    if (!isDecimalString(bodyCaptured)) return { error: 'capturedBhd must be a decimal string, e.g. "3.600".' };
-    capturedBhd = Number(bodyCaptured).toFixed(3); source = 'owner-confirmed';
-  } else if (tap.currency === 'BHD' && Number(tap.amountBHD) > 0) {
-    capturedBhd = tap.amountBHD; source = 'tap-charge';
-  } else if (order.finalBhdFils != null && Number(order.finalBhdFils) > 0) {
-    capturedBhd = (Number(order.finalBhdFils) / 1000).toFixed(3); source = 'order-snapshot';
+  // Resolve the BHD amount to store. Machine evidence wins; otherwise a manual
+  // confirmation is permitted ONLY with a decimal string AND a reason.
+  const manualProvided = bodyCaptured !== undefined && bodyCaptured !== null && bodyCaptured !== '';
+  let capturedBhd = null, source = null, manualError = null;
+  if (bhdEvidence.found) {
+    capturedBhd = bhdEvidence.amount;
+    source = bhdEvidence.fieldPath === 'order.finalBhdFils/1000' ? 'order-snapshot' : `tap-field:${bhdEvidence.fieldPath}`;
+  } else if (manualProvided) {
+    if (!isDecimalString(bodyCaptured)) manualError = 'capturedBhd must be a decimal string, e.g. "3.600".';
+    else if (!opts.reason || !String(opts.reason).trim()) manualError = 'A reason/source is required for a manual BHD confirmation (e.g. "Confirmed from Tap receipt").';
+    else { capturedBhd = Number(bodyCaptured).toFixed(3); source = 'manual-confirmation'; }
   }
-
-  const checks = {
-    tapReachable: tap.reachable,
-    statusCaptured: !!tap.status && String(tap.status).toUpperCase() === 'CAPTURED',
-    currencyBHD: tap.currency === 'BHD',
-    amountPresent: capturedBhd != null
-  };
 
   return {
     orderId: order.orderId,
     customer: { name: customerName || 'Unknown', customerId, phone: customerPhone },
-    displayAmount, displayCurrency,
-    displayLabel: displayAmount ? `${L.formatCurrencyAmount(displayAmount, displayCurrency)} ${displayCurrency}` : null,
-    tapReference: tap.reference, tapStatus: tap.status, tapCurrency: tap.currency, tapAmountBHD: tap.amountBHD,
-    capturedBhd, source, checks
+    displayAmount, displayCurrency, displayLabel: labelAmount(displayAmount, displayCurrency),
+    provider,
+    bhdEvidence,
+    manual: {
+      required: !bhdEvidence.found,
+      isManual: source === 'manual-confirmation',
+      reason: opts.reason || '',
+      evidence: opts.evidence || ''
+    },
+    capturedBhd, source, manualError,
+    checks: {
+      providerReachable: provider.reachable,
+      statusCaptured: !!provider.status && String(provider.status).toUpperCase() === 'CAPTURED',
+      bhdResolved: capturedBhd != null
+    }
   };
 }
 
@@ -618,8 +673,7 @@ router.get('/finance/repair-sale/:orderId/preview', authenticateAdmin, async (re
     const order = await Order.findOne({ orderId: req.params.orderId }).lean();
     if (!order) return res.status(404).json({ error: 'Order not found.' });
     if (!L.isCompletedPaidOrder(order)) return res.status(400).json({ error: 'Order is not a captured/paid order.' });
-    const ctx = await buildRepairContext(order, req.query.capturedBhd);
-    if (ctx.error) return res.status(400).json({ error: ctx.error });
+    const ctx = await buildRepairContext(order, req.query.capturedBhd, { reason: req.query.reason, evidence: req.query.evidence });
     const existing = await Sale.findOne({ orderId: order.orderId }).lean();
     res.json({ success: true, preview: ctx, alreadyCaptured: existing ? dec(existing.capturedAmountBHD) : null });
   } catch (err) { next(err); }
@@ -630,7 +684,8 @@ router.get('/finance/repair-sale/:orderId/preview', authenticateAdmin, async (re
  * Stores the GROSS captured customer payment in `capturedAmountBHD` (used for
  * gross sales reporting). `confirmedSettlementBHD` is deliberately left empty —
  * it is only set later when a Tap monthly statement is reconciled. Never
- * touches the order, payment or Tap record. Requires an explicit confirmation.
+ * touches the order, payment or Tap record. Requires an explicit confirmation,
+ * and (for a manual BHD value) a reason that is recorded in the audit log.
  */
 router.post('/finance/repair-sale/:orderId', authenticateAdmin, async (req, res, next) => {
   try {
@@ -641,12 +696,14 @@ router.post('/finance/repair-sale/:orderId', authenticateAdmin, async (req, res,
     if (!order) return res.status(404).json({ error: 'Order not found.' });
     if (!L.isCompletedPaidOrder(order)) return res.status(400).json({ error: 'Order is not a captured/paid order.' });
 
-    const ctx = await buildRepairContext(order, body.capturedBhd);
-    if (ctx.error) return res.status(400).json({ error: ctx.error });
+    const ctx = await buildRepairContext(order, body.capturedBhd, { reason: body.reason, evidence: body.evidence });
+    if (ctx.manualError) return res.status(400).json({ error: ctx.manualError });
     if (!ctx.capturedBhd) {
-      return res.status(422).json({ error: 'Could not confirm a gross captured BHD amount from Tap or the order snapshot. Provide the confirmed capturedBhd as a decimal string, e.g. "3.600".' });
+      const cap = ctx.provider.label || 'unknown';
+      return res.status(422).json({ error: `No machine-readable BHD amount exists in the Tap charge (provider captured ${cap}). Enter the confirmed BHD reporting amount as a decimal string with a reason.` });
     }
     const capturedBhd = ctx.capturedBhd;
+    const isManual = ctx.source === 'manual-confirmation';
 
     let sale = await Sale.findOne({ orderId: order.orderId });
     const fxRate = (ctx.displayAmount && Number(ctx.displayAmount) > 0) ? (Number(capturedBhd) / Number(ctx.displayAmount)).toFixed(6) : '1.000000';
@@ -654,20 +711,23 @@ router.post('/finance/repair-sale/:orderId', authenticateAdmin, async (req, res,
 
     // Idempotent: nothing to change if the gross captured amount already matches.
     if (sale && dec(sale.capturedAmountBHD) && Number(sale.capturedAmountBHD.toString()).toFixed(3) === capturedBhd) {
-      return res.json({ success: true, changed: false, capturedBhd, displayAmount: ctx.displayAmount, displayCurrency: ctx.displayCurrency, source: ctx.source });
+      return res.json({ success: true, changed: false, capturedBhd, provider: ctx.provider, source: ctx.source });
     }
 
+    const noteBits = [];
+    if (isManual) noteBits.push(`Manual BHD confirmation by ${req.admin.username || 'admin'} @ ${new Date().toISOString()} — reason: ${ctx.manual.reason}${ctx.manual.evidence ? `; evidence: ${ctx.manual.evidence}` : ''}. Provider captured ${ctx.provider.label || 'n/a'}.`);
     const fields = {
       customerId: ctx.customer.customerId, customerName: ctx.customer.name, customerPhone: ctx.customer.phone,
       date: order.paidAt || order.createdAt,
       originalAmount: toDecimal128(ctx.displayAmount || capturedBhd), originalCurrency: ctx.displayCurrency,
       fxRateToBHD: toDecimal128(fxRate),
-      capturedAmountBHD: toDecimal128(capturedBhd),          // GROSS captured payment
-      calculatedAmountBHD: toDecimal128(capturedBhd),         // gross, used for reporting
+      capturedAmountBHD: toDecimal128(capturedBhd),          // GROSS captured payment (BHD)
+      calculatedAmountBHD: toDecimal128(capturedBhd),
       netCalculatedBHD: toDecimal128(capturedBhd),
       // confirmedSettlementBHD deliberately NOT set — awaiting the Tap statement.
       paymentStatus: 'captured', reconciliationStatus: 'Awaiting Statement'
     };
+    if (noteBits.length) fields.notes = noteBits.join(' ');
 
     if (!sale) {
       sale = new Sale({ saleReference: order.providerChargeId || order.orderId, orderId: order.orderId, tapReference: order.providerChargeId || undefined, ...fields });
@@ -677,10 +737,13 @@ router.post('/finance/repair-sale/:orderId', authenticateAdmin, async (req, res,
       sale.updatedAt = new Date();
     }
     await sale.save();
-    audit(req, 'SALE_CAPTURE_REPAIRED', 'Sale', order.orderId,
-      `Gross captured payment confirmed from ${ctx.source} for customer ${ctx.customer.name} (${ctx.customer.customerId})`,
-      before, { capturedAmountBHD: capturedBhd, displayAmount: ctx.displayLabel, customerName: ctx.customer.name });
-    res.json({ success: true, changed: true, capturedBhd, displayAmount: ctx.displayAmount, displayCurrency: ctx.displayCurrency, customer: ctx.customer, source: ctx.source });
+    audit(req, isManual ? 'SALE_CAPTURE_MANUAL_CONFIRMED' : 'SALE_CAPTURE_REPAIRED', 'Sale', order.orderId,
+      isManual
+        ? `Manual BHD reporting confirmation for ${ctx.customer.name} (${ctx.customer.customerId}); provider captured ${ctx.provider.label}; reason: ${ctx.manual.reason}; evidence: ${ctx.manual.evidence || 'n/a'}`
+        : `Gross captured BHD from ${ctx.source} for ${ctx.customer.name} (${ctx.customer.customerId})`,
+      before,
+      { capturedAmountBHD: capturedBhd, providerCaptured: ctx.provider.label, manual: isManual, reason: ctx.manual.reason, evidence: ctx.manual.evidence, admin: req.admin.username || null });
+    res.json({ success: true, changed: true, capturedBhd, provider: ctx.provider, customer: ctx.customer, source: ctx.source, manual: isManual });
   } catch (err) { next(err); }
 });
 

@@ -29,8 +29,8 @@ assert('Repair leaves reconciliation Awaiting Statement', src.includes("reconcil
 assert('Repair requires explicit confirmation', src.includes('body.confirm !== true'));
 assert('Manual override must be a decimal string (not a JS number)', src.includes("typeof v === 'string' && /^\\d+(\\.\\d{1,6})?$/.test"));
 assert('Preview endpoint exists', src.includes("router.get('/finance/repair-sale/:orderId/preview'"));
-assert('Preview validates Tap status captured', src.includes("String(tap.status).toUpperCase() === 'CAPTURED'"));
-assert('Preview validates Tap currency BHD', src.includes("currencyBHD: tap.currency === 'BHD'"));
+assert('Preview validates Tap status captured', src.includes("String(provider.status).toUpperCase() === 'CAPTURED'"));
+assert('Preview scans the full charge for BHD evidence', src.includes('function findBhdAmount('));
 assert('Identity is the puzzle sender (order owner), not a recipient', src.includes('customerName = pz.senderName') || src.includes('Sender = the customer'));
 assert('Sale model has capturedAmountBHD field', fs.readFileSync(path.resolve(__dirname, '../src/models/Sale.js'), 'utf8').includes('capturedAmountBHD'));
 
