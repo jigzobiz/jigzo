@@ -142,21 +142,14 @@ export default function RevealMock() {
           {/* Scene 3 */}
           <div className={`reveal-mock-scene reveal-mock-s3 ${activeIdx === 2 ? 'is-active' : ''}`} style={{ direction: isRtl ? 'rtl' : 'ltr' }}>
             <div className="reveal-mock-wa">
-              <div className="reveal-mock-wa-head" style={{ flexDirection: isRtl ? 'row-reverse' : 'row' }}>
-                <div className="reveal-mock-wa-back" style={{ flexDirection: isRtl ? 'row-reverse' : 'row' }}><span className="chev">{isRtl ? '›' : '‹'}</span><span className="n">1</span></div>
+              <div className="reveal-mock-wa-head">
+                <div className="reveal-mock-wa-back"><span className="chev">{isRtl ? '›' : '‹'}</span><span className="n">1</span></div>
                 <img className="reveal-mock-wa-av" src="/assets/reference-whatsapp-real.png" alt="JIGZO" />
-                <div className="reveal-mock-wa-name" style={{ flexDirection: isRtl ? 'row-reverse' : 'row', justifyContent: isRtl ? 'flex-end' : 'flex-start' }}><span className="nm">JIGZO</span><span className="reveal-mock-wa-badge">✓</span></div>
+                <div className="reveal-mock-wa-name"><span className="nm">JIGZO</span><span className="reveal-mock-wa-badge">✓</span></div>
               </div>
               <div className="reveal-mock-wa-body" style={{ backgroundImage: doodle }}>
-                <div className="reveal-mock-wa-bubble" style={{
-                  borderRadius: isRtl ? "8px 0 8px 8px" : "0 8px 8px 8px",
-                  marginRight: isRtl ? 0 : 'auto', marginLeft: isRtl ? 'auto' : 0
-                }}>
-                  <span className="reveal-mock-wa-tail" style={{
-                    left: isRtl ? "auto" : -7, right: isRtl ? -7 : "auto",
-                    borderWidth: isRtl ? "0 0 8px 8px" : "0 8px 8px 0",
-                    borderColor: isRtl ? "transparent transparent transparent #FFFFFF" : "transparent #FFFFFF transparent transparent"
-                  }}></span>
+                <div className="reveal-mock-wa-bubble">
+                  <span className="reveal-mock-wa-tail"></span>
                   {WA}
                   <span className="reveal-mock-wa-time">{stamp}</span>
                 </div>
