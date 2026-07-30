@@ -33,6 +33,22 @@ const WhatsAppMessageSchema = new mongoose.Schema({
     ],
     default: 'pending'
   },
+  providerStatus: {
+    type: String,
+    enum: [
+      'pending',
+      'claimed',
+      'sending',
+      'accepted',
+      'sent',
+      'delivered',
+      'read',
+      'failed',
+      'verification_required',
+      'disabled'
+    ],
+    default: 'pending'
+  },
   providerMessageId: { type: String },
   destinationMasked: { type: String, required: true },
   attemptCount: { type: Number, default: 0 },
@@ -47,7 +63,15 @@ const WhatsAppMessageSchema = new mongoose.Schema({
   failedAt: { type: Date },
   lastStatusAt: { type: Date },
   lastErrorCode: { type: String },
+  lastErrorTitle: { type: String },
   lastErrorMessage: { type: String },
+  lastErrorDetails: { type: String },
+  providerFailureMetadata: {
+    status: { type: String },
+    timestamp: { type: Date },
+    recipientIdMasked: { type: String },
+    href: { type: String }
+  },
   payloadHash: { type: String },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
@@ -63,6 +87,8 @@ WhatsAppMessageSchema.index(
     }
   }
 );
+
+WhatsAppMessageSchema.index({ status: 1, acceptedAt: 1 });
 
 WhatsAppMessageSchema.index(
   { providerMessageId: 1 },

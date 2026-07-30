@@ -33,6 +33,8 @@ const ReconciliationBatch = require('../models/ReconciliationBatch');
 const WaitlistAdminMeta = require('../models/WaitlistAdminMeta');
 const NotificationRequest = require('../models/NotificationRequest');
 const AuditLog = require('../models/AuditLog');
+const WhatsAppMessage = require('../models/WhatsAppMessage');
+const { getReconciliationStatus } = require('../utils/whatsappLifecycle');
 const Counter = require('../models/Counter');
 
 const { resolveJwtSecret } = require('../utils/runtimeConfig');
@@ -396,10 +398,17 @@ router.get('/orders/:orderId', authenticateAdmin, async (req, res, next) => {
 router.get('/delivery', authenticateAdmin, async (req, res, next) => {
   try {
     const scope = req.query.scope || 'completed';
-    const [orders, puzzles] = await Promise.all([Order.find().lean(), Puzzle.find().sort({ createdAt: -1 }).lean()]);
+    const [orders, puzzles, whatsappMessages] = await Promise.all([
+      Order.find().lean(),
+      Puzzle.find().sort({ createdAt: -1 }).lean(),
+      WhatsAppMessage.find({ idempotencyKey: /^puzzle-delivery:/ }).lean()
+    ]);
 
     const orderByPuzzleId = new Map();
     for (const o of orders) { if (!orderByPuzzleId.has(o.puzzleId)) orderByPuzzleId.set(o.puzzleId, o); }
+    const whatsappByRecipient = new Map(
+      whatsappMessages.map((m) => [`${m.puzzleId}:${m.recipientIndex}`, m])
+    );
     const paidPuzzleIds = new Set(orders.filter(L.isCompletedPaidOrder).map((o) => o.puzzleId));
     const abandonedPuzzleIds = new Set(orders.filter(L.isAbandonedCheckout).map((o) => o.puzzleId));
 
@@ -410,11 +419,13 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
     const recipientContact = (r) => (r.deliveryMethod === 'email' ? (r.email || '') : (r.phoneE164 || `${r.countryCode || ''}${r.phone || ''}`.trim()));
 
     const rows = [];
-    const summary = { total: 0, pending: 0, delivered: 0, sent: 0, opened: 0, solved: 0, conflicts: 0, failed: 0, manuallyProvided: 0 };
+    const summary = { total: 0, pending: 0, delivered: 0, sent: 0, opened: 0, solved: 0, conflicts: 0, failed: 0, reconciliationRequired: 0, manuallyProvided: 0 };
     for (const p of scoped) {
       const order = orderByPuzzleId.get(p.publicId);
       for (let i = 0; i < (p.recipients || []).length; i++) {
         const r = p.recipients[i];
+        const message = whatsappByRecipient.get(`${p.publicId}:${i}`) || null;
+        const reconciliationStatus = message ? getReconciliationStatus(message) : 'not_required';
         const state = L.getRecipientOperationalState(r);
         const conflicts = L.detectRecipientConflicts(r, p);
         const tracking = L.getDeliveryTracking(r);
@@ -422,6 +433,7 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
         if (summary[state] !== undefined) summary[state]++;
         if (conflicts.length) summary.conflicts++;
         if (tracking === 'Failed') summary.failed++;
+        if (reconciliationStatus === 'reconciliation_required') summary.reconciliationRequired++;
         if (r.manualLinkProvidedAt) summary.manuallyProvided++;
         rows.push({
           orderId: order ? order.orderId : null,
@@ -431,8 +443,10 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
           recipientName: r.name, recipientContact: recipientContact(r),
           deliveryMethod: r.deliveryMethod || 'whatsapp',
           state, deliveryTracking: tracking,
-          providerSendStatus: r.whatsappSendStatus || r.deliveryStatus || 'pending',
-          providerMessageId: r.providerMessageId || '',
+          providerSendStatus: (message && (message.providerStatus || message.status)) || r.whatsappSendStatus || r.deliveryStatus || 'pending',
+          providerMessageId: (message && message.providerMessageId) || r.providerMessageId || '',
+          reconciliationStatus,
+          reconciliationRequiredSince: reconciliationStatus === 'reconciliation_required' ? message.acceptedAt : null,
           sentAt: r.sentAt || r.whatsappSentAt || null,
           deliveredAt: r.whatsappDeliveredAt || null,
           openedAt: r.openedAt || r.whatsappReadAt || null,
@@ -440,7 +454,7 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
           completionSeconds: r.completionSeconds != null ? r.completionSeconds : null,
           manualLinkProvidedAt: r.manualLinkProvidedAt || null,
           manualLinkProvidedByUsername: r.manualLinkProvidedByUsername || '',
-          lastError: r.whatsappLastErrorMessage || r.lastError || '',
+          lastError: (message && message.lastErrorMessage) || r.whatsappLastErrorMessage || r.lastError || '',
           tapReference: order ? (order.providerChargeId || '') : '',
           conflicts
         });

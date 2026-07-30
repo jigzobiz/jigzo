@@ -52,6 +52,7 @@ function DeliveryStatus() {
             <StatTile label="Opened" value={data.summary.opened} tone="warn" />
             <StatTile label="Delivered" value={data.summary.delivered} />
             <StatTile label="Failed" value={data.summary.failed} tone={data.summary.failed ? 'bad' : 'neutral'} />
+            <StatTile label="Needs reconciliation" value={data.summary.reconciliationRequired || 0} tone={data.summary.reconciliationRequired ? 'bad' : 'good'} />
             <StatTile label="Conflicts" value={data.summary.conflicts} tone={data.summary.conflicts ? 'bad' : 'good'} />
           </StatGrid>
           <Card style={{ marginTop: 20, padding: 16 }}>
@@ -64,6 +65,7 @@ function DeliveryStatus() {
                 { key: 'deliveryMethod', label: 'Channel' },
                 { key: 'state', label: 'State', sortable: true, render: (r) => <Badge tone={stateTone(r.state)}>{r.state}</Badge> },
                 { key: 'providerSendStatus', label: 'Provider status', render: (r) => <span style={{ color: T.ink66 }}>{r.providerSendStatus}</span> },
+                { key: 'reconciliationStatus', label: 'Reconciliation', render: (r) => r.reconciliationStatus === 'reconciliation_required' ? <Badge tone="bad">required</Badge> : <span style={{ color: T.ink50 }}>—</span> },
                 { key: 'deliveryTracking', label: 'Tracking', render: (r) => <span style={{ color: r.deliveryTracking === 'Failed' ? T.red : T.ink66 }}>{r.deliveryTracking}</span> },
                 { key: 'sentAt', label: 'Sent', render: (r) => <TimeCell v={r.sentAt} /> },
                 { key: 'deliveredAt', label: 'Delivered', render: (r) => <TimeCell v={r.deliveredAt} /> },

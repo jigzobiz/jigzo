@@ -74,7 +74,9 @@ class WhatsAppService {
         if (fields.failedAt || fields.status === 'failed') {
           rec.whatsappFailedAt = fields.failedAt || fields.occurredAt || new Date();
           rec.whatsappLastErrorCode = fields.errorCode || '';
+          rec.whatsappLastErrorTitle = fields.errorTitle || '';
           rec.whatsappLastErrorMessage = fields.errorMessage || '';
+          rec.whatsappLastErrorDetails = fields.errorDetails || '';
           rec.lastError = fields.errorMessage || '';
 
           // Only update whatsappSendStatus to failed if not already sent/delivered/read
@@ -130,6 +132,7 @@ class WhatsAppService {
         idempotencyKey,
         destinationMasked,
         status: 'pending',
+        providerStatus: 'pending',
         createdAt: new Date(),
         updatedAt: new Date()
       });
@@ -145,6 +148,7 @@ class WhatsAppService {
 
     // Step 2: Acquire claim
     messageRecord.status = 'claimed';
+    messageRecord.providerStatus = 'claimed';
     messageRecord.claimedAt = new Date();
     await messageRecord.save();
 
@@ -153,6 +157,7 @@ class WhatsAppService {
     const phoneId = process.env.KAPSO_PHONE_NUMBER_ID;
     if (!apiKey || !phoneId) {
       messageRecord.status = 'failed';
+      messageRecord.providerStatus = 'failed';
       messageRecord.lastErrorCode = 'MISSING_CREDENTIALS';
       messageRecord.lastErrorMessage = 'Staging environment is missing Kapso credentials.';
       messageRecord.updatedAt = new Date();
@@ -169,6 +174,7 @@ class WhatsAppService {
 
     // Step 4: Perform network request
     messageRecord.status = 'sending';
+    messageRecord.providerStatus = 'sending';
     messageRecord.attemptCount += 1;
     messageRecord.requestStartedAt = new Date();
     await messageRecord.save();
@@ -179,6 +185,8 @@ class WhatsAppService {
     // English Marketing versions are approved. Arabic templates are prepared but not enabled.
     const isArabicConfirmed = false; // Set to true once verified
     const langCode = (puzzle.experienceLanguage === 'ar' && isArabicConfirmed) ? 'ar' : 'en_US';
+    messageRecord.languageCode = langCode;
+    await messageRecord.save();
 
     const payload = {
       messaging_product: 'whatsapp',
@@ -242,6 +250,7 @@ class WhatsAppService {
         const providerMessageId = resJson.messages[0].id;
 
         messageRecord.status = 'accepted';
+        messageRecord.providerStatus = 'accepted';
         messageRecord.providerMessageId = providerMessageId;
         messageRecord.acceptedAt = new Date();
         messageRecord.updatedAt = new Date();
@@ -258,6 +267,7 @@ class WhatsAppService {
         const errMsg = resJson.error?.message || 'Failed to send template message';
 
         messageRecord.status = 'failed';
+        messageRecord.providerStatus = 'failed';
         messageRecord.lastErrorCode = String(errCode);
         messageRecord.lastErrorMessage = String(errMsg).slice(0, 500);
         messageRecord.updatedAt = new Date();
@@ -275,6 +285,7 @@ class WhatsAppService {
       console.error('[WhatsAppService] Send request network exception:', networkErr.message);
 
       messageRecord.status = 'verification_required';
+      messageRecord.providerStatus = 'verification_required';
       messageRecord.lastErrorCode = 'NETWORK_ERROR';
       messageRecord.lastErrorMessage = String(networkErr.message).slice(0, 500);
       messageRecord.updatedAt = new Date();
@@ -318,6 +329,7 @@ class WhatsAppService {
         idempotencyKey,
         destinationMasked,
         status: 'pending',
+        providerStatus: 'pending',
         createdAt: new Date(),
         updatedAt: new Date()
       });
@@ -333,6 +345,7 @@ class WhatsAppService {
           {
             $set: {
               status: 'claimed',
+              providerStatus: 'claimed',
               claimedAt: new Date()
             }
           },
@@ -364,6 +377,7 @@ class WhatsAppService {
     // Step 2: Acquire claim (only needed if it wasn't a retry)
     if (messageRecord.status !== 'claimed') {
       messageRecord.status = 'claimed';
+      messageRecord.providerStatus = 'claimed';
       messageRecord.claimedAt = new Date();
       await messageRecord.save();
     }
@@ -373,6 +387,7 @@ class WhatsAppService {
     const phoneId = process.env.KAPSO_PHONE_NUMBER_ID;
     if (!apiKey || !phoneId) {
       messageRecord.status = 'failed';
+      messageRecord.providerStatus = 'failed';
       messageRecord.lastErrorCode = 'MISSING_CREDENTIALS';
       messageRecord.lastErrorMessage = 'Staging environment is missing Kapso credentials.';
       messageRecord.updatedAt = new Date();
@@ -383,6 +398,7 @@ class WhatsAppService {
 
     // Step 4: Perform network request
     messageRecord.status = 'sending';
+    messageRecord.providerStatus = 'sending';
     messageRecord.attemptCount += 1;
     messageRecord.requestStartedAt = new Date();
     await messageRecord.save();
@@ -413,6 +429,8 @@ class WhatsAppService {
     // English Marketing versions are approved. Arabic templates are prepared but not enabled.
     const isArabicConfirmed = false; // Set to true once verified
     const langCode = isArabicConfirmed ? 'ar' : 'en_US';
+    messageRecord.languageCode = langCode;
+    await messageRecord.save();
 
     const payload = {
       messaging_product: 'whatsapp',
@@ -471,6 +489,7 @@ class WhatsAppService {
         const providerMessageId = resJson.messages[0].id;
 
         messageRecord.status = 'accepted';
+        messageRecord.providerStatus = 'accepted';
         messageRecord.providerMessageId = providerMessageId;
         messageRecord.acceptedAt = new Date();
         messageRecord.updatedAt = new Date();
@@ -482,6 +501,7 @@ class WhatsAppService {
         const errMsg = resJson.error?.message || 'Failed to send template message';
 
         messageRecord.status = 'failed';
+        messageRecord.providerStatus = 'failed';
         messageRecord.lastErrorCode = String(errCode);
         messageRecord.lastErrorMessage = String(errMsg).slice(0, 500);
         messageRecord.updatedAt = new Date();
@@ -493,6 +513,7 @@ class WhatsAppService {
       console.error('[WhatsAppService] Send alert request network exception:', networkErr.message);
 
       messageRecord.status = 'verification_required';
+      messageRecord.providerStatus = 'verification_required';
       messageRecord.lastErrorCode = 'NETWORK_ERROR';
       messageRecord.lastErrorMessage = String(networkErr.message).slice(0, 500);
       messageRecord.updatedAt = new Date();

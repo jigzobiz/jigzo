@@ -19,6 +19,7 @@ const adminRebuildRouter = require('./routes/adminRebuild');
 const { router: pricingRouter } = require('./routes/pricing');
 const testRouter = require('./routes/test');
 const whatsappWebhookRouter = require('./routes/webhooks/whatsapp');
+const whatsappReconciliationRouter = require('./routes/internal/whatsappReconciliation');
 const { isTestModeAllowed } = require('./utils/testModeGuard');
 
 
@@ -41,7 +42,13 @@ app.use(cors({
 // Rate Limiter
 app.use(
   '/api/webhooks/whatsapp',
-  express.raw({ type: 'application/json', limit: '256kb' }),
+  express.raw({
+    type: () => true,
+    limit: '256kb',
+    verify: (req, res, buffer) => {
+      req.rawBody = Buffer.from(buffer);
+    }
+  }),
   async (req, res, next) => {
     try {
       await connectDB();
@@ -115,6 +122,7 @@ app.use('/api/analytics', analyticsRouter);
 app.use('/api/admin/v2', adminRebuildRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/pricing', pricingRouter);
+app.use('/api/internal/whatsapp/reconcile', whatsappReconciliationRouter);
 
 
 

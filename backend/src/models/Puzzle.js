@@ -26,7 +26,9 @@ const RecipientSchema = new mongoose.Schema({
   whatsappFailedAt: { type: Date, default: null },
   whatsappLastStatusAt: { type: Date, default: null },
   whatsappLastErrorCode: { type: String, default: '' },
+  whatsappLastErrorTitle: { type: String, default: '' },
   whatsappLastErrorMessage: { type: String, default: '' },
+  whatsappLastErrorDetails: { type: String, default: '' },
 
   openedAt: { type: Date, default: null },
   completedAt: { type: Date, default: null },

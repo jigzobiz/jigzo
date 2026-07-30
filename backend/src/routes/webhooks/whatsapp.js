@@ -2,46 +2,40 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const WhatsAppWebhookEvent = require('../../models/WhatsAppWebhookEvent');
-const WhatsAppMessage = require('../../models/WhatsAppMessage');
-const whatsappService = require('../../services/whatsappService');
+const {
+  getHeader,
+  verifyKapsoWebhookSignature
+} = require('../../utils/kapsoWebhookSignature');
+const {
+  normalizeKapsoMessage,
+  persistNormalizedStatus
+} = require('../../services/whatsappStatusService');
 
 router.post('/', async (req, res, next) => {
   try {
     // 1. Validate the webhook payload version
-    const payloadVersion = req.headers['x-webhook-payload-version'];
-    if (!payloadVersion || payloadVersion.trim().toLowerCase() !== 'v2') {
-      return res.status(400).json({ error: 'Unsupported or missing webhook payload version' });
-    }
-
-    const signature = req.headers['x-webhook-signature'];
-    const idempotencyKey = req.headers['x-idempotency-key'];
-    const eventType = req.headers['x-webhook-event'];
-
-    if (!signature || !idempotencyKey || !eventType) {
-      return res.status(400).json({ error: 'Missing required webhook headers' });
-    }
-
     const secret = process.env.KAPSO_WEBHOOK_SECRET;
     if (!secret) {
       console.error('[WhatsAppWebhook] KAPSO_WEBHOOK_SECRET is not configured.');
       return res.status(500).json({ error: 'Webhook secret not configured' });
     }
 
-    // Verify HMAC-SHA256 signature on raw body buffer
-    const rawBody = req.body; // Buffer from express.raw
-    if (!Buffer.isBuffer(rawBody)) {
-      return res.status(400).json({ error: 'Invalid request body' });
-    }
-
-    const hmac = crypto.createHmac('sha256', secret);
-    hmac.update(rawBody);
-    const expectedSignature = hmac.digest('hex');
-
-    const sigBuffer = Buffer.from(signature, 'utf8');
-    const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
-
-    if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+    const authentication = verifyKapsoWebhookSignature(req, secret);
+    if (!authentication.valid) {
+      console.warn('[WhatsAppWebhook] Authentication failed', authentication.diagnostics);
       return res.status(401).json({ error: 'Invalid signature' });
+    }
+    const rawBody = authentication.rawBody;
+
+    const payloadVersion = getHeader(req, 'X-Webhook-Payload-Version');
+    const idempotencyKey = getHeader(req, 'X-Idempotency-Key');
+    const eventType = getHeader(req, 'X-Webhook-Event');
+
+    if (!payloadVersion || payloadVersion.trim().toLowerCase() !== 'v2') {
+      return res.status(400).json({ error: 'Unsupported or missing webhook payload version' });
+    }
+    if (!idempotencyKey || !eventType) {
+      return res.status(400).json({ error: 'Missing required webhook headers' });
     }
 
     // Parse JSON safely
@@ -57,10 +51,12 @@ router.post('/', async (req, res, next) => {
     const payloadHash = crypto.createHash('sha256').update(rawBodyString).digest('hex');
     
     // Parse message metadata from Kapso-specific payload structure
-    const providerMessageId = payload.message?.id;
-    const kapsoObj = payload.message?.kapso || {};
-    const eventStatus = kapsoObj.status; // sent, delivered, read, failed
-    const occurredAt = payload.message?.timestamp ? new Date(parseInt(payload.message.timestamp) * 1000) : null;
+    const normalized = normalizeKapsoMessage(payload, eventType);
+    const {
+      providerMessageId,
+      providerStatus: eventStatus,
+      occurredAt
+    } = normalized;
     
     if (!providerMessageId || !eventStatus) {
       return res.status(400).json({ error: 'Invalid payload structure: missing message status info' });
@@ -84,7 +80,7 @@ router.post('/', async (req, res, next) => {
         idempotencyKey,
         eventType,
         providerMessageId,
-        phoneNumberId: payload.phone_number_id || '',
+        phoneNumberId: normalized.phoneNumberId,
         eventStatus,
         occurredAt,
         receivedAt: new Date(),
@@ -142,87 +138,29 @@ router.post('/', async (req, res, next) => {
 
     let webhookEvent = claimedEvent;
 
-    // Process status update monotonically
-    // Match recipient primarily using providerMessageId
-    const messageRecord = await WhatsAppMessage.findOne({ providerMessageId });
-    if (!messageRecord) {
-      webhookEvent.processingStatus = 'failed';
-      webhookEvent.lastProcessingError = 'Unmatched providerMessageId';
-      webhookEvent.processedAt = null;
-      await webhookEvent.save();
-      
-      // Return HTTP 500 so Kapso retries the delivery
-      return res.status(500).json({ error: 'Unmatched providerMessageId retryable' });
-    }
-
     try {
-      const priority = {
-        'pending': 0,
-        'disabled': 0,
-        'claimed': 1,
-        'sending': 2,
-        'accepted': 3,
-        'sent': 4,
-        'delivered': 5,
-        'read': 6
-      };
+      const persistence = await persistNormalizedStatus(normalized);
+      if (persistence.reason === 'unmatched_provider_message_id') {
+        // Authenticated provider test/admin-originated events may legitimately
+        // have no JIGZO WhatsAppMessage. Record and acknowledge the no-op so
+        // Kapso does not retry it indefinitely. Never create a fake message.
+        webhookEvent.processingStatus = 'processed';
+        webhookEvent.lastProcessingError = 'unmatched_provider_message_id_ignored';
+        webhookEvent.processedAt = new Date();
+        await webhookEvent.save();
+        return res.status(200).json({
+          success: true,
+          note: 'authenticated_unmatched_message_ignored'
+        });
+      }
 
-      const currentPriority = priority[messageRecord.status] || 0;
-      const incomingPriority = priority[eventStatus] || 0;
-
-      if (eventStatus === 'failed') {
-        const statusesArray = kapsoObj.statuses || [];
-        const failedStatus = statusesArray.find(s => s.status === 'failed') || {};
-        const errorObj = failedStatus.errors?.[0] || {};
-        
-        messageRecord.failedAt = occurredAt || new Date();
-        messageRecord.lastErrorCode = errorObj.code || 'PROVIDER_FAILED';
-        let errorMsg = errorObj.message || 'Message delivery failed';
-        if (errorObj.error_data?.details) {
-          errorMsg += ` (${errorObj.error_data.details})`;
-        }
-        messageRecord.lastErrorMessage = String(errorMsg).slice(0, 500);
-        
-        if (currentPriority < priority['sent']) {
-          messageRecord.status = 'failed';
-          await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, {
-            status: 'failed',
-            failedAt: messageRecord.failedAt,
-            errorCode: messageRecord.lastErrorCode,
-            errorMessage: messageRecord.lastErrorMessage
-          });
-        } else {
-          await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, {
-            failedAt: messageRecord.failedAt,
-            errorCode: messageRecord.lastErrorCode,
-            errorMessage: messageRecord.lastErrorMessage
-          });
-        }
-        messageRecord.updatedAt = new Date();
-        await messageRecord.save();
-      } else if (incomingPriority > currentPriority) {
-        // Upgrade status monotonically
-        messageRecord.status = eventStatus;
-        messageRecord.lastStatusAt = new Date();
-
-        const snapshotUpdate = {
-          status: eventStatus,
-          lastStatusAt: new Date(),
-          occurredAt
-        };
-
-        if (eventStatus === 'sent') {
-          messageRecord.sentAt = occurredAt || new Date();
-        } else if (eventStatus === 'delivered') {
-          messageRecord.deliveredAt = occurredAt || new Date();
-        } else if (eventStatus === 'read') {
-          messageRecord.readAt = occurredAt || new Date();
-        }
-
-        await messageRecord.save();
-        
-        // Update Puzzle recipient snapshot
-        await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, snapshotUpdate);
+      if (normalized.failure) {
+        const failure = normalized.failure;
+        webhookEvent.errorCode = failure.code;
+        webhookEvent.errorTitle = failure.title;
+        webhookEvent.errorMessage = failure.message;
+        webhookEvent.errorDetails = failure.details;
+        webhookEvent.providerFailureMetadata = failure.metadata;
       }
 
       webhookEvent.processingStatus = 'processed';

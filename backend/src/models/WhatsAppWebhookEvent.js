@@ -21,6 +21,13 @@ const WhatsAppWebhookEventSchema = new mongoose.Schema({
   errorCode: { type: String },
   errorTitle: { type: String },
   errorMessage: { type: String },
+  errorDetails: { type: String },
+  providerFailureMetadata: {
+    status: { type: String },
+    timestamp: { type: Date },
+    recipientIdMasked: { type: String },
+    href: { type: String }
+  },
   processingError: { type: String }
 });
 

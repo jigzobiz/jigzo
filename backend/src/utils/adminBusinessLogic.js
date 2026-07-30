@@ -97,7 +97,7 @@ function countPaidRecipientPuzzles(orders, puzzleByPublicId) {
 
 /**
  * Operational state of a recipient, using the strict priority:
- *   Solved > Opened > Delivered > Sent > Pending
+ *   Solved > Opened > Delivered > Sent > Failed > Pending
  * A solved/opened state is authoritative even if provider delivery
  * confirmation was never recorded.
  */
@@ -108,6 +108,7 @@ function getRecipientOperationalState(r) {
   const ds = r.deliveryStatus || 'pending';
   if (ds === 'delivered') return 'delivered';
   if (ds === 'sent' || r.sentAt) return 'sent';
+  if (ds === 'failed' || r.whatsappSendStatus === 'failed' || r.whatsappFailedAt) return 'failed';
   return 'pending';
 }
 
