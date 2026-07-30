@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { PageHeader, Card, StatGrid, StatTile, DataTable, Badge, Button, Loading, ErrorNote, useAdminData, adminGet, adminLegacyPost, formatDate, formatDateTime, T } from './adminShared';
+import { PageHeader, Card, StatGrid, StatTile, DataTable, Badge, Button, Loading, ErrorNote, useAdminData, adminGet, adminPost, adminLegacyPost, formatDate, formatDateTime, T } from './adminShared';
 
 const stateTone = (s) => (s === 'solved' ? 'good' : s === 'opened' ? 'warn' : s === 'delivered' || s === 'sent' ? 'neutral' : 'neutral');
 const SCOPES = [{ id: 'completed', label: 'Completed' }, { id: 'abandoned', label: 'Abandoned' }, { id: 'all', label: 'All' }];
@@ -20,8 +20,8 @@ export default function DeliveryCentre() {
   );
 }
 
-function useDelivery(scope) {
-  return useAdminData(() => adminGet(`/delivery?scope=${scope}`), [scope]);
+function useDelivery(scope, reloadTick = 0) {
+  return useAdminData(() => adminGet(`/delivery?scope=${scope}`), [scope, reloadTick]);
 }
 
 function applyFilters(list, stateF, channelF) {
@@ -38,8 +38,35 @@ function DeliveryStatus() {
   const [scope, setScope] = useState('completed');
   const [stateF, setStateF] = useState('all');
   const [channelF, setChannelF] = useState('all');
-  const { data, loading, error } = useDelivery(scope);
+  const [busyKey, setBusyKey] = useState('');
+  const [note, setNote] = useState('');
+  const [reloadTick, setReloadTick] = useState(0);
+  const { data, loading, error } = useDelivery(scope, reloadTick);
   const rows = useMemo(() => (data ? applyFilters(data.list, stateF, channelF) : []), [data, stateF, channelF]);
+
+  const retryDelivery = async (row) => {
+    if (!window.confirm(`Retry the failed WhatsApp delivery to ${row.recipientName}? This sends one new template attempt.`)) return;
+    const key = `${row.puzzleId}-${row.recipientIndex}`;
+    setBusyKey(key);
+    setNote('');
+    try {
+      const result = await adminPost(`/delivery/${row.puzzleId}/${row.recipientIndex}/retry-whatsapp`);
+      setNote(result.result === 'accepted' ? 'Retry accepted by the WhatsApp provider.' : 'Retry completed.');
+      setReloadTick((value) => value + 1);
+    } catch (err) {
+      const result = err.response && err.response.data && err.response.data.result;
+      setNote(
+        result === 'already_claimed'
+          ? 'This delivery retry is already in progress.'
+          : result === 'not_retryable'
+            ? 'This delivery is no longer safely retryable.'
+            : 'The retry failed. Review the delivery state before trying again.'
+      );
+      setReloadTick((value) => value + 1);
+    } finally {
+      setBusyKey('');
+    }
+  };
 
   return (
     <>
@@ -56,6 +83,7 @@ function DeliveryStatus() {
             <StatTile label="Conflicts" value={data.summary.conflicts} tone={data.summary.conflicts ? 'bad' : 'good'} />
           </StatGrid>
           <Card style={{ marginTop: 20, padding: 16 }}>
+            {note && <div style={{ color: note.includes('accepted') ? T.green : T.red, fontSize: 13, marginBottom: 10 }}>{note}</div>}
             <DataTable
               columns={[
                 { key: 'orderId', label: 'Order', render: (r) => r.orderId || <span style={{ color: T.ink50 }}>—</span> },
@@ -73,7 +101,13 @@ function DeliveryStatus() {
                 { key: 'completedAt', label: 'Solved', render: (r) => <TimeCell v={r.completedAt} /> },
                 { key: 'completionSeconds', label: 'Duration', render: (r) => r.completionSeconds != null ? `${r.completionSeconds}s` : 'Not recorded' },
                 { key: 'manualLinkProvidedAt', label: 'Manual link', render: (r) => r.manualLinkProvidedAt ? <Badge tone="good">provided</Badge> : <span style={{ color: T.ink50 }}>—</span> },
-                { key: 'lastError', label: 'Last error', wrap: true, render: (r) => r.lastError ? <span style={{ color: T.red, fontSize: 12 }}>{r.lastError}</span> : <span style={{ color: T.ink50 }}>—</span> }
+                { key: 'lastError', label: 'Last error', wrap: true, render: (r) => r.lastError ? <span style={{ color: T.red, fontSize: 12 }}>{r.lastError}</span> : <span style={{ color: T.ink50 }}>—</span> },
+                { key: 'retry', label: '', render: (r) => {
+                  const key = `${r.puzzleId}-${r.recipientIndex}`;
+                  return r.canRetryInitialDelivery
+                    ? <Button size="sm" tone="danger" disabled={busyKey === key} onClick={() => retryDelivery(r)}>{busyKey === key ? 'Retrying…' : 'Retry'}</Button>
+                    : null;
+                } }
               ]}
               rows={rows.map((r, i) => ({ ...r, _key: `${r.puzzleId}-${r.recipientIndex}` }))}
               searchKeys={['orderId', 'puzzleId', 'senderName', 'senderPhone', 'recipientName', 'recipientContact', 'tapReference']}

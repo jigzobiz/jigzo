@@ -7,12 +7,12 @@
  * by Tap (order.finalBhdFils) — a localised display amount (e.g. AED 35) is
  * never multiplied by an unrelated USD->BHD rate.
  *
- * Write endpoints are limited to ADMIN-ONLY collections:
+ * Most write endpoints are limited to ADMIN-ONLY collections:
  *  - expenses      (founder expense management; soft-delete/archive + audit)
  *  - customers     (admin archive/suppress only; operational records untouched)
- * Operational customer-facing collections (puzzles, recipients, orders,
- * payments, notificationrequests) are never mutated here, so live checkout /
- * WhatsApp / puzzle / reveal behaviour is untouched.
+ * The Delivery Centre also exposes one authenticated, recipient-specific
+ * operational action: atomically retrying a terminally failed initial
+ * WhatsApp delivery through the normal idempotent delivery service.
  */
 
 const express = require('express');
@@ -41,6 +41,7 @@ const { resolveJwtSecret } = require('../utils/runtimeConfig');
 const { sumBHD, toDecimal128, multiplyToBHD } = require('../utils/money');
 const L = require('../utils/adminBusinessLogic');
 const paymentService = require('../services/paymentService');
+const whatsappService = require('../services/whatsappService');
 
 const JWT_SECRET = resolveJwtSecret();
 
@@ -445,6 +446,7 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
           state, deliveryTracking: tracking,
           providerSendStatus: (message && (message.providerStatus || message.status)) || r.whatsappSendStatus || r.deliveryStatus || 'pending',
           providerMessageId: (message && message.providerMessageId) || r.providerMessageId || '',
+          canRetryInitialDelivery: whatsappService.isInitialPuzzleDeliveryRetryable(message, r),
           reconciliationStatus,
           reconciliationRequiredSince: reconciliationStatus === 'reconciliation_required' ? message.acceptedAt : null,
           sentAt: r.sentAt || r.whatsappSentAt || null,
@@ -462,6 +464,55 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
     }
     res.json({ success: true, scope, summary, list: rows });
   } catch (err) { next(err); }
+});
+
+router.post('/delivery/:puzzleId/:recipientIndex/retry-whatsapp', authenticateAdmin, async (req, res, next) => {
+  try {
+    const puzzleId = String(req.params.puzzleId || '').trim();
+    const recipientIndex = Number(req.params.recipientIndex);
+    if (!/^[a-f0-9]{32}$/i.test(puzzleId) || !Number.isInteger(recipientIndex) || recipientIndex < 0) {
+      return res.status(400).json({ success: false, result: 'not_retryable', error: 'Invalid puzzle recipient target.' });
+    }
+
+    const result = await whatsappService.retryPuzzleDelivery({ puzzleId, recipientIndex });
+    audit(
+      req,
+      'retry_initial_whatsapp_delivery',
+      'WhatsAppMessage',
+      `${puzzleId}:${recipientIndex}`,
+      result.reason || result.status || '',
+      {},
+      { success: result.success, status: result.status, providerMessageIdPresent: Boolean(result.providerMessageId) }
+    );
+
+    if (result.success && result.status === 'accepted') {
+      return res.json({
+        success: true,
+        result: 'accepted',
+        status: result.status,
+        providerAccepted: true,
+        providerMessageIdPresent: Boolean(result.providerMessageId)
+      });
+    }
+
+    if (['not_retryable', 'already_claimed', 'recipient_already_opened_or_solved'].includes(result.reason)) {
+      return res.status(409).json({
+        success: false,
+        result: result.reason === 'already_claimed' ? 'already_claimed' : 'not_retryable',
+        status: result.status,
+        error: result.reason
+      });
+    }
+
+    return res.status(502).json({
+      success: false,
+      result: 'failed',
+      status: result.status || 'failed',
+      error: result.error || result.reason || 'Provider send failed.'
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ============================================================================

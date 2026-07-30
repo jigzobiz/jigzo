@@ -2,10 +2,27 @@ const mongoose = require('mongoose');
 
 const RetryAttemptSchema = new mongoose.Schema({
   attemptNumber: { type: Number, required: true },
+  providerMessageId: { type: String },
+  status: { type: String },
+  providerStatus: { type: String },
+  languageCode: { type: String },
+  claimedAt: { type: Date },
   requestStartedAt: { type: Date },
+  acceptedAt: { type: Date },
+  sentAt: { type: Date },
+  deliveredAt: { type: Date },
+  readAt: { type: Date },
   failedAt: { type: Date },
   errorCode: { type: String },
+  errorTitle: { type: String },
   errorMessage: { type: String },
+  errorDetails: { type: String },
+  providerFailureMetadata: {
+    status: { type: String },
+    timestamp: { type: Date },
+    recipientIdMasked: { type: String },
+    href: { type: String }
+  },
   payloadHash: { type: String }
 });
 

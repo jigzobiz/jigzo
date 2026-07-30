@@ -44,6 +44,7 @@ const MockWhatsAppMessage = function(data) {
   this._data = { ...data, attemptCount: data.attemptCount || 0, retryHistory: data.retryHistory || [] };
   Object.defineProperty(this, 'puzzleId', { get: () => this._data.puzzleId });
   Object.defineProperty(this, 'recipientIndex', { get: () => this._data.recipientIndex });
+  Object.defineProperty(this, 'messageType', { get: () => this._data.messageType || 'puzzle_delivery' });
   Object.defineProperty(this, 'idempotencyKey', { get: () => this._data.idempotencyKey });
   Object.defineProperty(this, 'destinationMasked', { get: () => this._data.destinationMasked });
   Object.defineProperty(this, 'createdAt', { get: () => this._data.createdAt });
@@ -165,9 +166,18 @@ MockWhatsAppMessage.findOneAndUpdate = async (query, update, options) => {
     if (validStatuses && !validStatuses.includes(existing.status)) {
       return null;
     }
+    if (typeof query.status === 'string' && existing.status !== query.status) return null;
+    if (typeof query.providerStatus === 'string' && existing.providerStatus !== query.providerStatus) return null;
+    if (query.puzzleId && existing.puzzleId !== query.puzzleId) return null;
+    if (query.recipientIndex !== undefined && existing.recipientIndex !== query.recipientIndex) return null;
+    if (query.messageType && existing.messageType !== query.messageType) return null;
+    if (query.providerMessageId && typeof query.providerMessageId === 'object' && !existing.providerMessageId) return null;
     // Perform update
     if (update.$set) {
       Object.assign(existing._data, update.$set);
+    }
+    if (update.$unset) {
+      for (const key of Object.keys(update.$unset)) delete existing._data[key];
     }
     return existing;
   }
@@ -289,6 +299,7 @@ const whatsappWebhookRouter = require('../src/routes/webhooks/whatsapp');
 const adminBusinessLogic = require('../src/utils/adminBusinessLogic');
 const { isStaleAcceptedMessage, getReconciliationStatus } = require('../src/utils/whatsappLifecycle');
 const { reconcileMessage } = require('../src/services/whatsappReconciliationService');
+const { persistNormalizedStatus } = require('../src/services/whatsappStatusService');
 
 // Inject mock updates into service snapshot updates to run DB-free
 whatsappService.updateRecipientSnapshot = async (puzzleId, recipientIndex, fields) => {
@@ -507,6 +518,169 @@ async function runAllTests() {
   await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-timeout', recipientIndex: 0 });
   assert.strictEqual(mockDb.messages[`puzzle-delivery:puz-timeout:0:jigzo_puzzle_delivery:v1`].status, 'verification_required');
   console.log('✓ Scenario 3.4: Network request timeout is caught and marked verification_required: Success');
+
+  async function seedFailedInitialDelivery(puzzleId, experienceLanguage = 'en', recipientFields = {}) {
+    const key = `puzzle-delivery:${puzzleId}:0:jigzo_puzzle_delivery:v1`;
+    mockDb.puzzles[puzzleId] = {
+      publicId: puzzleId,
+      experienceLanguage,
+      senderName: 'Sender',
+      revealIdentity: true,
+      recipients: [{
+        name: 'Recipient',
+        phone: '33931331',
+        countryCode: '973',
+        whatsappSendStatus: 'failed',
+        deliveryStatus: 'failed',
+        ...recipientFields
+      }]
+    };
+    mockDb.messages[key] = new MockWhatsAppMessage({
+      puzzleId,
+      recipientIndex: 0,
+      messageType: 'puzzle_delivery',
+      templateName: 'jigzo_puzzle_delivery',
+      languageCode: experienceLanguage === 'ar' ? 'ar' : 'en_US',
+      idempotencyKey: key,
+      destinationMasked: '*******3131',
+      status: 'failed',
+      providerStatus: 'failed',
+      providerMessageId: `wamid.old-${puzzleId}`,
+      attemptCount: 1,
+      claimedAt: new Date('2026-07-30T08:00:00.000Z'),
+      requestStartedAt: new Date('2026-07-30T08:00:01.000Z'),
+      acceptedAt: new Date('2026-07-30T08:00:02.000Z'),
+      failedAt: new Date('2026-07-30T08:01:00.000Z'),
+      lastErrorCode: '131026',
+      lastErrorTitle: 'Message Undeliverable',
+      lastErrorMessage: 'Message Undeliverable',
+      lastErrorDetails: 'Provider could not deliver the message.',
+      providerFailureMetadata: { status: 'failed', timestamp: new Date('2026-07-30T08:01:00.000Z') },
+      payloadHash: 'old-payload-hash'
+    });
+    return { key, message: mockDb.messages[key] };
+  }
+
+  resetMocks();
+  process.env.WHATSAPP_ENABLED = 'true';
+  const arabicRetrySeed = await seedFailedInitialDelivery('retry-ar', 'ar');
+  let retryFetchCount = 0;
+  global.fetch = async (url, options) => {
+    retryFetchCount++;
+    lastFetchParams = { url, options };
+    return { ok: true, text: async () => JSON.stringify({ messages: [{ id: 'wamid.new-ar' }] }) };
+  };
+  const arabicRetry = await whatsappService.retryPuzzleDelivery({ puzzleId: 'retry-ar', recipientIndex: 0 });
+  const arabicRetryPayload = JSON.parse(lastFetchParams.options.body);
+  assert.strictEqual(arabicRetry.success, true);
+  assert.strictEqual(arabicRetry.status, 'accepted');
+  assert.strictEqual(retryFetchCount, 1);
+  assert.strictEqual(arabicRetryPayload.template.name, 'jigzo_puzzle_delivery');
+  assert.strictEqual(arabicRetryPayload.template.language.code, 'ar');
+  assert.strictEqual(arabicRetrySeed.message.providerMessageId, 'wamid.new-ar');
+  assert.strictEqual(arabicRetrySeed.message.attemptCount, 2);
+  assert.strictEqual(arabicRetrySeed.message.retryHistory.length, 1);
+  assert.strictEqual(arabicRetrySeed.message.retryHistory[0].providerMessageId, 'wamid.old-retry-ar');
+  assert.strictEqual(arabicRetrySeed.message.retryHistory[0].errorTitle, 'Message Undeliverable');
+  assert.strictEqual(arabicRetrySeed.message.retryHistory[0].languageCode, 'ar');
+  console.log('✓ Scenario 3.5: Failed Arabic initial delivery retries once with ar and archives the old attempt: Success');
+
+  const lateOldStatus = await persistNormalizedStatus({
+    providerMessageId: 'wamid.old-retry-ar',
+    providerStatus: 'failed',
+    occurredAt: new Date(),
+    failure: {
+      code: 'LATE_OLD',
+      title: 'Late old failure',
+      message: 'Old attempt callback',
+      details: 'Must be ignored',
+      metadata: { status: 'failed' }
+    }
+  });
+  assert.strictEqual(lateOldStatus.updated, false);
+  assert.strictEqual(arabicRetrySeed.message.status, 'accepted');
+  assert.strictEqual(arabicRetrySeed.message.providerMessageId, 'wamid.new-ar');
+  console.log('✓ Scenario 3.6: Late old wamid webhook cannot alter the accepted retry attempt: Success');
+
+  resetMocks();
+  process.env.WHATSAPP_ENABLED = 'true';
+  const englishRetrySeed = await seedFailedInitialDelivery('retry-en', 'en');
+  global.fetch = async (url, options) => {
+    lastFetchParams = { url, options };
+    return { ok: true, text: async () => JSON.stringify({ messages: [{ id: 'wamid.new-en' }] }) };
+  };
+  const englishRetry = await whatsappService.retryPuzzleDelivery({ puzzleId: 'retry-en', recipientIndex: 0 });
+  assert.strictEqual(englishRetry.success, true);
+  assert.strictEqual(JSON.parse(lastFetchParams.options.body).template.language.code, 'en_US');
+  assert.strictEqual(englishRetrySeed.message.languageCode, 'en_US');
+  console.log('✓ Scenario 3.7: Failed English initial delivery retries with en_US: Success');
+
+  resetMocks();
+  process.env.WHATSAPP_ENABLED = 'true';
+  await seedFailedInitialDelivery('retry-concurrent', 'en');
+  let concurrentProviderSends = 0;
+  global.fetch = async () => {
+    concurrentProviderSends++;
+    return { ok: true, text: async () => JSON.stringify({ messages: [{ id: 'wamid.concurrent-new' }] }) };
+  };
+  const concurrentRetries = await Promise.all([
+    whatsappService.retryPuzzleDelivery({ puzzleId: 'retry-concurrent', recipientIndex: 0 }),
+    whatsappService.retryPuzzleDelivery({ puzzleId: 'retry-concurrent', recipientIndex: 0 })
+  ]);
+  assert.strictEqual(concurrentProviderSends, 1);
+  assert.strictEqual(concurrentRetries.filter((result) => result.success).length, 1);
+  assert.strictEqual(concurrentRetries.filter((result) => result.reason === 'already_claimed' || result.reason === 'not_retryable').length, 1);
+  const doubleClick = await whatsappService.retryPuzzleDelivery({ puzzleId: 'retry-concurrent', recipientIndex: 0 });
+  assert.strictEqual(doubleClick.success, false);
+  assert.strictEqual(concurrentProviderSends, 1);
+  console.log('✓ Scenario 3.8: Concurrent and double-click retries produce exactly one provider send: Success');
+
+  for (const blockedStatus of ['pending', 'accepted', 'sent', 'delivered', 'read', 'verification_required']) {
+    resetMocks();
+    process.env.WHATSAPP_ENABLED = 'true';
+    const blocked = await seedFailedInitialDelivery(`retry-block-${blockedStatus}`, 'en');
+    blocked.message.status = blockedStatus;
+    blocked.message.providerStatus = blockedStatus;
+    let blockedFetches = 0;
+    global.fetch = async () => { blockedFetches++; throw new Error('Provider must not be called'); };
+    const blockedResult = await whatsappService.retryPuzzleDelivery({
+      puzzleId: `retry-block-${blockedStatus}`,
+      recipientIndex: 0
+    });
+    assert.strictEqual(blockedResult.success, false, blockedStatus);
+    assert.strictEqual(blockedResult.reason, 'not_retryable', blockedStatus);
+    assert.strictEqual(blockedFetches, 0, blockedStatus);
+  }
+  console.log('✓ Scenario 3.9: Pending/accepted/sent/delivered/read/reconciliation-required deliveries cannot retry: Success');
+
+  resetMocks();
+  process.env.WHATSAPP_ENABLED = 'true';
+  const solvedSeed = await seedFailedInitialDelivery('retry-solved', 'ar', { completedAt: new Date() });
+  let solvedFetches = 0;
+  global.fetch = async () => { solvedFetches++; throw new Error('Provider must not be called'); };
+  const solvedRetry = await whatsappService.retryPuzzleDelivery({ puzzleId: 'retry-solved', recipientIndex: 0 });
+  assert.strictEqual(solvedRetry.reason, 'recipient_already_opened_or_solved');
+  assert.strictEqual(solvedSeed.message.status, 'failed');
+  assert.strictEqual(solvedFetches, 0);
+  console.log('✓ Scenario 3.10: Solved recipient cannot retry: Success');
+
+  resetMocks();
+  process.env.WHATSAPP_ENABLED = 'true';
+  const failedRetrySeed = await seedFailedInitialDelivery('retry-provider-fails', 'ar');
+  global.fetch = async () => ({
+    ok: false,
+    status: 409,
+    text: async () => JSON.stringify({ error: { code: '131056', message: 'Pair rate limit hit' } })
+  });
+  const providerFailedRetry = await whatsappService.retryPuzzleDelivery({ puzzleId: 'retry-provider-fails', recipientIndex: 0 });
+  assert.strictEqual(providerFailedRetry.success, false);
+  assert.strictEqual(failedRetrySeed.message.status, 'failed');
+  assert.strictEqual(failedRetrySeed.message.attemptCount, 2);
+  assert.strictEqual(failedRetrySeed.message.retryHistory.length, 1);
+  assert.strictEqual(failedRetrySeed.message.retryHistory[0].providerMessageId, 'wamid.old-retry-provider-fails');
+  assert.strictEqual(failedRetrySeed.message.lastErrorCode, '131056');
+  assert.ok(failedRetrySeed.message.failedAt);
+  console.log('✓ Scenario 3.11: Provider concurrency failure makes no second attempt and retains prior failure history: Success');
 
   // ==========================================
   // Group 4: Webhook Security & Version checks

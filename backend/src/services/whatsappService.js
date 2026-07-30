@@ -11,6 +11,20 @@ function maskPhone(phone) {
 }
 
 class WhatsAppService {
+  isInitialPuzzleDeliveryRetryable(messageRecord, recipient) {
+    return Boolean(
+      messageRecord &&
+      messageRecord.messageType === 'puzzle_delivery' &&
+      messageRecord.status === 'failed' &&
+      messageRecord.providerStatus === 'failed' &&
+      messageRecord.providerMessageId &&
+      recipient &&
+      !recipient.openedAt &&
+      !recipient.completedAt &&
+      !recipient.whatsappReadAt
+    );
+  }
+
   /**
    * Helper to normalize destination phone number format
    */
@@ -99,7 +113,7 @@ class WhatsAppService {
   /**
    * Atomically claims and sends a puzzle template message to a specific recipient.
    */
-  async claimAndSendPuzzleDelivery({ puzzleId, recipientIndex }) {
+  async claimAndSendPuzzleDelivery({ puzzleId, recipientIndex, retryFailed = false }) {
     // Phase 1 check: Keep WHATSAPP_ENABLED false check first to prevent any DB claims
     const whatsappEnabled = process.env.WHATSAPP_ENABLED === 'true';
     if (!whatsappEnabled) {
@@ -123,6 +137,10 @@ class WhatsAppService {
     const idempotencyKey = `puzzle-delivery:${puzzleId}:${recipientIndex}:jigzo_puzzle_delivery:v1`;
     let messageRecord;
 
+    if (retryFailed && (rec.openedAt || rec.completedAt || rec.whatsappReadAt)) {
+      return { success: false, reason: 'recipient_already_opened_or_solved', status: 'not_retryable' };
+    }
+
     try {
       // Step 1: Create atomic claim using unique index
       messageRecord = new WhatsAppMessage({
@@ -139,11 +157,84 @@ class WhatsAppService {
       await messageRecord.save();
     } catch (err) {
       if (err.code === 11000) {
-        // Already claimed or sent
-        const existing = await WhatsAppMessage.findOne({ idempotencyKey });
-        return { success: false, reason: 'duplicate_request', status: existing.status, providerMessageId: existing.providerMessageId };
+        if (!retryFailed) {
+          const existing = await WhatsAppMessage.findOne({ idempotencyKey });
+          return { success: false, reason: 'duplicate_request', status: existing.status, providerMessageId: existing.providerMessageId };
+        }
+
+        const claimTime = new Date();
+        const existing = await WhatsAppMessage.findOneAndUpdate(
+          {
+            idempotencyKey,
+            puzzleId,
+            recipientIndex,
+            messageType: 'puzzle_delivery',
+            status: 'failed',
+            providerStatus: 'failed',
+            providerMessageId: { $type: 'string', $gt: '' }
+          },
+          {
+            $set: {
+              status: 'claimed',
+              providerStatus: 'claimed',
+              retryStartedAt: claimTime,
+              updatedAt: claimTime
+            }
+          },
+          { new: true }
+        );
+
+        if (!existing) {
+          const current = await WhatsAppMessage.findOne({ idempotencyKey });
+          const alreadyClaimed = current && ['claimed', 'sending'].includes(current.status);
+          return {
+            success: false,
+            reason: alreadyClaimed ? 'already_claimed' : 'not_retryable',
+            status: current ? current.status : 'not_found'
+          };
+        }
+
+        // Archive the complete previous attempt before detaching its wamid.
+        // Webhook processing treats archived wamids as immutable history.
+        existing.retryHistory.push({
+          attemptNumber: existing.attemptCount,
+          providerMessageId: existing.providerMessageId,
+          status: 'failed',
+          providerStatus: 'failed',
+          languageCode: existing.languageCode,
+          claimedAt: existing.claimedAt,
+          requestStartedAt: existing.requestStartedAt,
+          acceptedAt: existing.acceptedAt,
+          sentAt: existing.sentAt,
+          deliveredAt: existing.deliveredAt,
+          readAt: existing.readAt,
+          failedAt: existing.failedAt,
+          errorCode: existing.lastErrorCode,
+          errorTitle: existing.lastErrorTitle,
+          errorMessage: existing.lastErrorMessage,
+          errorDetails: existing.lastErrorDetails,
+          providerFailureMetadata: existing.providerFailureMetadata,
+          payloadHash: existing.payloadHash
+        });
+        await existing.save();
+
+        existing.providerMessageId = undefined;
+        existing.claimedAt = claimTime;
+        existing.acceptedAt = undefined;
+        existing.sentAt = undefined;
+        existing.deliveredAt = undefined;
+        existing.readAt = undefined;
+        existing.failedAt = undefined;
+        existing.lastErrorCode = undefined;
+        existing.lastErrorTitle = undefined;
+        existing.lastErrorMessage = undefined;
+        existing.lastErrorDetails = undefined;
+        existing.providerFailureMetadata = undefined;
+        await existing.save();
+        messageRecord = existing;
+      } else {
+        throw err;
       }
-      throw err;
     }
 
     // Step 2: Acquire claim
@@ -151,6 +242,21 @@ class WhatsAppService {
     messageRecord.providerStatus = 'claimed';
     messageRecord.claimedAt = new Date();
     await messageRecord.save();
+
+    if (retryFailed) {
+      const latestPuzzle = await Puzzle.findOne({ publicId: puzzleId });
+      const latestRecipient = latestPuzzle && latestPuzzle.recipients[recipientIndex];
+      if (!latestRecipient || latestRecipient.openedAt || latestRecipient.completedAt || latestRecipient.whatsappReadAt) {
+        messageRecord.status = 'failed';
+        messageRecord.providerStatus = 'failed';
+        messageRecord.lastErrorCode = 'RECIPIENT_ALREADY_OPENED_OR_SOLVED';
+        messageRecord.lastErrorMessage = 'Retry cancelled because the recipient already opened or solved the puzzle.';
+        messageRecord.failedAt = new Date();
+        messageRecord.updatedAt = new Date();
+        await messageRecord.save();
+        return { success: false, reason: 'recipient_already_opened_or_solved', status: 'failed' };
+      }
+    }
 
     // Validate environment variables
     const apiKey = process.env.KAPSO_API_KEY;
@@ -160,6 +266,7 @@ class WhatsAppService {
       messageRecord.providerStatus = 'failed';
       messageRecord.lastErrorCode = 'MISSING_CREDENTIALS';
       messageRecord.lastErrorMessage = 'Staging environment is missing Kapso credentials.';
+      messageRecord.failedAt = new Date();
       messageRecord.updatedAt = new Date();
       await messageRecord.save();
 
@@ -268,6 +375,7 @@ class WhatsAppService {
         messageRecord.providerStatus = 'failed';
         messageRecord.lastErrorCode = String(errCode);
         messageRecord.lastErrorMessage = String(errMsg).slice(0, 500);
+        messageRecord.failedAt = new Date();
         messageRecord.updatedAt = new Date();
         await messageRecord.save();
 
@@ -517,6 +625,10 @@ class WhatsAppService {
 
       return { success: false, error: 'ambiguous_network_failure' };
     }
+  }
+
+  async retryPuzzleDelivery({ puzzleId, recipientIndex }) {
+    return this.claimAndSendPuzzleDelivery({ puzzleId, recipientIndex, retryFailed: true });
   }
 }
 

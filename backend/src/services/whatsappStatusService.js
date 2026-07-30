@@ -67,6 +67,12 @@ async function persistNormalizedStatus(normalized) {
   if (!messageRecord) {
     return { updated: false, reason: 'unmatched_provider_message_id' };
   }
+  if (messageRecord.retryStartedAt && ['claimed', 'sending'].includes(messageRecord.status)) {
+    return { updated: false, reason: 'historical_provider_message_id', messageRecord };
+  }
+  if ((messageRecord.retryHistory || []).some((attempt) => attempt.providerMessageId === providerMessageId)) {
+    return { updated: false, reason: 'historical_provider_message_id', messageRecord };
+  }
 
   const currentPriority = STATUS_PRIORITY[messageRecord.status] || 0;
   const incomingPriority = STATUS_PRIORITY[providerStatus] || 0;
