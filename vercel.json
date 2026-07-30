@@ -37,11 +37,5 @@
       "src": "/(.*)",
       "dest": "frontend/index.html"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/internal/whatsapp/reconcile",
-      "schedule": "*/30 * * * *"
-    }
   ]
 }
