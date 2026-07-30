@@ -428,23 +428,25 @@ async function runAllTests() {
 
   assert.strictEqual(payload0.template.components[0].parameters[0].text, 'Sam');
   assert.ok(!payload0.template.components[0].parameters[0].text.includes('Yazan'));
+  assert.strictEqual(payload0.template.name, 'jigzo_puzzle_delivery');
   assert.strictEqual(payload0.template.language.code, 'en_US');
   assert.strictEqual(mockDb.messages['puzzle-delivery:puz-temp:0:jigzo_puzzle_delivery:v1'].languageCode, 'en_US');
   console.log('✓ Scenario 2.3: Recipient 0 payload contains no Recipient 1 data: Success');
   console.log('✓ Scenario 2.4: English delivery uses and persists en_US: Success');
 
-  mockDb.puzzles['puz-ar-gated'] = {
-    publicId: 'puz-ar-gated',
+  mockDb.puzzles['puz-ar'] = {
+    publicId: 'puz-ar',
     senderName: 'Zahra',
     revealIdentity: true,
     experienceLanguage: 'ar',
     recipients: [{ name: 'Sam', phone: '33931333', countryCode: '973', whatsappSendStatus: 'pending' }]
   };
-  await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-ar-gated', recipientIndex: 0 });
-  const gatedArabicPayload = JSON.parse(lastFetchParams.options.body);
-  assert.strictEqual(gatedArabicPayload.template.language.code, 'en_US');
-  assert.strictEqual(mockDb.messages['puzzle-delivery:puz-ar-gated:0:jigzo_puzzle_delivery:v1'].languageCode, 'en_US');
-  console.log('✓ Scenario 2.5: Arabic-selected puzzle remains safely gated to en_US: Success');
+  await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-ar', recipientIndex: 0 });
+  const arabicPayload = JSON.parse(lastFetchParams.options.body);
+  assert.strictEqual(arabicPayload.template.name, 'jigzo_puzzle_delivery');
+  assert.strictEqual(arabicPayload.template.language.code, 'ar');
+  assert.strictEqual(mockDb.messages['puzzle-delivery:puz-ar:0:jigzo_puzzle_delivery:v1'].languageCode, 'ar');
+  console.log('✓ Scenario 2.5: Arabic delivery uses jigzo_puzzle_delivery and persists ar: Success');
 
   // ==========================================
   // Group 3: API Outcomes
@@ -1222,6 +1224,7 @@ async function runAllTests() {
 
   mockDb.puzzles['lc'] = {
     publicId: 'lc',
+    experienceLanguage: 'en',
     senderName: 'Someone',
     senderPhone: '97333333333',
     recipients: [{ name: 'Sam', completedAt: new Date('2026-07-24T17:13:08.828Z'), completionSeconds: 155 }],
@@ -1242,7 +1245,8 @@ async function runAllTests() {
     assert.strictEqual(alertRes.status, 'accepted');
     assert.strictEqual(alertRes.providerMessageId, 'msg-solved-123');
     assert.strictEqual(capturedPayload.template.name, 'jigzo_puzzle_solved');
-    assert.strictEqual(capturedPayload.template.language.code, 'en_US'); // Pending confirmation is false, so en_US
+    assert.strictEqual(capturedPayload.template.language.code, 'en_US');
+    assert.strictEqual(mockDb.messages['puzzle-solved:lc:0:jigzo_puzzle_solved:v1'].languageCode, 'en_US');
     assert.deepStrictEqual(capturedPayload.template.components[0].parameters, [
       { type: 'text', text: 'Someone' },
       { type: 'text', text: 'Sam' },
@@ -1250,7 +1254,29 @@ async function runAllTests() {
       { type: 'text', text: '8:13 pm' },
       { type: 'text', text: '2m 35s' }
     ]);
-    console.log('✓ Scenario 8.2: Reveal alert template name and parameters are formatted correctly: Success');
+    console.log('✓ Scenario 8.2: English reveal alert uses jigzo_puzzle_solved and persists en_US: Success');
+
+    mockDb.puzzles['lc-ar'] = {
+      publicId: 'lc-ar',
+      experienceLanguage: 'ar',
+      senderName: 'Someone',
+      senderPhone: '97333333333',
+      recipients: [{ name: 'Sam', completedAt: new Date('2026-07-24T17:13:08.828Z'), completionSeconds: 155 }],
+      save: async function() { return this; }
+    };
+    const arabicAlertRes = await whatsappService.sendRevealAlert({
+      puzzleId: 'lc-ar',
+      recipientIndex: 0,
+      senderPhone: '97333333333',
+      recipientName: 'Sam',
+      durationSeconds: 155
+    });
+    assert.strictEqual(arabicAlertRes.success, true);
+    assert.strictEqual(capturedPayload.template.name, 'jigzo_puzzle_solved');
+    assert.strictEqual(capturedPayload.template.language.code, 'ar');
+    assert.strictEqual(mockDb.messages['puzzle-solved:lc-ar:0:jigzo_puzzle_solved:v1'].languageCode, 'ar');
+    assert.strictEqual(capturedPayload.template.components[0].parameters.length, 5);
+    console.log('✓ Scenario 8.3: Arabic reveal alert uses jigzo_puzzle_solved and persists ar: Success');
 
   } finally {
     // Restore fetch and env

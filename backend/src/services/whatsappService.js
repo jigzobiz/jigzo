@@ -182,9 +182,7 @@ class WhatsAppService {
     const senderDisplayName = puzzle.revealIdentity ? (puzzle.senderName || '').trim() : 'Someone';
     const suffix = `${puzzleId}?r=${recipientIndex}`;
 
-    // English Marketing versions are approved. Arabic templates are prepared but not enabled.
-    const isArabicConfirmed = false; // Set to true once verified
-    const langCode = (puzzle.experienceLanguage === 'ar' && isArabicConfirmed) ? 'ar' : 'en_US';
+    const langCode = puzzle.experienceLanguage === 'ar' ? 'ar' : 'en_US';
     messageRecord.languageCode = langCode;
     await messageRecord.save();
 
@@ -426,9 +424,7 @@ class WhatsAppService {
       timeZone: 'Asia/Bahrain'
     }).format(completedAt).toLowerCase();
 
-    // English Marketing versions are approved. Arabic templates are prepared but not enabled.
-    const isArabicConfirmed = false; // Set to true once verified
-    const langCode = isArabicConfirmed ? 'ar' : 'en_US';
+    const langCode = puzzle && puzzle.experienceLanguage === 'ar' ? 'ar' : 'en_US';
     messageRecord.languageCode = langCode;
     await messageRecord.save();
 
