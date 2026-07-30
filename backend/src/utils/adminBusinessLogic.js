@@ -154,9 +154,17 @@ function detectRecipientConflicts(r, puzzle) {
  */
 function getDeliveryTracking(r, message) {
   if (!r) return 'Unknown';
+  if (message) {
+    const currentStatus = message.providerStatus || message.status;
+    if (currentStatus === 'read' || message.readAt) return 'Read';
+    if (currentStatus === 'delivered' || message.deliveredAt) return 'Delivered';
+    if (hasCurrentTerminalProviderFailure(message)) return 'Failed';
+    if (currentStatus === 'sent' || message.sentAt) return 'Sent';
+  }
   if (hasCurrentTerminalProviderFailure(message)) return 'Failed';
-  if (r.whatsappSendStatus === 'failed' || r.whatsappFailedAt) return 'Failed';
+  if (r.whatsappReadAt) return 'Read';
   if (r.deliveryStatus === 'delivered' || r.whatsappDeliveredAt) return 'Delivered';
+  if (r.whatsappSendStatus === 'failed' || r.whatsappFailedAt) return 'Failed';
   if (r.deliveryStatus === 'sent' || r.sentAt) return 'Sent';
   return 'Unconfirmed';
 }

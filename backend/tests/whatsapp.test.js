@@ -1357,6 +1357,42 @@ async function runAllTests() {
   assert.strictEqual(adminBusinessLogic.getDeliveryTracking(sentThenFailedRecipient, sentThenFailedMessage), 'Failed');
   assert.strictEqual(whatsappService.isInitialPuzzleDeliveryCorrectable(sentThenFailedMessage, sentThenFailedRecipient), true);
   assert.strictEqual(sentThenFailedMessage.retryHistory.length, 1);
+  const recoveredDeliveryMessage = new MockWhatsAppMessage({
+    puzzleId: 'failed-corrected-retried-delivered',
+    recipientIndex: 0,
+    idempotencyKey: 'puzzle-delivery:failed-corrected-retried-delivered:0:jigzo_puzzle_delivery:v1',
+    providerMessageId: 'wamid.current-delivered',
+    destinationMasked: '********4124',
+    status: 'delivered',
+    providerStatus: 'delivered',
+    sentAt: new Date(),
+    deliveredAt: new Date(),
+    attemptCount: 2,
+    retryHistory: [{
+      attemptNumber: 1,
+      providerMessageId: 'wamid.historical-failed',
+      destinationMasked: '********4121',
+      providerStatus: 'failed',
+      errorCode: '131026',
+      failedAt: new Date()
+    }]
+  });
+  const recoveredDeliveryRecipient = {
+    whatsappSendStatus: 'failed',
+    deliveryStatus: 'delivered',
+    whatsappFailedAt: new Date(),
+    whatsappDeliveredAt: recoveredDeliveryMessage.deliveredAt
+  };
+  assert.strictEqual(adminBusinessLogic.getRecipientOperationalState(recoveredDeliveryRecipient, recoveredDeliveryMessage), 'delivered');
+  assert.strictEqual(adminBusinessLogic.getDeliveryTracking(recoveredDeliveryRecipient, recoveredDeliveryMessage), 'Delivered');
+  assert.strictEqual(recoveredDeliveryMessage.retryHistory.length, 1);
+  assert.strictEqual(recoveredDeliveryMessage.retryHistory[0].providerMessageId, 'wamid.historical-failed');
+  assert.strictEqual(recoveredDeliveryMessage.retryHistory[0].destinationMasked.slice(-4), '4121');
+  recoveredDeliveryMessage.status = 'read';
+  recoveredDeliveryMessage.providerStatus = 'read';
+  recoveredDeliveryMessage.readAt = new Date();
+  assert.strictEqual(adminBusinessLogic.getDeliveryTracking(recoveredDeliveryRecipient, recoveredDeliveryMessage), 'Read');
+  console.log('✓ Scenario 6.3c: Failed -> corrected -> retried -> delivered/read projects the current attempt while preserving failed history: Success');
   console.log('✓ Scenario 6.3b: Accepted -> sent -> terminal failed becomes operationally failed and correction-eligible: Success');
 
   resStatus = 0;
