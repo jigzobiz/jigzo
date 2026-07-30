@@ -427,9 +427,9 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
         const r = p.recipients[i];
         const message = whatsappByRecipient.get(`${p.publicId}:${i}`) || null;
         const reconciliationStatus = message ? getReconciliationStatus(message) : 'not_required';
-        const state = L.getRecipientOperationalState(r);
+        const state = L.getRecipientOperationalState(r, message);
         const conflicts = L.detectRecipientConflicts(r, p);
-        const tracking = L.getDeliveryTracking(r);
+        const tracking = L.getDeliveryTracking(r, message);
         summary.total++;
         if (summary[state] !== undefined) summary[state]++;
         if (conflicts.length) summary.conflicts++;
@@ -444,10 +444,15 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
           recipientName: r.name, recipientContact: recipientContact(r),
           deliveryMethod: r.deliveryMethod || 'whatsapp',
           state, deliveryTracking: tracking,
+          status: (message && message.status) || r.whatsappSendStatus || r.deliveryStatus || 'pending',
+          providerStatus: (message && message.providerStatus) || r.whatsappSendStatus || r.deliveryStatus || 'pending',
           providerSendStatus: (message && (message.providerStatus || message.status)) || r.whatsappSendStatus || r.deliveryStatus || 'pending',
           providerMessageId: (message && message.providerMessageId) || r.providerMessageId || '',
           canRetryInitialDelivery: whatsappService.isInitialPuzzleDeliveryRetryable(message, r),
           canCorrectInitialDelivery: whatsappService.isInitialPuzzleDeliveryCorrectable(message, r),
+          retryable: whatsappService.isInitialPuzzleDeliveryRetryable(message, r),
+          correctable: whatsappService.isInitialPuzzleDeliveryCorrectable(message, r),
+          historicalAttemptCount: message && Array.isArray(message.retryHistory) ? message.retryHistory.length : 0,
           currentDestinationEnding: message && (message.retryDestinationMasked || message.destinationMasked)
             ? String(message.retryDestinationMasked || message.destinationMasked).slice(-4)
             : '',

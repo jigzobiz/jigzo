@@ -101,10 +101,22 @@ function countPaidRecipientPuzzles(orders, puzzleByPublicId) {
  * A solved/opened state is authoritative even if provider delivery
  * confirmation was never recorded.
  */
-function getRecipientOperationalState(r) {
+function hasCurrentTerminalProviderFailure(message) {
+  return Boolean(
+    message &&
+    message.providerStatus === 'failed' &&
+    message.providerMessageId &&
+    !message.deliveredAt &&
+    !message.readAt &&
+    !['delivered', 'read'].includes(message.status)
+  );
+}
+
+function getRecipientOperationalState(r, message) {
   if (!r) return 'pending';
   if (r.completedAt) return 'solved';
   if (r.openedAt) return 'opened';
+  if (hasCurrentTerminalProviderFailure(message) && !r.whatsappDeliveredAt && !r.whatsappReadAt) return 'failed';
   const ds = r.deliveryStatus || 'pending';
   if (ds === 'delivered') return 'delivered';
   if (ds === 'sent' || r.sentAt) return 'sent';
@@ -140,8 +152,9 @@ function detectRecipientConflicts(r, puzzle) {
  * Delivery-tracking label describing the provider confirmation, shown
  * separately from the (stronger) operational state.
  */
-function getDeliveryTracking(r) {
+function getDeliveryTracking(r, message) {
   if (!r) return 'Unknown';
+  if (hasCurrentTerminalProviderFailure(message)) return 'Failed';
   if (r.whatsappSendStatus === 'failed' || r.whatsappFailedAt) return 'Failed';
   if (r.deliveryStatus === 'delivered' || r.whatsappDeliveredAt) return 'Delivered';
   if (r.deliveryStatus === 'sent' || r.sentAt) return 'Sent';
@@ -171,6 +184,7 @@ module.exports = {
   getSuccessfulPuzzleForOrder,
   countPaidRecipientPuzzles,
   getRecipientOperationalState,
+  hasCurrentTerminalProviderFailure,
   detectRecipientConflicts,
   getDeliveryTracking,
   formatCurrencyAmount

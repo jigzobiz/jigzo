@@ -353,7 +353,7 @@ whatsappService.updateRecipientSnapshot = async (puzzleId, recipientIndex, field
       rec.whatsappLastErrorDetails = fields.errorDetails || '';
 
       const currentPriority = priority[rec.whatsappSendStatus] || 0;
-      if (currentPriority < priority['sent']) {
+      if (currentPriority < priority['delivered']) {
         rec.whatsappSendStatus = 'failed';
         rec.deliveryStatus = 'failed';
       }
@@ -1312,6 +1312,52 @@ async function runAllTests() {
   assert.strictEqual(mockDb.webhookEvents['failed-event-once'].errorTitle, 'Message Undeliverable');
   assert.strictEqual(mockDb.webhookEvents['failed-event-once'].errorDetails, 'Unable to deliver message.');
   console.log('✓ Scenario 6.3: Accepted -> failed persists safe metadata without changing retry protection: Success');
+
+  const sentThenFailedKey = 'puzzle-delivery:sent-then-failed:0:jigzo_puzzle_delivery:v1';
+  const sentThenFailedMessage = new MockWhatsAppMessage({
+    puzzleId: 'sent-then-failed',
+    recipientIndex: 0,
+    idempotencyKey: sentThenFailedKey,
+    providerMessageId: 'wamid.sent-then-failed',
+    destinationMasked: '********4121',
+    status: 'accepted',
+    providerStatus: 'accepted',
+    acceptedAt: new Date(),
+    attemptCount: 2,
+    retryHistory: [{ attemptNumber: 1, providerMessageId: 'wamid.old-attempt' }]
+  });
+  mockDb.messages[sentThenFailedKey] = sentThenFailedMessage;
+  mockDb.puzzles['sent-then-failed'] = {
+    publicId: 'sent-then-failed',
+    recipients: [{ whatsappSendStatus: 'accepted', deliveryStatus: 'pending' }]
+  };
+  await persistNormalizedStatus({
+    providerMessageId: 'wamid.sent-then-failed',
+    providerStatus: 'sent',
+    occurredAt: new Date()
+  });
+  assert.strictEqual(sentThenFailedMessage.status, 'sent');
+  await persistNormalizedStatus({
+    providerMessageId: 'wamid.sent-then-failed',
+    providerStatus: 'failed',
+    occurredAt: new Date(),
+    failure: {
+      code: '131026',
+      title: 'Message Undeliverable',
+      message: 'Message undeliverable',
+      details: 'Recipient is not registered.',
+      metadata: { status: 'failed' }
+    }
+  });
+  const sentThenFailedRecipient = mockDb.puzzles['sent-then-failed'].recipients[0];
+  assert.strictEqual(sentThenFailedMessage.status, 'failed');
+  assert.strictEqual(sentThenFailedMessage.providerStatus, 'failed');
+  assert.strictEqual(sentThenFailedRecipient.whatsappSendStatus, 'failed');
+  assert.strictEqual(adminBusinessLogic.getRecipientOperationalState(sentThenFailedRecipient, sentThenFailedMessage), 'failed');
+  assert.strictEqual(adminBusinessLogic.getDeliveryTracking(sentThenFailedRecipient, sentThenFailedMessage), 'Failed');
+  assert.strictEqual(whatsappService.isInitialPuzzleDeliveryCorrectable(sentThenFailedMessage, sentThenFailedRecipient), true);
+  assert.strictEqual(sentThenFailedMessage.retryHistory.length, 1);
+  console.log('✓ Scenario 6.3b: Accepted -> sent -> terminal failed becomes operationally failed and correction-eligible: Success');
 
   resStatus = 0;
   resBody = null;

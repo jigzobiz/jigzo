@@ -13,22 +13,33 @@ function maskPhone(phone) {
 }
 
 class WhatsAppService {
-  isInitialPuzzleDeliveryRetryable(messageRecord, recipient) {
+  isCurrentTerminalPuzzleDeliveryFailure(messageRecord, recipient) {
     return Boolean(
       messageRecord &&
       messageRecord.messageType === 'puzzle_delivery' &&
-      messageRecord.status === 'failed' &&
       messageRecord.providerStatus === 'failed' &&
       messageRecord.providerMessageId &&
+      !messageRecord.deliveredAt &&
+      !messageRecord.readAt &&
+      !['delivered', 'read'].includes(messageRecord.status) &&
       recipient &&
       !recipient.openedAt &&
       !recipient.completedAt &&
-      !recipient.whatsappReadAt
+      !recipient.whatsappReadAt &&
+      !recipient.whatsappDeliveredAt
+    );
+  }
+
+  isInitialPuzzleDeliveryRetryable(messageRecord, recipient) {
+    return Boolean(
+      this.isCurrentTerminalPuzzleDeliveryFailure(messageRecord, recipient) &&
+      messageRecord.status === 'failed' &&
+      messageRecord.providerStatus === 'failed'
     );
   }
 
   isInitialPuzzleDeliveryCorrectable(messageRecord, recipient) {
-    return this.isInitialPuzzleDeliveryRetryable(messageRecord, recipient);
+    return this.isCurrentTerminalPuzzleDeliveryFailure(messageRecord, recipient);
   }
 
   async correctPuzzleDeliveryRecipient({ puzzleId, recipientIndex, phone, adminId }) {
@@ -59,9 +70,11 @@ class WhatsAppService {
         puzzleId,
         recipientIndex,
         messageType: 'puzzle_delivery',
-        status: 'failed',
+        status: { $in: ['failed', 'sent', 'accepted'] },
         providerStatus: 'failed',
-        providerMessageId: { $type: 'string', $gt: '' }
+        providerMessageId: { $type: 'string', $gt: '' },
+        deliveredAt: null,
+        readAt: null
       },
       {
         $set: {
@@ -120,6 +133,8 @@ class WhatsAppService {
       currentRecipient.phoneE164 = phoneCheck.e164;
       currentRecipient.countryCode = parsed.countryCallingCode;
       currentRecipient.phone = parsed.nationalNumber;
+      currentRecipient.whatsappSendStatus = 'failed';
+      currentRecipient.deliveryStatus = 'failed';
       await currentPuzzle.save();
 
       messageRecord.retryDestinationMasked = newDestinationMasked;
@@ -217,7 +232,7 @@ class WhatsAppService {
 
           // Only update whatsappSendStatus to failed if not already sent/delivered/read
           const currentPriority = priority[rec.whatsappSendStatus] || 0;
-          if (currentPriority < priority['sent']) {
+          if (currentPriority < priority['delivered']) {
             rec.whatsappSendStatus = 'failed';
             rec.deliveryStatus = 'failed';
           }

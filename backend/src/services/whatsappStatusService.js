@@ -94,14 +94,14 @@ async function persistNormalizedStatus(normalized) {
       updatedAt: new Date()
     };
 
-    if (currentPriority < STATUS_PRIORITY.sent) {
+    if (currentPriority < STATUS_PRIORITY.delivered) {
       failureSet.status = 'failed';
     }
 
-    const transitionQuery = currentPriority < STATUS_PRIORITY.sent
+    const transitionQuery = currentPriority < STATUS_PRIORITY.delivered
       ? {
           providerMessageId,
-          status: { $in: ['pending', 'claimed', 'sending', 'accepted', 'verification_required', 'failed'] }
+          status: { $in: ['pending', 'claimed', 'sending', 'accepted', 'sent', 'verification_required', 'failed'] }
         }
       : { providerMessageId };
 
@@ -125,7 +125,7 @@ async function persistNormalizedStatus(normalized) {
     }
 
     await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, {
-      status: currentPriority < STATUS_PRIORITY.sent ? 'failed' : undefined,
+      status: currentPriority < STATUS_PRIORITY.delivered ? 'failed' : undefined,
       failedAt: failureSet.failedAt,
       errorCode: failure.code,
       errorTitle: failure.title,
