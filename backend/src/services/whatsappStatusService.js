@@ -67,6 +67,9 @@ async function persistNormalizedStatus(normalized) {
   if (!messageRecord) {
     return { updated: false, reason: 'unmatched_provider_message_id' };
   }
+  if (messageRecord.status === 'correcting') {
+    return { updated: false, reason: 'correction_in_progress', messageRecord };
+  }
   if (messageRecord.retryStartedAt && ['claimed', 'sending'].includes(messageRecord.status)) {
     return { updated: false, reason: 'historical_provider_message_id', messageRecord };
   }

@@ -46,7 +46,21 @@ const MockWhatsAppMessage = function(data) {
   Object.defineProperty(this, 'recipientIndex', { get: () => this._data.recipientIndex });
   Object.defineProperty(this, 'messageType', { get: () => this._data.messageType || 'puzzle_delivery' });
   Object.defineProperty(this, 'idempotencyKey', { get: () => this._data.idempotencyKey });
-  Object.defineProperty(this, 'destinationMasked', { get: () => this._data.destinationMasked });
+  Object.defineProperty(this, 'destinationMasked', {
+    get: () => this._data.destinationMasked,
+    set: (v) => { this._data.destinationMasked = v; }
+  });
+  Object.defineProperty(this, 'retryDestinationMasked', {
+    get: () => this._data.retryDestinationMasked,
+    set: (v) => { this._data.retryDestinationMasked = v; }
+  });
+  Object.defineProperty(this, 'destinationCorrectionHistory', {
+    get: () => this._data.destinationCorrectionHistory || (this._data.destinationCorrectionHistory = []),
+    set: (v) => { this._data.destinationCorrectionHistory = v; }
+  });
+  Object.defineProperty(this, 'recipientSubdocumentId', {
+    get: () => this._data.recipientSubdocumentId
+  });
   Object.defineProperty(this, 'createdAt', { get: () => this._data.createdAt });
 
   Object.defineProperty(this, 'updatedAt', {
@@ -533,7 +547,8 @@ async function runAllTests() {
         whatsappSendStatus: 'failed',
         deliveryStatus: 'failed',
         ...recipientFields
-      }]
+      }],
+      save: async function() { return this; }
     };
     mockDb.messages[key] = new MockWhatsAppMessage({
       puzzleId,
@@ -681,6 +696,135 @@ async function runAllTests() {
   assert.strictEqual(failedRetrySeed.message.lastErrorCode, '131056');
   assert.ok(failedRetrySeed.message.failedAt);
   console.log('✓ Scenario 3.11: Provider concurrency failure makes no second attempt and retains prior failure history: Success');
+
+  resetMocks();
+  process.env.WHATSAPP_ENABLED = 'true';
+  const correctionSeed = await seedFailedInitialDelivery('correct-recipient', 'ar', {
+    phone: '33424121',
+    phoneE164: '+97333424121'
+  });
+  correctionSeed.message.destinationMasked = '********4121';
+  mockDb.puzzles['correct-recipient'].recipients.push({
+    name: 'Other recipient',
+    phone: '39000000',
+    phoneE164: '+97339000000',
+    countryCode: '973',
+    whatsappSendStatus: 'failed',
+    deliveryStatus: 'failed'
+  });
+  const untouchedRecipientBefore = JSON.stringify(mockDb.puzzles['correct-recipient'].recipients[1]);
+  let correctionProviderSends = 0;
+  global.fetch = async () => { correctionProviderSends++; throw new Error('Correction must not send'); };
+  const correctionResult = await whatsappService.correctPuzzleDeliveryRecipient({
+    puzzleId: 'correct-recipient',
+    recipientIndex: 0,
+    phone: '+97333424124',
+    adminId: 'admin-test'
+  });
+  assert.strictEqual(correctionResult.success, true);
+  assert.strictEqual(correctionResult.oldEnding, '4121');
+  assert.strictEqual(correctionResult.newEnding, '4124');
+  assert.strictEqual(mockDb.puzzles['correct-recipient'].recipients[0].phoneE164, '+97333424124');
+  assert.strictEqual(mockDb.puzzles['correct-recipient'].recipients[0].countryCode, '973');
+  assert.strictEqual(mockDb.puzzles['correct-recipient'].recipients[0].phone, '33424124');
+  assert.strictEqual(JSON.stringify(mockDb.puzzles['correct-recipient'].recipients[1]), untouchedRecipientBefore);
+  assert.strictEqual(correctionSeed.message.destinationMasked, '********4121');
+  assert.strictEqual(correctionSeed.message.retryDestinationMasked.slice(-4), '4124');
+  assert.strictEqual(correctionSeed.message.destinationCorrectionHistory.length, 1);
+  assert.strictEqual(correctionSeed.message.destinationCorrectionHistory[0].oldDestinationMasked.slice(-4), '4121');
+  assert.strictEqual(correctionSeed.message.destinationCorrectionHistory[0].newDestinationMasked.slice(-4), '4124');
+  assert.strictEqual(correctionProviderSends, 0);
+  console.log('✓ Scenario 3.12: Failed recipient correction changes only the current retry target and sends nothing: Success');
+
+  global.fetch = async (url, options) => {
+    correctionProviderSends++;
+    lastFetchParams = { url, options };
+    return { ok: true, text: async () => JSON.stringify({ messages: [{ id: 'wamid.corrected-retry' }] }) };
+  };
+  const correctedRetry = await whatsappService.retryPuzzleDelivery({ puzzleId: 'correct-recipient', recipientIndex: 0 });
+  const correctedPayload = JSON.parse(lastFetchParams.options.body);
+  assert.strictEqual(correctedRetry.success, true);
+  assert.strictEqual(correctionProviderSends, 1);
+  assert.strictEqual(correctedPayload.to, '+97333424124');
+  assert.strictEqual(correctedPayload.template.name, 'jigzo_puzzle_delivery');
+  assert.strictEqual(correctedPayload.template.language.code, 'ar');
+  assert.strictEqual(correctionSeed.message.destinationMasked.slice(-4), '4124');
+  assert.strictEqual(correctionSeed.message.retryHistory.length, 1);
+  assert.strictEqual(correctionSeed.message.retryHistory[0].destinationMasked.slice(-4), '4121');
+  assert.strictEqual(correctionSeed.message.retryHistory[0].providerMessageId, 'wamid.old-correct-recipient');
+  console.log('✓ Scenario 3.13: Subsequent Arabic retry uses the corrected number exactly once and preserves old destination/wamid history: Success');
+
+  resetMocks();
+  const invalidCorrectionSeed = await seedFailedInitialDelivery('correct-invalid', 'en');
+  const invalidPhoneBefore = mockDb.puzzles['correct-invalid'].recipients[0].phone;
+  const invalidCorrection = await whatsappService.correctPuzzleDeliveryRecipient({
+    puzzleId: 'correct-invalid',
+    recipientIndex: 0,
+    phone: 'not-a-phone',
+    adminId: 'admin-test'
+  });
+  assert.strictEqual(invalidCorrection.success, false);
+  assert.strictEqual(invalidCorrection.reason, 'invalid_phone');
+  assert.strictEqual(mockDb.puzzles['correct-invalid'].recipients[0].phone, invalidPhoneBefore);
+  assert.strictEqual(invalidCorrectionSeed.message.destinationCorrectionHistory.length, 0);
+  console.log('✓ Scenario 3.14: Invalid correction is rejected without mutation: Success');
+
+  for (const blockedStatus of ['delivered', 'read']) {
+    resetMocks();
+    const blockedCorrection = await seedFailedInitialDelivery(`correct-${blockedStatus}`, 'en');
+    blockedCorrection.message.status = blockedStatus;
+    blockedCorrection.message.providerStatus = blockedStatus;
+    const result = await whatsappService.correctPuzzleDeliveryRecipient({
+      puzzleId: `correct-${blockedStatus}`,
+      recipientIndex: 0,
+      phone: '+97333424124',
+      adminId: 'admin-test'
+    });
+    assert.strictEqual(result.success, false, blockedStatus);
+    assert.strictEqual(result.reason, 'not_correctable', blockedStatus);
+  }
+  resetMocks();
+  const solvedCorrection = await seedFailedInitialDelivery('correct-solved', 'ar', { completedAt: new Date() });
+  const solvedCorrectionResult = await whatsappService.correctPuzzleDeliveryRecipient({
+    puzzleId: 'correct-solved',
+    recipientIndex: 0,
+    phone: '+97333424124',
+    adminId: 'admin-test'
+  });
+  assert.strictEqual(solvedCorrectionResult.success, false);
+  assert.strictEqual(solvedCorrectionResult.reason, 'recipient_already_opened_or_solved');
+  assert.strictEqual(solvedCorrection.message.status, 'failed');
+  console.log('✓ Scenario 3.15: Delivered/read/solved recipients cannot be corrected: Success');
+
+  resetMocks();
+  process.env.WHATSAPP_ENABLED = 'true';
+  const inFlightCorrection = await seedFailedInitialDelivery('correct-in-flight', 'en');
+  inFlightCorrection.message.status = 'correcting';
+  let inFlightSends = 0;
+  global.fetch = async () => { inFlightSends++; throw new Error('Provider must not be called'); };
+  const [secondCorrection, racingRetry] = await Promise.all([
+    whatsappService.correctPuzzleDeliveryRecipient({
+      puzzleId: 'correct-in-flight',
+      recipientIndex: 0,
+      phone: '+97333424124',
+      adminId: 'admin-test'
+    }),
+    whatsappService.retryPuzzleDelivery({ puzzleId: 'correct-in-flight', recipientIndex: 0 })
+  ]);
+  assert.strictEqual(secondCorrection.success, false);
+  assert.strictEqual(secondCorrection.reason, 'already_in_progress');
+  assert.strictEqual(racingRetry.success, false);
+  assert.strictEqual(racingRetry.reason, 'already_claimed');
+  assert.strictEqual(inFlightSends, 0);
+  const correctionWebhook = await persistNormalizedStatus({
+    providerMessageId: 'wamid.old-correct-in-flight',
+    providerStatus: 'sent',
+    occurredAt: new Date()
+  });
+  assert.strictEqual(correctionWebhook.updated, false);
+  assert.strictEqual(correctionWebhook.reason, 'correction_in_progress');
+  assert.strictEqual(inFlightCorrection.message.status, 'correcting');
+  console.log('✓ Scenario 3.16: In-flight correction blocks concurrent correction, retry, and old-wamid callbacks: Success');
 
   // ==========================================
   // Group 4: Webhook Security & Version checks

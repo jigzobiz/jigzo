@@ -2,6 +2,8 @@ const { getFrontendOrigin } = require('../utils/runtimeConfig');
 const WhatsAppMessage = require('../models/WhatsAppMessage');
 const Puzzle = require('../models/Puzzle');
 const crypto = require('crypto');
+const { parsePhoneNumberFromString } = require('libphonenumber-js');
+const { normalizePhoneInput, validatePhone } = require('../utils/contactValidation');
 
 function maskPhone(phone) {
   if (!phone) return 'unknown';
@@ -23,6 +25,126 @@ class WhatsAppService {
       !recipient.completedAt &&
       !recipient.whatsappReadAt
     );
+  }
+
+  isInitialPuzzleDeliveryCorrectable(messageRecord, recipient) {
+    return this.isInitialPuzzleDeliveryRetryable(messageRecord, recipient);
+  }
+
+  async correctPuzzleDeliveryRecipient({ puzzleId, recipientIndex, phone, adminId }) {
+    const normalizedInput = normalizePhoneInput(phone);
+    if (!normalizedInput.startsWith('+')) {
+      return { success: false, reason: 'invalid_phone' };
+    }
+    const phoneCheck = validatePhone(normalizedInput);
+    const parsed = phoneCheck.valid && phoneCheck.e164
+      ? parsePhoneNumberFromString(phoneCheck.e164)
+      : null;
+    if (!phoneCheck.valid || !parsed) {
+      return { success: false, reason: 'invalid_phone' };
+    }
+
+    const puzzle = await Puzzle.findOne({ publicId: puzzleId });
+    const recipient = puzzle && puzzle.recipients[recipientIndex];
+    if (!recipient) return { success: false, reason: 'not_found' };
+    if (recipient.openedAt || recipient.completedAt || recipient.whatsappReadAt) {
+      return { success: false, reason: 'recipient_already_opened_or_solved' };
+    }
+
+    const idempotencyKey = `puzzle-delivery:${puzzleId}:${recipientIndex}:jigzo_puzzle_delivery:v1`;
+    const correctionTime = new Date();
+    const messageRecord = await WhatsAppMessage.findOneAndUpdate(
+      {
+        idempotencyKey,
+        puzzleId,
+        recipientIndex,
+        messageType: 'puzzle_delivery',
+        status: 'failed',
+        providerStatus: 'failed',
+        providerMessageId: { $type: 'string', $gt: '' }
+      },
+      {
+        $set: {
+          status: 'correcting',
+          updatedAt: correctionTime
+        }
+      },
+      { new: true }
+    );
+
+    if (!messageRecord) {
+      const current = await WhatsAppMessage.findOne({ idempotencyKey });
+      return {
+        success: false,
+        reason: current && ['claimed', 'sending', 'correcting'].includes(current.status)
+          ? 'already_in_progress'
+          : 'not_correctable'
+      };
+    }
+
+    const oldDestinationMasked = messageRecord.retryDestinationMasked || messageRecord.destinationMasked || maskPhone(
+      recipient.phoneE164 || `${recipient.countryCode || ''}${recipient.phone || ''}`
+    );
+    const newDestinationMasked = maskPhone(phoneCheck.e164);
+    const oldE164 = this.normalizePhone(
+      recipient.phoneE164 || `${recipient.countryCode || ''}${recipient.phone || ''}`,
+      recipient.countryCode
+    );
+
+    if (oldE164 === phoneCheck.e164) {
+      messageRecord.status = 'failed';
+      messageRecord.updatedAt = new Date();
+      await messageRecord.save();
+      return { success: false, reason: 'number_unchanged' };
+    }
+
+    try {
+      const currentPuzzle = await Puzzle.findOne({ publicId: puzzleId });
+      const currentRecipient = currentPuzzle && currentPuzzle.recipients[recipientIndex];
+      if (
+        !currentRecipient ||
+        currentRecipient.openedAt ||
+        currentRecipient.completedAt ||
+        currentRecipient.whatsappReadAt ||
+        (
+          messageRecord.recipientSubdocumentId &&
+          String(currentRecipient._id) !== String(messageRecord.recipientSubdocumentId)
+        )
+      ) {
+        messageRecord.status = 'failed';
+        messageRecord.updatedAt = new Date();
+        await messageRecord.save();
+        return { success: false, reason: 'recipient_changed_or_completed' };
+      }
+
+      currentRecipient.phoneE164 = phoneCheck.e164;
+      currentRecipient.countryCode = parsed.countryCallingCode;
+      currentRecipient.phone = parsed.nationalNumber;
+      await currentPuzzle.save();
+
+      messageRecord.retryDestinationMasked = newDestinationMasked;
+      messageRecord.destinationCorrectionHistory.push({
+        oldDestinationMasked,
+        newDestinationMasked,
+        correctedAt: correctionTime,
+        correctedByAdminId: adminId ? String(adminId) : undefined
+      });
+      messageRecord.status = 'failed';
+      messageRecord.updatedAt = new Date();
+      await messageRecord.save();
+
+      return {
+        success: true,
+        status: 'failed',
+        oldEnding: oldDestinationMasked.slice(-4),
+        newEnding: newDestinationMasked.slice(-4)
+      };
+    } catch (error) {
+      messageRecord.status = 'failed';
+      messageRecord.updatedAt = new Date();
+      await messageRecord.save().catch(() => {});
+      throw error;
+    }
   }
 
   /**
@@ -186,7 +308,7 @@ class WhatsAppService {
 
         if (!existing) {
           const current = await WhatsAppMessage.findOne({ idempotencyKey });
-          const alreadyClaimed = current && ['claimed', 'sending'].includes(current.status);
+          const alreadyClaimed = current && ['claimed', 'sending', 'correcting'].includes(current.status);
           return {
             success: false,
             reason: alreadyClaimed ? 'already_claimed' : 'not_retryable',
@@ -199,6 +321,7 @@ class WhatsAppService {
         existing.retryHistory.push({
           attemptNumber: existing.attemptCount,
           providerMessageId: existing.providerMessageId,
+          destinationMasked: existing.destinationMasked,
           status: 'failed',
           providerStatus: 'failed',
           languageCode: existing.languageCode,
@@ -219,6 +342,8 @@ class WhatsAppService {
         await existing.save();
 
         existing.providerMessageId = undefined;
+        existing.destinationMasked = destinationMasked;
+        existing.retryDestinationMasked = undefined;
         existing.claimedAt = claimTime;
         existing.acceptedAt = undefined;
         existing.sentAt = undefined;

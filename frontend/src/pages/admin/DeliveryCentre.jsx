@@ -68,6 +68,42 @@ function DeliveryStatus() {
     }
   };
 
+  const correctRecipientNumber = async (row) => {
+    const phone = window.prompt('Enter the corrected international WhatsApp number, including + and country code:');
+    if (!phone) return;
+    const digits = String(phone).replace(/\D/g, '');
+    const newEnding = digits.slice(-4);
+    if (newEnding.length !== 4) {
+      setNote('Enter a valid international WhatsApp number.');
+      return;
+    }
+    if (!window.confirm(`Correct recipient number ending ${row.currentDestinationEnding || '????'} → ${newEnding}? This does not send a message.`)) return;
+
+    const key = `correct-${row.puzzleId}-${row.recipientIndex}`;
+    setBusyKey(key);
+    setNote('');
+    try {
+      const result = await adminPost(
+        `/delivery/${row.puzzleId}/${row.recipientIndex}/correct-whatsapp-number`,
+        { phone }
+      );
+      setNote(`Recipient number corrected: ${result.oldEnding} → ${result.newEnding}. No message was sent.`);
+      setReloadTick((value) => value + 1);
+    } catch (err) {
+      const error = err.response && err.response.data && err.response.data.error;
+      setNote(
+        error === 'invalid_phone'
+          ? 'The corrected number is not a valid international phone number.'
+          : error === 'already_in_progress'
+            ? 'A correction or retry is already in progress.'
+            : 'This delivery is no longer safely correctable.'
+      );
+      setReloadTick((value) => value + 1);
+    } finally {
+      setBusyKey('');
+    }
+  };
+
   return (
     <>
       <FilterBar scope={scope} setScope={setScope} stateF={stateF} setStateF={setStateF} channelF={channelF} setChannelF={setChannelF} />
@@ -83,7 +119,7 @@ function DeliveryStatus() {
             <StatTile label="Conflicts" value={data.summary.conflicts} tone={data.summary.conflicts ? 'bad' : 'good'} />
           </StatGrid>
           <Card style={{ marginTop: 20, padding: 16 }}>
-            {note && <div style={{ color: note.includes('accepted') ? T.green : T.red, fontSize: 13, marginBottom: 10 }}>{note}</div>}
+            {note && <div style={{ color: note.includes('accepted') || note.includes('corrected') ? T.green : T.red, fontSize: 13, marginBottom: 10 }}>{note}</div>}
             <DataTable
               columns={[
                 { key: 'orderId', label: 'Order', render: (r) => r.orderId || <span style={{ color: T.ink50 }}>—</span> },
@@ -104,9 +140,21 @@ function DeliveryStatus() {
                 { key: 'lastError', label: 'Last error', wrap: true, render: (r) => r.lastError ? <span style={{ color: T.red, fontSize: 12 }}>{r.lastError}</span> : <span style={{ color: T.ink50 }}>—</span> },
                 { key: 'retry', label: '', render: (r) => {
                   const key = `${r.puzzleId}-${r.recipientIndex}`;
-                  return r.canRetryInitialDelivery
-                    ? <Button size="sm" tone="danger" disabled={busyKey === key} onClick={() => retryDelivery(r)}>{busyKey === key ? 'Retrying…' : 'Retry'}</Button>
-                    : null;
+                  const correctionKey = `correct-${key}`;
+                  return (
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                      {r.canCorrectInitialDelivery && (
+                        <Button size="sm" disabled={busyKey === correctionKey || !!busyKey} onClick={() => correctRecipientNumber(r)}>
+                          {busyKey === correctionKey ? 'Correcting…' : 'Correct recipient number'}
+                        </Button>
+                      )}
+                      {r.canRetryInitialDelivery && (
+                        <Button size="sm" tone="danger" disabled={busyKey === key || !!busyKey} onClick={() => retryDelivery(r)}>
+                          {busyKey === key ? 'Retrying…' : 'Retry'}
+                        </Button>
+                      )}
+                    </div>
+                  );
                 } }
               ]}
               rows={rows.map((r, i) => ({ ...r, _key: `${r.puzzleId}-${r.recipientIndex}` }))}

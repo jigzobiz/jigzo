@@ -447,6 +447,10 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
           providerSendStatus: (message && (message.providerStatus || message.status)) || r.whatsappSendStatus || r.deliveryStatus || 'pending',
           providerMessageId: (message && message.providerMessageId) || r.providerMessageId || '',
           canRetryInitialDelivery: whatsappService.isInitialPuzzleDeliveryRetryable(message, r),
+          canCorrectInitialDelivery: whatsappService.isInitialPuzzleDeliveryCorrectable(message, r),
+          currentDestinationEnding: message && (message.retryDestinationMasked || message.destinationMasked)
+            ? String(message.retryDestinationMasked || message.destinationMasked).slice(-4)
+            : '',
           reconciliationStatus,
           reconciliationRequiredSince: reconciliationStatus === 'reconciliation_required' ? message.acceptedAt : null,
           sentAt: r.sentAt || r.whatsappSentAt || null,
@@ -464,6 +468,52 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
     }
     res.json({ success: true, scope, summary, list: rows });
   } catch (err) { next(err); }
+});
+
+router.post('/delivery/:puzzleId/:recipientIndex/correct-whatsapp-number', authenticateAdmin, async (req, res, next) => {
+  try {
+    const puzzleId = String(req.params.puzzleId || '').trim();
+    const recipientIndex = Number(req.params.recipientIndex);
+    if (!/^[a-f0-9]{32}$/i.test(puzzleId) || !Number.isInteger(recipientIndex) || recipientIndex < 0) {
+      return res.status(400).json({ success: false, result: 'not_correctable', error: 'Invalid puzzle recipient target.' });
+    }
+
+    const result = await whatsappService.correctPuzzleDeliveryRecipient({
+      puzzleId,
+      recipientIndex,
+      phone: req.body && req.body.phone,
+      adminId: req.admin && req.admin.id
+    });
+
+    audit(
+      req,
+      'correct_initial_whatsapp_recipient',
+      'WhatsAppMessage',
+      `${puzzleId}:${recipientIndex}`,
+      result.reason || 'corrected',
+      result.oldEnding ? { destinationEnding: result.oldEnding } : {},
+      result.newEnding ? { destinationEnding: result.newEnding } : {}
+    );
+
+    if (result.success) {
+      return res.json({
+        success: true,
+        result: 'corrected',
+        status: result.status,
+        oldEnding: result.oldEnding,
+        newEnding: result.newEnding
+      });
+    }
+
+    const invalid = result.reason === 'invalid_phone';
+    return res.status(invalid ? 400 : 409).json({
+      success: false,
+      result: result.reason === 'already_in_progress' ? 'already_in_progress' : 'not_correctable',
+      error: result.reason
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.post('/delivery/:puzzleId/:recipientIndex/retry-whatsapp', authenticateAdmin, async (req, res, next) => {

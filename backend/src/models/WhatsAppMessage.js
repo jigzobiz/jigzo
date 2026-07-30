@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const RetryAttemptSchema = new mongoose.Schema({
   attemptNumber: { type: Number, required: true },
   providerMessageId: { type: String },
+  destinationMasked: { type: String },
   status: { type: String },
   providerStatus: { type: String },
   languageCode: { type: String },
@@ -25,6 +26,13 @@ const RetryAttemptSchema = new mongoose.Schema({
   },
   payloadHash: { type: String }
 });
+
+const DestinationCorrectionSchema = new mongoose.Schema({
+  oldDestinationMasked: { type: String, required: true },
+  newDestinationMasked: { type: String, required: true },
+  correctedAt: { type: Date, required: true },
+  correctedByAdminId: { type: String }
+}, { _id: false });
 
 const WhatsAppMessageSchema = new mongoose.Schema({
   puzzleId: { type: String, required: true },
@@ -55,6 +63,7 @@ const WhatsAppMessageSchema = new mongoose.Schema({
     enum: [
       'pending',
       'claimed',
+      'correcting',
       'sending',
       'accepted',
       'sent',
@@ -68,6 +77,8 @@ const WhatsAppMessageSchema = new mongoose.Schema({
   },
   providerMessageId: { type: String },
   destinationMasked: { type: String, required: true },
+  retryDestinationMasked: { type: String },
+  destinationCorrectionHistory: [DestinationCorrectionSchema],
   attemptCount: { type: Number, default: 0 },
   claimedAt: { type: Date },
   requestStartedAt: { type: Date },
