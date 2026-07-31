@@ -40,7 +40,7 @@ const ar = {
     },
     occasions: {
       eyebrow: 'المناسبات',
-      title: 'مين بتفاجئ؟',
+      title: 'من بتفاجئ؟',
       subtitle: 'اختر اللحظة، وخلّ لحظة الكشف علينا.',
       items: {
         birthday: { title: 'عيد ميلاد', alt: 'شمعة عيد ميلاد مشتعلة على كعكة' },
