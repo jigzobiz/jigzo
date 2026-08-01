@@ -10,6 +10,7 @@
     "audit:i18n": "node scripts/i18n-audit.mjs"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "axios": "^1.6.8",
     "gsap": "^3.15.0",
     "i18next": "^23.16.8",
