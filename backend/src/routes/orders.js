@@ -385,7 +385,8 @@ router.post('/verify-payment', async (req, res, next) => {
         success: true,
         status: 'CAPTURED',
         paymentStatus: 'paid',
-        recipientCount: order.recipientCount
+        recipientCount: order.recipientCount,
+        puzzleId: order.puzzleId
       });
     } else if (['INITIATED', 'PENDING', 'IN_PROGRESS'].includes(charge.status)) {
       order.paymentStatus = 'pending';

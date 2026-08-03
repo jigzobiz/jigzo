@@ -82,13 +82,26 @@ async function persistNormalizedStatus(normalized) {
 
   if (providerStatus === 'failed') {
     const failure = normalized.failure;
+    let errorMessage = failure.message;
+    if (String(failure.code) === '131049') {
+      errorMessage = "Meta delivery limit — WhatsApp error 131049. Do not retry for 24 hours; use the approved fallback channel.";
+      console.error('[WhatsAppStatus] Meta 131049 delivery error detected:', {
+        internalMessageId: String(messageRecord._id),
+        whatsappMessageId: messageRecord.providerMessageId,
+        templateName: messageRecord.templateName || 'jigzo_puzzle_delivery',
+        language: messageRecord.languageCode,
+        errorCode: '131049',
+        recipientNumberMasked: messageRecord.retryDestinationMasked || messageRecord.destinationMasked
+      });
+    }
+
     const failureSet = {
       providerStatus: 'failed',
       failedAt: occurredAt || new Date(),
       lastStatusAt: new Date(),
       lastErrorCode: failure.code,
       lastErrorTitle: failure.title,
-      lastErrorMessage: failure.message,
+      lastErrorMessage: errorMessage,
       lastErrorDetails: failure.details,
       providerFailureMetadata: failure.metadata,
       updatedAt: new Date()

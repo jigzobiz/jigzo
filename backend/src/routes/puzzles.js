@@ -88,7 +88,7 @@ router.post('/', async (req, res, next) => {
       }
 
       // Legacy payloads without deliveryMethod are treated as WhatsApp.
-      const deliveryMethod = r.deliveryMethod === 'email' ? 'email' : 'whatsapp';
+      const deliveryMethod = r.deliveryMethod === 'email' ? 'email' : (r.deliveryMethod === 'share' ? 'share' : 'whatsapp');
 
       if (deliveryMethod === 'email') {
         const emailCheck = validateEmail(r.email);
@@ -116,6 +116,17 @@ router.post('/', async (req, res, next) => {
           phoneE164: '',
           deliveryStatus: 'pending'
         });
+      } else if (deliveryMethod === 'share') {
+        formattedRecipients.push({
+          name,
+          deliveryMethod: 'share',
+          deliverySelection: 'share_myself',
+          email: '',
+          countryCode: '',
+          phone: '',
+          phoneE164: '',
+          deliveryStatus: 'pending'
+        });
       } else {
         const phoneCheck = validatePhone(r.phone, r.countryCode);
         if (!phoneCheck.valid) {
@@ -136,6 +147,12 @@ router.post('/', async (req, res, next) => {
         formattedRecipients.push({
           name,
           deliveryMethod: 'whatsapp',
+          deliverySelection: r.deliverySelection || 'send_via_whatsapp',
+          purchaserConsent: r.purchaserConsent || false,
+          consentWordingVersion: r.consentWordingVersion || '',
+          consentTimestamp: r.consentTimestamp ? new Date(r.consentTimestamp) : undefined,
+          consentIp: req.headers['x-forwarded-for'] || req.socket.remoteAddress || '',
+          consentUserAgent: req.headers['user-agent'] || '',
           email: '',
           countryCode: r.countryCode || '',
           phone: r.phone || '',

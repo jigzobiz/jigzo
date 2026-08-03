@@ -4,6 +4,7 @@ const Puzzle = require('../models/Puzzle');
 const crypto = require('crypto');
 const { parsePhoneNumberFromString } = require('libphonenumber-js');
 const { normalizePhoneInput, validatePhone } = require('../utils/contactValidation');
+const { isArabic, getAnonymousSender, formatCompletionDateTimeArabic, formatDurationArabic } = require('../utils/localization');
 
 function maskPhone(phone) {
   if (!phone) return 'unknown';
@@ -34,7 +35,8 @@ class WhatsAppService {
     return Boolean(
       this.isCurrentTerminalPuzzleDeliveryFailure(messageRecord, recipient) &&
       messageRecord.status === 'failed' &&
-      messageRecord.providerStatus === 'failed'
+      messageRecord.providerStatus === 'failed' &&
+      String(messageRecord.lastErrorCode) !== '131049'
     );
   }
 
@@ -239,6 +241,8 @@ class WhatsAppService {
         }
 
         if (fields.lastStatusAt) rec.whatsappLastStatusAt = fields.lastStatusAt;
+        if (fields.deliveryState) rec.deliveryState = fields.deliveryState;
+        if (fields.deliveryReason) rec.deliveryReason = fields.deliveryReason;
 
         await puzzle.save();
       }
@@ -419,6 +423,51 @@ class WhatsAppService {
       return { success: false, error: 'MISSING_CREDENTIALS' };
     }
 
+    // Consent verification: block WhatsApp send when no consent record exists
+    if (rec.deliverySelection === 'send_via_whatsapp' && !rec.purchaserConsent) {
+      messageRecord.status = 'failed';
+      messageRecord.providerStatus = 'failed';
+      messageRecord.lastErrorCode = 'MISSING_RECIPIENT_CONSENT';
+      messageRecord.lastErrorMessage = 'WhatsApp send blocked: Purchaser did not confirm recipient consent.';
+      messageRecord.failedAt = new Date();
+      messageRecord.updatedAt = new Date();
+      await messageRecord.save();
+
+      await this.updateRecipientSnapshot(puzzleId, recipientIndex, {
+        status: 'failed',
+        errorCode: 'MISSING_RECIPIENT_CONSENT',
+        errorMessage: 'WhatsApp send blocked: Purchaser did not confirm recipient consent.',
+        failedAt: messageRecord.failedAt
+      });
+
+      return { success: false, reason: 'missing_recipient_consent' };
+    }
+
+    // Check feature flag: prevents sending jigzo_puzzle_delivery as MARKETING template to recipient.
+    const isMarketingDisabled = process.env.WHATSAPP_MARKETING_DISABLED === 'true';
+    if (isMarketingDisabled) {
+      messageRecord.status = 'failed';
+      messageRecord.providerStatus = 'failed';
+      messageRecord.deliveryState = 'awaiting_recipient_delivery';
+      messageRecord.deliveryReason = 'whatsapp_marketing_template_disabled';
+      messageRecord.lastErrorCode = 'WHATSAPP_MARKETING_TEMPLATE_DISABLED';
+      messageRecord.lastErrorMessage = 'WhatsApp marketing template delivery is temporarily disabled.';
+      messageRecord.failedAt = new Date();
+      messageRecord.updatedAt = new Date();
+      await messageRecord.save();
+
+      await this.updateRecipientSnapshot(puzzleId, recipientIndex, {
+        status: 'failed',
+        errorCode: 'WHATSAPP_MARKETING_TEMPLATE_DISABLED',
+        errorMessage: 'WhatsApp marketing template delivery is temporarily disabled.',
+        failedAt: messageRecord.failedAt,
+        deliveryState: 'awaiting_recipient_delivery',
+        deliveryReason: 'whatsapp_marketing_template_disabled'
+      });
+
+      return { success: false, reason: 'whatsapp_marketing_template_disabled' };
+    }
+
     // Step 4: Perform network request
     messageRecord.status = 'sending';
     messageRecord.providerStatus = 'sending';
@@ -426,10 +475,18 @@ class WhatsAppService {
     messageRecord.requestStartedAt = new Date();
     await messageRecord.save();
 
-    const senderDisplayName = puzzle.revealIdentity ? (puzzle.senderName || '').trim() : 'Someone';
-    const suffix = `${puzzleId}?r=${recipientIndex}`;
+    const isLangArabic = isArabic(puzzle.experienceLanguage);
+    const langCode = isLangArabic ? 'ar' : 'en_US';
 
-    const langCode = puzzle.experienceLanguage === 'ar' ? 'ar' : 'en_US';
+    const senderDisplayName = puzzle.revealIdentity
+      ? (puzzle.senderName || '').trim()
+      : getAnonymousSender(langCode);
+    let finalSenderName = senderDisplayName || getAnonymousSender(langCode);
+    if (isLangArabic && finalSenderName === 'Someone') {
+      finalSenderName = 'شخص ما';
+    }
+
+    const suffix = `${puzzleId}?r=${recipientIndex}`;
     messageRecord.languageCode = langCode;
     await messageRecord.save();
 
@@ -448,7 +505,7 @@ class WhatsAppService {
             type: 'body',
             parameters: [
               { type: 'text', text: rec.name || '' },
-              { type: 'text', text: senderDisplayName || 'Someone' }
+              { type: 'text', text: finalSenderName }
             ]
           },
           {
@@ -558,7 +615,12 @@ class WhatsAppService {
     }
 
     const puzzle = await Puzzle.findOne({ publicId: puzzleId });
-    const senderDisplayName = puzzle ? (puzzle.senderName || 'Someone') : 'Someone';
+    const isLangArabic = isArabic(puzzle ? puzzle.experienceLanguage : 'en_US');
+    const langCode = isLangArabic ? 'ar' : 'en_US';
+    let senderDisplayName = puzzle && puzzle.senderName ? puzzle.senderName.trim() : getAnonymousSender(langCode);
+    if (isLangArabic && senderDisplayName === 'Someone') {
+      senderDisplayName = 'شخص ما';
+    }
     const occasionName = puzzle ? (puzzle.occasion || 'occasion') : 'occasion';
 
     const destinationPhone = this.normalizePhone(senderPhone);
@@ -649,32 +711,51 @@ class WhatsAppService {
     messageRecord.requestStartedAt = new Date();
     await messageRecord.save();
 
-    const m = Math.floor(durationSeconds / 60);
-    const s = durationSeconds % 60;
-    const durationText = m > 0 ? `${m}m ${s}s` : `${s}s`;
-
     let completedAt = new Date();
     if (puzzle && puzzle.recipients && puzzle.recipients[recipientIndex]) {
       completedAt = puzzle.recipients[recipientIndex].completedAt || new Date();
     }
 
-    const completionDateText = new Intl.DateTimeFormat('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      timeZone: 'Asia/Bahrain'
-    }).format(completedAt);
-
-    const completionTimeText = new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: 'Asia/Bahrain'
-    }).format(completedAt).toLowerCase();
-
-    const langCode = puzzle && puzzle.experienceLanguage === 'ar' ? 'ar' : 'en_US';
     messageRecord.languageCode = langCode;
     await messageRecord.save();
+
+    let parameters;
+    if (isLangArabic) {
+      const completionDateTimeArabic = formatCompletionDateTimeArabic(completedAt);
+      const durationArabic = formatDurationArabic(durationSeconds);
+      parameters = [
+        { type: 'text', text: senderDisplayName },
+        { type: 'text', text: recipientName || '' },
+        { type: 'text', text: completionDateTimeArabic },
+        { type: 'text', text: durationArabic }
+      ];
+    } else {
+      const m = Math.floor(durationSeconds / 60);
+      const s = durationSeconds % 60;
+      const durationText = m > 0 ? `${m}m ${s}s` : `${s}s`;
+
+      const completionDateText = new Intl.DateTimeFormat('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'Asia/Bahrain'
+      }).format(completedAt);
+
+      const completionTimeText = new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'Asia/Bahrain'
+      }).format(completedAt).toLowerCase();
+
+      parameters = [
+        { type: 'text', text: senderDisplayName },
+        { type: 'text', text: recipientName || '' },
+        { type: 'text', text: completionDateText },
+        { type: 'text', text: completionTimeText },
+        { type: 'text', text: durationText }
+      ];
+    }
 
     const payload = {
       messaging_product: 'whatsapp',
@@ -689,13 +770,7 @@ class WhatsAppService {
         components: [
           {
             type: 'body',
-            parameters: [
-              { type: 'text', text: senderDisplayName },
-              { type: 'text', text: recipientName || '' },
-              { type: 'text', text: completionDateText },
-              { type: 'text', text: completionTimeText },
-              { type: 'text', text: durationText }
-            ]
+            parameters
           }
         ]
       },

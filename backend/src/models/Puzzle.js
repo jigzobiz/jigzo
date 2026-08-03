@@ -9,7 +9,13 @@ const RecipientSchema = new mongoose.Schema({
   phone: { type: String, default: '' },
 
   // Delivery channel. Absent on legacy records -> treated as 'whatsapp'.
-  deliveryMethod: { type: String, enum: ['whatsapp', 'email'], default: 'whatsapp' },
+  deliveryMethod: { type: String, enum: ['whatsapp', 'email', 'share'], default: 'whatsapp' },
+  deliverySelection: { type: String, enum: ['send_to_me', 'share_myself', 'send_via_whatsapp'], default: 'send_via_whatsapp' },
+  purchaserConsent: { type: Boolean, default: false },
+  consentWordingVersion: { type: String },
+  consentTimestamp: { type: Date },
+  consentIp: { type: String },
+  consentUserAgent: { type: String },
   email: { type: String, trim: true, lowercase: true, default: '' },
   phoneE164: { type: String, default: '' },
 
@@ -29,6 +35,8 @@ const RecipientSchema = new mongoose.Schema({
   whatsappLastErrorTitle: { type: String, default: '' },
   whatsappLastErrorMessage: { type: String, default: '' },
   whatsappLastErrorDetails: { type: String, default: '' },
+  deliveryState: { type: String, default: '' },
+  deliveryReason: { type: String, default: '' },
 
   openedAt: { type: Date, default: null },
   completedAt: { type: Date, default: null },

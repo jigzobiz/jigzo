@@ -1313,6 +1313,110 @@ async function runAllTests() {
   assert.strictEqual(mockDb.webhookEvents['failed-event-once'].errorDetails, 'Unable to deliver message.');
   console.log('✓ Scenario 6.3: Accepted -> failed persists safe metadata without changing retry protection: Success');
 
+  // Scenario 6.3d: Meta delivery limit - WhatsApp error 131049 (numeric error code)
+  const numeric131049Key = 'puzzle-delivery:failed-131049-numeric:0:jigzo_puzzle_delivery:v1';
+  mockDb.messages[numeric131049Key] = new MockWhatsAppMessage({
+    puzzleId: 'failed-131049-numeric',
+    recipientIndex: 0,
+    idempotencyKey: numeric131049Key,
+    providerMessageId: 'wamid.failed-131049-numeric',
+    destinationMasked: '*******1331',
+    status: 'accepted',
+    providerStatus: 'accepted',
+    acceptedAt: new Date()
+  });
+  mockDb.puzzles['failed-131049-numeric'] = {
+    publicId: 'failed-131049-numeric',
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'accepted' }]
+  };
+
+  const payload131049Numeric = JSON.stringify({
+    phone_number_id: '10928374',
+    message: {
+      id: 'wamid.failed-131049-numeric',
+      timestamp: '1721245678',
+      kapso: {
+        status: 'failed',
+        processing_status: 'completed',
+        statuses: [{
+          id: 'wamid.failed-131049-numeric',
+          status: 'failed',
+          timestamp: '1721245678',
+          errors: [{ code: 131049, title: 'Maintain healthy ecosystem engagement', message: 'This message was not delivered to maintain healthy ecosystem engagement.', error_data: { details: 'Rate limit exceeded' } }]
+        }]
+      }
+    }
+  });
+
+  await invokeWebhookRoute({
+    headers: {
+      'x-webhook-signature': crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET).update(Buffer.from(payload131049Numeric, 'utf8')).digest('hex'),
+      'x-idempotency-key': 'failed-event-131049-numeric',
+      'x-webhook-event': 'whatsapp.message.failed',
+      'x-webhook-payload-version': 'v2'
+    },
+    body: Buffer.from(payload131049Numeric, 'utf8')
+  }, resMock, () => {});
+
+  const numericMsg = mockDb.messages[numeric131049Key];
+  assert.strictEqual(numericMsg.status, 'failed');
+  assert.strictEqual(numericMsg.lastErrorCode, '131049');
+  assert.strictEqual(numericMsg.lastErrorMessage, 'Meta delivery limit — WhatsApp error 131049. Do not retry for 24 hours; use the approved fallback channel.');
+  assert.strictEqual(whatsappService.isInitialPuzzleDeliveryRetryable(numericMsg, mockDb.puzzles['failed-131049-numeric'].recipients[0]), false);
+  console.log('✓ Scenario 6.3d: Meta delivery limit - WhatsApp error 131049 (numeric) sets correct message and disables retry: Success');
+
+  // Scenario 6.3e: Meta delivery limit - WhatsApp error 131049 (string error code)
+  const string131049Key = 'puzzle-delivery:failed-131049-string:0:jigzo_puzzle_delivery:v1';
+  mockDb.messages[string131049Key] = new MockWhatsAppMessage({
+    puzzleId: 'failed-131049-string',
+    recipientIndex: 0,
+    idempotencyKey: string131049Key,
+    providerMessageId: 'wamid.failed-131049-string',
+    destinationMasked: '*******1331',
+    status: 'accepted',
+    providerStatus: 'accepted',
+    acceptedAt: new Date()
+  });
+  mockDb.puzzles['failed-131049-string'] = {
+    publicId: 'failed-131049-string',
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'accepted' }]
+  };
+
+  const payload131049String = JSON.stringify({
+    phone_number_id: '10928374',
+    message: {
+      id: 'wamid.failed-131049-string',
+      timestamp: '1721245678',
+      kapso: {
+        status: 'failed',
+        processing_status: 'completed',
+        statuses: [{
+          id: 'wamid.failed-131049-string',
+          status: 'failed',
+          timestamp: '1721245678',
+          errors: [{ code: '131049', title: 'Maintain healthy ecosystem engagement', message: 'This message was not delivered to maintain healthy ecosystem engagement.', error_data: { details: 'Rate limit exceeded' } }]
+        }]
+      }
+    }
+  });
+
+  await invokeWebhookRoute({
+    headers: {
+      'x-webhook-signature': crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET).update(Buffer.from(payload131049String, 'utf8')).digest('hex'),
+      'x-idempotency-key': 'failed-event-131049-string',
+      'x-webhook-event': 'whatsapp.message.failed',
+      'x-webhook-payload-version': 'v2'
+    },
+    body: Buffer.from(payload131049String, 'utf8')
+  }, resMock, () => {});
+
+  const stringMsg = mockDb.messages[string131049Key];
+  assert.strictEqual(stringMsg.status, 'failed');
+  assert.strictEqual(stringMsg.lastErrorCode, '131049');
+  assert.strictEqual(stringMsg.lastErrorMessage, 'Meta delivery limit — WhatsApp error 131049. Do not retry for 24 hours; use the approved fallback channel.');
+  assert.strictEqual(whatsappService.isInitialPuzzleDeliveryRetryable(stringMsg, mockDb.puzzles['failed-131049-string'].recipients[0]), false);
+  console.log('✓ Scenario 6.3e: Meta delivery limit - WhatsApp error 131049 (string) sets correct message and disables retry: Success');
+
   const sentThenFailedKey = 'puzzle-delivery:sent-then-failed:0:jigzo_puzzle_delivery:v1';
   const sentThenFailedMessage = new MockWhatsAppMessage({
     puzzleId: 'sent-then-failed',
@@ -1660,10 +1764,14 @@ async function runAllTests() {
       publicId: 'lc-ar',
       experienceLanguage: 'ar',
       senderName: 'Someone',
+      revealIdentity: false, // anonymous
       senderPhone: '97333333333',
       recipients: [{ name: 'Sam', completedAt: new Date('2026-07-24T17:13:08.828Z'), completionSeconds: 155 }],
       save: async function() { return this; }
     };
+    MockPuzzle.findOne = async (q) => mockDb.puzzles[q.publicId] || null;
+
+    // Test 1: Arabic anonymous sender & Arabic 4-parameter payload, Arabic date-time, duration 60+ seconds (155s -> 3m)
     const arabicAlertRes = await whatsappService.sendRevealAlert({
       puzzleId: 'lc-ar',
       recipientIndex: 0,
@@ -1675,8 +1783,52 @@ async function runAllTests() {
     assert.strictEqual(capturedPayload.template.name, 'jigzo_puzzle_solved');
     assert.strictEqual(capturedPayload.template.language.code, 'ar');
     assert.strictEqual(mockDb.messages['puzzle-solved:lc-ar:0:jigzo_puzzle_solved:v1'].languageCode, 'ar');
-    assert.strictEqual(capturedPayload.template.components[0].parameters.length, 5);
-    console.log('✓ Scenario 8.3: Arabic reveal alert uses jigzo_puzzle_solved and persists ar: Success');
+    assert.strictEqual(capturedPayload.template.components[0].parameters.length, 4);
+    
+    // Check parameters (order, values)
+    assert.deepStrictEqual(capturedPayload.template.components[0].parameters[0], { type: 'text', text: 'شخص ما' });
+    assert.deepStrictEqual(capturedPayload.template.components[0].parameters[1], { type: 'text', text: 'Sam' });
+    // 24 Jul 2026 17:13:08.828 UTC is 20:13:08 in Bahrain timezone (Asia/Bahrain) -> ٢٤ يوليو ٢٠٢٦، الساعة ٨:١٣ م
+    assert.deepStrictEqual(capturedPayload.template.components[0].parameters[2], { type: 'text', text: '٢٤ يوليو ٢٠٢٦، الساعة ٨:١٣ م' });
+    // 155 seconds / 60 = 2.5833... -> rounded to 3 minutes -> ٣
+    assert.deepStrictEqual(capturedPayload.template.components[0].parameters[3], { type: 'text', text: '٣' });
+
+    // Test 2: Duration under 60 seconds (sends "أقل من")
+    mockDb.puzzles['lc-ar'].recipients[0].completedAt = new Date('2026-07-24T17:13:08.828Z');
+    delete mockDb.messages['puzzle-solved:lc-ar:0:jigzo_puzzle_solved:v1'];
+    await whatsappService.sendRevealAlert({
+      puzzleId: 'lc-ar',
+      recipientIndex: 0,
+      senderPhone: '97333333333',
+      recipientName: 'Sam',
+      durationSeconds: 45
+    });
+    assert.strictEqual(capturedPayload.template.components[0].parameters.length, 4);
+    assert.deepStrictEqual(capturedPayload.template.components[0].parameters[3], { type: 'text', text: 'أقل من' });
+
+    // Test 3: Language code normalization for other Arabic formats (e.g. ar-BH, ar_BH)
+    mockDb.puzzles['lc-ar-locale'] = {
+      publicId: 'lc-ar-locale',
+      experienceLanguage: 'ar-BH',
+      senderName: 'Zahra',
+      revealIdentity: true,
+      senderPhone: '97333333333',
+      recipients: [{ name: 'Sam', completedAt: new Date('2026-07-24T17:13:08.828Z'), completionSeconds: 155 }],
+      save: async function() { return this; }
+    };
+    delete mockDb.messages['puzzle-solved:lc-ar-locale:0:jigzo_puzzle_solved:v1'];
+    await whatsappService.sendRevealAlert({
+      puzzleId: 'lc-ar-locale',
+      recipientIndex: 0,
+      senderPhone: '97333333333',
+      recipientName: 'Sam',
+      durationSeconds: 120
+    });
+    assert.strictEqual(capturedPayload.template.language.code, 'ar'); // mapped to ar template code
+    assert.strictEqual(capturedPayload.template.components[0].parameters.length, 4);
+    assert.deepStrictEqual(capturedPayload.template.components[0].parameters[0], { type: 'text', text: 'Zahra' }); // non-anon name preserved
+
+    console.log('✓ Scenario 8.3: Arabic reveal alert uses normalized Arabic template parameters and formats: Success');
 
   } finally {
     // Restore fetch and env
@@ -1908,10 +2060,69 @@ async function runAllTests() {
   await waitUntilPromise;
   assert.strictEqual(resolvedBackgroundWork, true);
   
-  // Restore
-  whatsappService.sendRevealAlert = originalSend;
-  global.__mockWaitUntil = null;
-  console.log('✓ Scenario 9.5: Express completion route returns response immediately while waitUntil runs in background: Success');
+  // Scenario 9.6: WHATSAPP_MARKETING_DISABLED blocks send and stores state/reason metadata
+  process.env.WHATSAPP_ENABLED = 'true';
+  process.env.KAPSO_API_KEY = 'test_key';
+  process.env.KAPSO_PHONE_NUMBER_ID = 'test_phone';
+  process.env.WHATSAPP_MARKETING_DISABLED = 'true';
+
+  const blockedKey = 'puzzle-delivery:blocked-flag-test:0:jigzo_puzzle_delivery:v1';
+  mockDb.puzzles['blocked-flag-test'] = {
+    publicId: 'blocked-flag-test',
+    experienceLanguage: 'en',
+    recipients: [{ 
+      name: 'Emma', 
+      phone: '33112233', 
+      countryCode: '973', 
+      deliverySelection: 'send_via_whatsapp', 
+      purchaserConsent: true,
+      whatsappSendStatus: 'pending' 
+    }],
+    save: async function() { return this; }
+  };
+  MockPuzzle.findOne = async (q) => mockDb.puzzles[q.publicId] || null;
+
+  const blockedRes = await whatsappService.claimAndSendPuzzleDelivery({
+    puzzleId: 'blocked-flag-test',
+    recipientIndex: 0
+  });
+
+  assert.strictEqual(blockedRes.success, false);
+  assert.strictEqual(blockedRes.reason, 'whatsapp_marketing_template_disabled');
+  const blockedMsg = mockDb.messages[blockedKey];
+  assert.strictEqual(blockedMsg.status, 'failed');
+  assert.strictEqual(blockedMsg.deliveryState, 'awaiting_recipient_delivery');
+  assert.strictEqual(blockedMsg.deliveryReason, 'whatsapp_marketing_template_disabled');
+  console.log('✓ Scenario 9.6: WHATSAPP_MARKETING_DISABLED flag correctly blocks delivery and persists recovery states: Success');
+
+  // Scenario 9.7: Missing purchaserConsent blocks send when using send_via_whatsapp
+  process.env.WHATSAPP_MARKETING_DISABLED = 'false';
+  const consentMissingKey = 'puzzle-delivery:consent-missing-test:0:jigzo_puzzle_delivery:v1';
+  mockDb.puzzles['consent-missing-test'] = {
+    publicId: 'consent-missing-test',
+    experienceLanguage: 'en',
+    recipients: [{ 
+      name: 'Lucas', 
+      phone: '33112244', 
+      countryCode: '973', 
+      deliverySelection: 'send_via_whatsapp', 
+      purchaserConsent: false,
+      whatsappSendStatus: 'pending' 
+    }],
+    save: async function() { return this; }
+  };
+
+  const noConsentRes = await whatsappService.claimAndSendPuzzleDelivery({
+    puzzleId: 'consent-missing-test',
+    recipientIndex: 0
+  });
+
+  assert.strictEqual(noConsentRes.success, false);
+  assert.strictEqual(noConsentRes.reason, 'missing_recipient_consent');
+  const noConsentMsg = mockDb.messages[consentMissingKey];
+  assert.strictEqual(noConsentMsg.status, 'failed');
+  assert.strictEqual(noConsentMsg.lastErrorCode, 'MISSING_RECIPIENT_CONSENT');
+  console.log('✓ Scenario 9.7: Missing purchaser consent correctly blocks delivery with MISSING_RECIPIENT_CONSENT: Success');
 
   process.env.WHATSAPP_ENABLED = 'false';
 

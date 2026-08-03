@@ -174,7 +174,7 @@ export default function CreatePage() {
   const [senderDial, setSenderDial] = useState("+973");
   const [defaultDialCode, setDefaultDialCode] = useState("+973");
   const [recipients, setRecipients] = useState([
-    { name: "", phone: "", dial: "+973", dialEdited: false, deliveryMethod: "whatsapp", email: "" }
+    { name: "", phone: "", dial: "+973", dialEdited: false, deliveryMethod: "whatsapp", deliverySelection: "send_via_whatsapp", purchaserConsent: false, email: "" }
   ]);
   const [revealIdentity, setRevealIdentity] = useState(true);
   const [pieceCount, setPieceCount] = useState(18);
@@ -449,10 +449,14 @@ export default function CreatePage() {
         if (identitySet.has(id)) return false;
         identitySet.add(id);
       } else {
+        if (r.deliverySelection === "share_myself") {
+          continue;
+        }
         if (!phoneValid(r.dial, r.phone)) return false;
         const id = "phone:" + (r.dial + r.phone);
         if (identitySet.has(id)) return false;
         identitySet.add(id);
+        if ((r.deliverySelection === "send_via_whatsapp" || !r.deliverySelection) && !r.purchaserConsent) return false;
       }
     }
     return true;
@@ -632,6 +636,7 @@ export default function CreatePage() {
   // Submit Handler integrating server-side API pricing and orders
   const handlePayAndSend = async () => {
     if (isSubmittingRef.current) return;
+    if (checkoutEnabled && !termsAgreed) return;
     isSubmittingRef.current = true;
     setIsProcessing(true);
     setProcessingContext("payment");
@@ -654,11 +659,16 @@ export default function CreatePage() {
             email: String(r.email || "").trim().toLowerCase()
           };
         }
+        const sel = r.deliverySelection || "send_via_whatsapp";
         return {
           name: r.name,
-          deliveryMethod: "whatsapp",
-          countryCode: normalizePhoneInput(r.dial),
-          phone: normalizePhoneInput(r.phone)
+          deliveryMethod: sel === "share_myself" ? "share" : "whatsapp",
+          deliverySelection: sel,
+          purchaserConsent: r.purchaserConsent || false,
+          consentWordingVersion: "v1_optin",
+          consentTimestamp: new Date().toISOString(),
+          countryCode: sel === "share_myself" ? "" : normalizePhoneInput(r.dial),
+          phone: sel === "share_myself" ? "" : normalizePhoneInput(r.phone)
         };
       });
 
@@ -1435,50 +1445,156 @@ export default function CreatePage() {
                     </>
                   ) : (
                     <>
-                      <div style={{ display: "flex", gap: 10 }}>
-                        <input
-                          type="text"
-                          value={rec.dial}
-                          onChange={(e) => {
-                            const val = sanitizeDialCode(e.target.value);
-                            setRecipients(prev => {
-                              const next = [...prev];
-                              next[idx] = { ...next[idx], dial: val, dialEdited: true };
-                              return next;
-                            });
-                          }}
-                          dir="ltr"
-                          inputMode="tel"
-                          style={{ ...inputStyle, width: "80px", flex: "none", padding: "13px 8px", textAlign: "center" }}
-                          placeholder="+973"
-                        />
-                        <input type="tel" placeholder={t('create.delivery.phonePlaceholder')} value={rec.phone}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setRecipients(prev => {
-                              const next = [...prev];
-                              next[idx] = { ...next[idx], phone: val };
-                              return next;
-                            });
-                          }}
-                          aria-invalid={rec.phone && !recValid ? "true" : "false"}
-                          dir="ltr"
-                          inputMode="tel"
-                          autoComplete="off"
-                          style={{ ...inputStyle, flex: 1, textAlign: "left" }}
-                        />
+                      {/* WhatsApp delivery selection choices */}
+                      <div style={{ marginBottom: 14 }}>
+                        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.ink50, marginBottom: 8 }}>
+                          {isAr ? 'خيارات التسليم والموافقة على WhatsApp:' : 'WhatsApp Delivery & Consent Options:'}
+                        </label>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, cursor: "pointer", color: T.ink }}>
+                            <input 
+                              type="radio" 
+                              name={`deliverySelection-${idx}`} 
+                              checked={rec.deliverySelection !== "send_to_me" && rec.deliverySelection !== "share_myself"} 
+                              onChange={() => {
+                                setRecipients(prev => {
+                                  const next = [...prev];
+                                  next[idx] = { ...next[idx], deliverySelection: "send_via_whatsapp" };
+                                  return next;
+                                });
+                              }}
+                              style={{ marginTop: 2 }}
+                            />
+                            <span style={{ textAlign: 'left' }}>
+                              {isAr 
+                                ? 'أرسل عبر WhatsApp (يتطلب تأكيد موافقة المستلم)' 
+                                : 'Send through JIGZO to a recipient who has already agreed to receive WhatsApp messages from JIGZO'}
+                            </span>
+                          </label>
+                          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, cursor: "pointer", color: T.ink }}>
+                            <input 
+                              type="radio" 
+                              name={`deliverySelection-${idx}`} 
+                              checked={rec.deliverySelection === "send_to_me"} 
+                              onChange={() => {
+                                setRecipients(prev => {
+                                  const next = [...prev];
+                                  next[idx] = { ...next[idx], deliverySelection: "send_to_me" };
+                                  return next;
+                                });
+                              }}
+                              style={{ marginTop: 2 }}
+                            />
+                            <span style={{ textAlign: 'left' }}>
+                              {isAr ? 'أرسل الرابط إليّ عبر WhatsApp' : 'Send the puzzle to me'}
+                            </span>
+                          </label>
+                          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, cursor: "pointer", color: T.ink }}>
+                            <input 
+                              type="radio" 
+                              name={`deliverySelection-${idx}`} 
+                              checked={rec.deliverySelection === "share_myself"} 
+                              onChange={() => {
+                                setRecipients(prev => {
+                                  const next = [...prev];
+                                  next[idx] = { ...next[idx], deliverySelection: "share_myself" };
+                                  return next;
+                                });
+                              }}
+                              style={{ marginTop: 2 }}
+                            />
+                            <span style={{ textAlign: 'left' }}>
+                              {isAr ? 'سأقوم بنسخ الرابط ومشاركته بنفسي' : 'I will share it myself'}
+                            </span>
+                          </label>
+                        </div>
                       </div>
 
-                      {rec.phone && (!recValid || isDuplicatePhone) && (
-                        <div style={{ marginTop: 8, fontSize: 12.5, color: T.goldDeep, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 4 }}>
-                          <span>⚠️</span>
-                          <span>
-                            {!recValid
-                              ? t('create.delivery.phoneInvalid')
-                              : t('create.delivery.phoneDuplicate')
-                            }
-                          </span>
+                      {/* Explicit Consent Wording and Confirmation Checkbox for Option 3 */}
+                      {(rec.deliverySelection !== "send_to_me" && rec.deliverySelection !== "share_myself") && (
+                        <div style={{
+                          padding: 12,
+                          borderRadius: 8,
+                          border: `1px solid ${T.goldWarm}`,
+                          backgroundColor: 'rgba(166, 124, 61, 0.04)',
+                          marginBottom: 14
+                        }}>
+                          <p style={{ margin: 0, fontSize: 12.5, color: T.ink, lineHeight: 1.5, fontWeight: 500, textAlign: 'left' }}>
+                            {isAr 
+                              ? 'بصفتنا "جيقزو" كجهة الإرسال الرسمية، نحتاج لتأكيد موافقة المستلم المسبقة على تلقي الرسائل الترويجية والتنبيهات.' 
+                              : 'As JIGZO is the sending business, Meta policy requires that the recipient has consented to receive automated notifications from JIGZO.'}
+                          </p>
+                          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12.5, cursor: "pointer", color: T.ink, marginTop: 10, fontWeight: 600 }}>
+                            <input 
+                              type="checkbox" 
+                              checked={!!rec.purchaserConsent} 
+                              onChange={(e) => {
+                                setRecipients(prev => {
+                                  const next = [...prev];
+                                  next[idx] = { ...next[idx], purchaserConsent: e.target.checked };
+                                  return next;
+                                });
+                              }}
+                              style={{ marginTop: 2 }}
+                            />
+                            <span style={{ textAlign: 'left' }}>
+                              {isAr 
+                                ? 'أؤكد أن المستلم قد وافق مسبقاً على استلام هذا اللغز والروابط التابعة لجيقزو عبر WhatsApp.' 
+                                : 'I confirm that the recipient has explicitly agreed to receive this puzzle and associated links from JIGZO via WhatsApp.'}
+                            </span>
+                          </label>
                         </div>
+                      )}
+
+                      {/* Phone input fields (hidden only when sharing myself) */}
+                      {rec.deliverySelection !== "share_myself" && (
+                        <>
+                          <div style={{ display: "flex", gap: 10 }}>
+                            <input
+                              type="text"
+                              value={rec.dial}
+                              onChange={(e) => {
+                                const val = sanitizeDialCode(e.target.value);
+                                setRecipients(prev => {
+                                  const next = [...prev];
+                                  next[idx] = { ...next[idx], dial: val, dialEdited: true };
+                                  return next;
+                                });
+                              }}
+                              dir="ltr"
+                              inputMode="tel"
+                              style={{ ...inputStyle, width: "80px", flex: "none", padding: "13px 8px", textAlign: "center" }}
+                              placeholder="+973"
+                            />
+                            <input type="tel" placeholder={t('create.delivery.phonePlaceholder')} value={rec.phone}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setRecipients(prev => {
+                                  const next = [...prev];
+                                  next[idx] = { ...next[idx], phone: val };
+                                  return next;
+                                });
+                              }}
+                              aria-invalid={rec.phone && !recValid ? "true" : "false"}
+                              dir="ltr"
+                              inputMode="tel"
+                              autoComplete="off"
+                              style={{ ...inputStyle, flex: 1, textAlign: "left" }}
+                            />
+                          </div>
+
+                          {rec.phone && (!recValid || isDuplicatePhone) && (
+                            <div style={{ marginTop: 8, fontSize: 12.5, color: T.goldDeep, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 4 }}>
+                              <span>⚠️</span>
+                              <span>
+                                {!recValid
+                                  ? t('create.delivery.phoneInvalid')
+                                  : t('create.delivery.phoneDuplicate')
+                                }
+                              </span>
+                            </div>
+                          )}
+                        </>
                       )}
                     </>
                   )}
@@ -1839,12 +1955,36 @@ export default function CreatePage() {
             })()}
 
             <div className="footer-nav" style={{ flexDirection: 'column', gap: 12 }}>
+              {checkoutEnabled && (
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start", width: '100%' }}>
+                  <input
+                    type="checkbox"
+                    id="consent-checkbox"
+                    checked={termsAgreed}
+                    onChange={(e) => setTermsAgreed(e.target.checked)}
+                    style={{ marginTop: 4, flex: "none", cursor: "pointer" }}
+                  />
+                  <label htmlFor="consent-checkbox" style={{ fontSize: 13, lineHeight: 1.4, color: T.ink, cursor: "pointer" }}>
+                    I agree to the{" "}
+                    <a
+                      href="https://jigzo.biz/terms"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ color: T.goldDeep, textDecoration: "underline" }}
+                    >
+                      Terms & Conditions
+                    </a>{" "}
+                    and confirm I have the right to use this photo.
+                  </label>
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 12, width: '100%' }}>
                 <GhostButton onClick={handleBack}>{t('common.back')}</GhostButton>
                 {checkoutEnabled ? (
                   <PrimaryButton
                     onClick={handlePayAndSend}
-                    disabled={isProcessing}
+                    disabled={isProcessing || !termsAgreed}
                     style={{ flex: 1 }}
                   >
                     {isProcessing ? t('create.review.payment.submitting') : t('create.review.payAndSend')}

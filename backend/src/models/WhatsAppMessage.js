@@ -78,6 +78,8 @@ const WhatsAppMessageSchema = new mongoose.Schema({
   providerMessageId: { type: String },
   destinationMasked: { type: String, required: true },
   retryDestinationMasked: { type: String },
+  deliveryState: { type: String },
+  deliveryReason: { type: String },
   destinationCorrectionHistory: [DestinationCorrectionSchema],
   attemptCount: { type: Number, default: 0 },
   claimedAt: { type: Date },
