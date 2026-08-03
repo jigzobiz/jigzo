@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import RevealMock from '../components/RevealMock';
 import HeroPhonePuzzle from '../components/HeroPhonePuzzle';
-import LanguageSwitcher from '../components/LanguageSwitcher';
+import SiteHeader from '../components/SiteHeader';
+import SiteFooter from '../components/SiteFooter';
 import { analytics } from '../services/analytics';
 import { getLocalizedPrice, resolveVisitorCurrency } from '../services/jigzoPricing';
 
@@ -56,18 +57,7 @@ export default function LandingPage() {
   return (
     <div className="landing-page">
       {/* ===================== NAV ===================== */}
-      <header className="nav">
-        <div className="nav__inner">
-          <Link to="/" aria-label={t('landing.nav.home')}>
-            <img className="nav__logo" src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" />
-          </Link>
-          <div className="nav__actions">
-            <LanguageSwitcher location="landing_nav" />
-            <Link className="btn btn-ghost nav__btn" to="/create">{t('landing.nav.createFull')}</Link>
-            <Link className="btn nav__btn-mobile" to="/create">{t('landing.nav.create')}</Link>
-          </div>
-        </div>
-      </header>
+      <SiteHeader switcherLocation="landing_nav" />
 
       <main id="top">
         {/* ===================== HERO ===================== */}
@@ -228,18 +218,7 @@ export default function LandingPage() {
       </main>
 
       {/* ===================== FOOTER ===================== */}
-      <footer className="footer">
-        <div className="footer__inner">
-          <div className="footer__brand">
-            <img className="footer__logo" src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" />
-            <span className="footer__by">{t('landing.footer.by')}</span>
-          </div>
-          <div className="footer__tag">{t('landing.footer.tag')}</div>
-          <div className="footer__links">
-            <Link className="footer__link" to="/terms">{t('landing.footer.terms')}</Link>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

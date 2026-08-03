@@ -104,6 +104,7 @@ const en = {
     footer: {
       by: 'Product by Jigpuzzle',
       tag: 'Every surprise deserves a memorable reveal.',
+      about: 'About Us',
       terms: 'Terms of Service',
     },
     language: {
@@ -796,6 +797,17 @@ const en = {
   meta: {
     title: 'JIGZO | Turn Any Photo Into a Puzzle Surprise',
     description: 'Turn a photo and personal message into an interactive puzzle surprise, delivered instantly through WhatsApp. No app needed—create yours in minutes.',
+  },
+  about: {
+    metaTitle: 'JIGZO | About Us',
+    metaDesc: 'About JIGZO. A message someone has to earn, then keep.',
+    title: 'About JIGZO',
+    p1: 'JIGZO started because a photo and a few words weren’t enough anymore.',
+    p2: 'Everyone was sending the same flat message. Type it, send it, forget it. Nothing to open. Nothing to wait for. Nothing that made the other person feel like they’d earned what was coming.',
+    p3: 'So this became something you build instead of just send. A photo. A message that matters. A puzzle standing between them and your words, exactly how hard you decide it should be.',
+    p4: 'JIGZO is built by one person in Bahrain who believes the best messages are the ones people have to work for.',
+    p5: 'This isn’t a card. It’s not a notification. It’s a moment someone has to earn, then keep.',
+    home: 'Back to Home',
   },
 };
 
