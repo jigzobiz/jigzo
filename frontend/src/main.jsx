@@ -6,6 +6,7 @@ import LandingPage from './pages/LandingPage';
 import CreatePage from './pages/CreatePage';
 import ReceivePage from './pages/ReceivePage';
 import TermsPage from './pages/TermsPage';
+import AboutPage from './pages/AboutPage';
 import AdminLayout from './pages/admin/AdminLayout';
 import Home from './pages/admin/Home';
 import Customers from './pages/admin/Customers';
@@ -46,6 +47,10 @@ const router = createBrowserRouter([
   {
     path: '/terms',
     element: <TermsPage />
+  },
+  {
+    path: '/about',
+    element: <AboutPage />
   },
   {
     path: '/admin',

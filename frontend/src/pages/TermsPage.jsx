@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import LanguageSwitcher from '../components/LanguageSwitcher';
+import SiteHeader from '../components/SiteHeader';
+import SiteFooter from '../components/SiteFooter';
 
 export default function TermsPage() {
   const { t, i18n } = useTranslation();
@@ -37,17 +37,7 @@ export default function TermsPage() {
   return (
     <div className="terms-page" style={{ direction: isRtl ? 'rtl' : 'ltr', textAlign: isRtl ? 'right' : 'left' }}>
       {/* ===================== NAV ===================== */}
-      <header className="nav">
-        <div className="nav__inner">
-          <Link to="/" aria-label={t('landing.nav.home')}>
-            <img className="nav__logo" src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" />
-          </Link>
-          <div className="nav__actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <LanguageSwitcher location="terms_nav" />
-            <Link className="btn btn-ghost" to="/create">{t('landing.nav.createFull')}</Link>
-          </div>
-        </div>
-      </header>
+      <SiteHeader switcherLocation="terms_nav" />
 
       <main className="terms-container" style={{ maxWidth: 800, margin: "40px auto 80px", padding: "0 24px", fontFamily: "Archia, sans-serif", lineHeight: 1.7 }}>
         <h1 style={{ fontWeight: 300, fontSize: "clamp(32px, 5vw, 48px)", letterSpacing: "-0.02em", marginBottom: 8 }}>{t('terms.title')}</h1>
@@ -239,6 +229,8 @@ export default function TermsPage() {
         <h2>{t('privacy.contact.title')}</h2>
         <p>{t('privacy.contact.p1')}<a href="mailto:info@jigzo.biz">info@jigzo.biz</a></p>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

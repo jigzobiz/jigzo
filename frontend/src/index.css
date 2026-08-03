@@ -1175,17 +1175,20 @@ a { color:inherit; text-decoration:none; }
   margin-bottom: 24px;
 }
 
-/* Footer link styling */
-.landing-page .footer__links {
+/* Footer link styling (shared across every page that uses SiteFooter) */
+.footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
   font-size: 13px;
   color: var(--ink-50);
   margin-top: 8px;
 }
-.landing-page .footer__link {
+.footer__link {
   color: var(--ink);
   font-weight: 500;
 }
-.landing-page .footer__link:hover {
+.footer__link:hover {
   text-decoration: underline;
 }
 
