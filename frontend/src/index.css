@@ -1192,6 +1192,33 @@ a { color:inherit; text-decoration:none; }
   text-decoration: underline;
 }
 
+/* Mobile-only footer layout. Desktop (>=761px) keeps the original flex row and
+   markup untouched. Here `.footer__links` is flattened with display:contents so
+   its two links become direct grid items of `.footer__inner`, letting us place
+   Terms top-right next to the logo and About Us on its own row underneath. */
+@media (max-width: 760px) {
+  .footer__inner {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "brand terms"
+      "about about"
+      "tag   tag";
+    align-items: center;
+    row-gap: 14px;
+    column-gap: 14px;
+  }
+  .footer__brand { grid-area: brand; }
+  .footer__link--terms { grid-area: terms; justify-self: end; }
+  .footer__link--about { grid-area: about; justify-self: start; }
+  .footer__links { display: contents; }
+  .footer__tag {
+    grid-area: tag;
+    text-align: center;
+    white-space: normal;      /* allow the slogan to wrap to two lines */
+  }
+}
+
 /* Sticky CTA (Mobile Only) */
 .landing-page .sticky-cta {
   display: none;

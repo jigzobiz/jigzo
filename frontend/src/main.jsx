@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
+import ScrollToTop from './components/ScrollToTop';
 import LandingPage from './pages/LandingPage';
 import CreatePage from './pages/CreatePage';
 import ReceivePage from './pages/ReceivePage';
@@ -21,55 +22,71 @@ import PaymentResult from './pages/PaymentResult';
 import './i18n';
 import './index.css';
 
+// Root layout: mounts ScrollToTop once so every route navigation resets scroll
+// to the top, then renders the matched route via <Outlet />.
+function RootLayout() {
+  return (
+    <>
+      <ScrollToTop />
+      <Outlet />
+    </>
+  );
+}
+
 // Configure standard client-side routing routes
 const router = createBrowserRouter([
   {
-    path: '/',
-    element: <LandingPage />
-  },
-  {
-    path: '/create',
-    element: <CreatePage />
-  },
-  {
-    path: '/payment/result',
-    element: <PaymentResult />
-  },
-  {
-    path: '/scroll-concept',
-    element: <ScrollConceptPage />
-  },
-  {
-    path: '/p/:publicId',
-    element: <ReceivePage />
-  },
-  {
-    path: '/terms',
-    element: <TermsPage />
-  },
-  {
-    path: '/about',
-    element: <AboutPage />
-  },
-  {
-    path: '/admin',
-    element: <AdminLayout />,
+    element: <RootLayout />,
     children: [
-      { index: true, element: <Home /> },
-      { path: 'customers', element: <Customers /> },
-      { path: 'customers/:customerId', element: <CustomerDetail /> },
-      { path: 'orders', element: <Orders /> },
-      { path: 'orders/:orderId', element: <OrderDetail /> },
-      { path: 'delivery', element: <DeliveryCentre /> },
-      { path: 'finance', element: <FinanceOverview /> },
-      { path: 'growth', element: <Growth /> },
-      { path: 'system', element: <SystemSettings /> }
+      {
+        path: '/',
+        element: <LandingPage />
+      },
+      {
+        path: '/create',
+        element: <CreatePage />
+      },
+      {
+        path: '/payment/result',
+        element: <PaymentResult />
+      },
+      {
+        path: '/scroll-concept',
+        element: <ScrollConceptPage />
+      },
+      {
+        path: '/p/:publicId',
+        element: <ReceivePage />
+      },
+      {
+        path: '/terms',
+        element: <TermsPage />
+      },
+      {
+        path: '/about',
+        element: <AboutPage />
+      },
+      {
+        path: '/admin',
+        element: <AdminLayout />,
+        children: [
+          { index: true, element: <Home /> },
+          { path: 'customers', element: <Customers /> },
+          { path: 'customers/:customerId', element: <CustomerDetail /> },
+          { path: 'orders', element: <Orders /> },
+          { path: 'orders/:orderId', element: <OrderDetail /> },
+          { path: 'delivery', element: <DeliveryCentre /> },
+          { path: 'finance', element: <FinanceOverview /> },
+          { path: 'growth', element: <Growth /> },
+          { path: 'system', element: <SystemSettings /> }
+        ]
+      },
+      // Keep receive.html mapping as fallback for local dev compatibility
+      {
+        path: '/receive.html',
+        element: <ReceivePage />
+      }
     ]
-  },
-  // Keep receive.html mapping as fallback for local dev compatibility
-  {
-    path: '/receive.html',
-    element: <ReceivePage />
   }
 ]);
 

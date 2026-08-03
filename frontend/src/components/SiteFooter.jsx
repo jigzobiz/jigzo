@@ -16,8 +16,8 @@ export default function SiteFooter() {
         </div>
         <div className="footer__tag">{t('landing.footer.tag')}</div>
         <div className="footer__links">
-          <Link className="footer__link" to="/about">{t('landing.footer.about')}</Link>
-          <Link className="footer__link" to="/terms">{t('landing.footer.terms')}</Link>
+          <Link className="footer__link footer__link--about" to="/about">{t('landing.footer.about')}</Link>
+          <Link className="footer__link footer__link--terms" to="/terms">{t('landing.footer.terms')}</Link>
         </div>
       </div>
     </footer>
