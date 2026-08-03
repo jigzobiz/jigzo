@@ -1197,25 +1197,33 @@ a { color:inherit; text-decoration:none; }
    its two links become direct grid items of `.footer__inner`, letting us place
    Terms top-right next to the logo and About Us on its own row underneath. */
 @media (max-width: 760px) {
+  /* Single row, three columns, all vertically centered:
+       [logo + subtitle]      [slogan, centered]      [Terms / About stacked]
+     Keeps the base flex row and align-items:center; only stops it wrapping,
+     lets the slogan fill the middle, and stacks the two links on the right. */
   .footer__inner {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "brand terms"
-      "about about"
-      "tag   tag";
+    flex-wrap: nowrap;
     align-items: center;
-    row-gap: 14px;
-    column-gap: 14px;
+    gap: 6px;
+    padding-left: 12px;
+    padding-right: 12px;
   }
-  .footer__brand { grid-area: brand; }
-  .footer__link--terms { grid-area: terms; justify-self: end; }
-  .footer__link--about { grid-area: about; justify-self: start; }
-  .footer__links { display: contents; }
+  .footer__brand { flex: 0 0 auto; }
   .footer__tag {
-    grid-area: tag;
+    flex: 1 1 auto;
     text-align: center;
-    white-space: normal;      /* allow the slogan to wrap to two lines */
+    white-space: normal;      /* wrap to two lines rather than overflow */
+    margin: 0;
+  }
+  /* Terms of Service (top) and About Us (below), right-aligned. DOM order is
+     About then Terms, so column-reverse lifts Terms above About. */
+  .footer__links {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    gap: 8px;
+    margin-top: 0;
   }
 }
 
