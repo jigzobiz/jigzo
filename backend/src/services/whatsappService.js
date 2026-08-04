@@ -443,9 +443,9 @@ class WhatsAppService {
       return { success: false, reason: 'missing_recipient_consent' };
     }
 
-    // Check feature flag: prevents sending jigzo_puzzle_delivery as MARKETING template to recipient.
-    const isMarketingDisabled = process.env.WHATSAPP_MARKETING_DISABLED === 'true';
-    if (isMarketingDisabled) {
+    // Check feature flag to fail closed: marketing jigzo_puzzle_delivery template is blocked unless explicitly enabled.
+    const marketingPuzzleDeliveryEnabled = process.env.WHATSAPP_MARKETING_PUZZLE_DELIVERY_ENABLED === 'true';
+    if (!marketingPuzzleDeliveryEnabled) {
       messageRecord.status = 'failed';
       messageRecord.providerStatus = 'failed';
       messageRecord.deliveryState = 'awaiting_recipient_delivery';
@@ -721,12 +721,33 @@ class WhatsAppService {
 
     let parameters;
     if (isLangArabic) {
-      const completionDateTimeArabic = formatCompletionDateTimeArabic(completedAt);
+      const completionDateArabic = new Intl.DateTimeFormat(
+        'ar-BH-u-nu-arab',
+        {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          timeZone: 'Asia/Bahrain'
+        }
+      ).format(completedAt);
+
+      const completionTimeArabic = new Intl.DateTimeFormat(
+        'ar-BH-u-nu-arab',
+        {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'Asia/Bahrain'
+        }
+      ).format(completedAt);
+
       const durationArabic = formatDurationArabic(durationSeconds);
+
       parameters = [
         { type: 'text', text: senderDisplayName },
         { type: 'text', text: recipientName || '' },
-        { type: 'text', text: completionDateTimeArabic },
+        { type: 'text', text: completionDateArabic },
+        { type: 'text', text: completionTimeArabic },
         { type: 'text', text: durationArabic }
       ];
     } else {
@@ -755,6 +776,12 @@ class WhatsAppService {
         { type: 'text', text: completionTimeText },
         { type: 'text', text: durationText }
       ];
+    }
+
+    if (!Array.isArray(parameters) || parameters.length !== 5) {
+      throw new Error(
+        `Invalid jigzo_puzzle_solved payload: expected 5 parameters, received ${parameters?.length}`
+      );
     }
 
     const payload = {
