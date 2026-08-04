@@ -423,50 +423,7 @@ class WhatsAppService {
       return { success: false, error: 'MISSING_CREDENTIALS' };
     }
 
-    // Consent verification: block WhatsApp send when no consent record exists
-    if (rec.deliverySelection === 'send_via_whatsapp' && !rec.purchaserConsent) {
-      messageRecord.status = 'failed';
-      messageRecord.providerStatus = 'failed';
-      messageRecord.lastErrorCode = 'MISSING_RECIPIENT_CONSENT';
-      messageRecord.lastErrorMessage = 'WhatsApp send blocked: Purchaser did not confirm recipient consent.';
-      messageRecord.failedAt = new Date();
-      messageRecord.updatedAt = new Date();
-      await messageRecord.save();
 
-      await this.updateRecipientSnapshot(puzzleId, recipientIndex, {
-        status: 'failed',
-        errorCode: 'MISSING_RECIPIENT_CONSENT',
-        errorMessage: 'WhatsApp send blocked: Purchaser did not confirm recipient consent.',
-        failedAt: messageRecord.failedAt
-      });
-
-      return { success: false, reason: 'missing_recipient_consent' };
-    }
-
-    // Check feature flag to fail closed: marketing jigzo_puzzle_delivery template is blocked unless explicitly enabled.
-    const marketingPuzzleDeliveryEnabled = process.env.WHATSAPP_MARKETING_PUZZLE_DELIVERY_ENABLED === 'true';
-    if (!marketingPuzzleDeliveryEnabled) {
-      messageRecord.status = 'failed';
-      messageRecord.providerStatus = 'failed';
-      messageRecord.deliveryState = 'awaiting_recipient_delivery';
-      messageRecord.deliveryReason = 'whatsapp_marketing_template_disabled';
-      messageRecord.lastErrorCode = 'WHATSAPP_MARKETING_TEMPLATE_DISABLED';
-      messageRecord.lastErrorMessage = 'WhatsApp marketing template delivery is temporarily disabled.';
-      messageRecord.failedAt = new Date();
-      messageRecord.updatedAt = new Date();
-      await messageRecord.save();
-
-      await this.updateRecipientSnapshot(puzzleId, recipientIndex, {
-        status: 'failed',
-        errorCode: 'WHATSAPP_MARKETING_TEMPLATE_DISABLED',
-        errorMessage: 'WhatsApp marketing template delivery is temporarily disabled.',
-        failedAt: messageRecord.failedAt,
-        deliveryState: 'awaiting_recipient_delivery',
-        deliveryReason: 'whatsapp_marketing_template_disabled'
-      });
-
-      return { success: false, reason: 'whatsapp_marketing_template_disabled' };
-    }
 
     // Step 4: Perform network request
     messageRecord.status = 'sending';

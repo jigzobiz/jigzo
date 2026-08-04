@@ -147,12 +147,6 @@ router.post('/', async (req, res, next) => {
         formattedRecipients.push({
           name,
           deliveryMethod: 'whatsapp',
-          deliverySelection: r.deliverySelection || 'send_via_whatsapp',
-          purchaserConsent: r.purchaserConsent || false,
-          consentWordingVersion: r.consentWordingVersion || '',
-          consentTimestamp: r.consentTimestamp ? new Date(r.consentTimestamp) : undefined,
-          consentIp: req.headers['x-forwarded-for'] || req.socket.remoteAddress || '',
-          consentUserAgent: req.headers['user-agent'] || '',
           email: '',
           countryCode: r.countryCode || '',
           phone: r.phone || '',
