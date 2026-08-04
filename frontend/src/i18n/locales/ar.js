@@ -243,6 +243,7 @@ const ar = {
       createTestReveal: 'إنشاء أحجية اختبار مجانية',
       paymentErrorPrefix: 'لم يتمكن Tap من بدء عملية الدفع.',
       paymentErrorFallback: 'يرجى المحاولة مرة أخرى أو الاتصال بالدعم.',
+      pricingUnavailable: 'تفاصيل التسعير غير متوفرة حالياً. يرجى إعادة تحميل الصفحة أو المحاولة لاحقاً.',
       bhdNoticeHeadline: '💳 سيتم الدفع بالدينار البحريني (BHD) 🇧🇭',
       bhdNoticeMulticurrencySub: 'سيبقى المبلغ المقابل بعملتك المختارة ظاهرًا للمرجع.',
       bhdNoticeBhdOnlySub: 'ستتم معالجة دفعتك بأمان بالدينار البحريني.',

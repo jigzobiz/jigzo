@@ -72,19 +72,43 @@ async function getExchangeRates() {
   });
 }
 
+// Generate package and upgrade quotes helper options
+const PACK_OPTIONS = [
+  { id: "single", price: 5, insightsPrice: 1 },
+  { id: "small", price: 8, insightsPrice: 1.50 },
+  { id: "friends", price: 15, insightsPrice: 2 },
+  { id: "celebration", price: 25, insightsPrice: 2.50 }
+];
+
+function roundPrice(amount, cur) {
+  const threeDecimalCurrencies = ['BHD', 'KWD', 'OMR', 'LYD', 'IQD', 'TND'];
+  if (threeDecimalCurrencies.includes(cur)) {
+    return Math.ceil(amount * 10) / 10;
+  }
+  return Math.ceil(amount);
+}
+
+function formatMoney(amount, currencyCode) {
+  const rounded = roundPrice(amount, currencyCode);
+  const threeDecimalCurrencies = ['BHD', 'KWD', 'OMR', 'LYD', 'IQD', 'TND'];
+  if (threeDecimalCurrencies.includes(currencyCode)) {
+    return currencyCode + ' ' + rounded.toFixed(1);
+  }
+  return currencyCode + ' ' + rounded.toFixed(0);
+}
+
 /**
  * GET /api/pricing/locale
  * Resolves visitor country, currency, and returns exchange rates and commercial quote.
  */
 router.get('/locale', async (req, res) => {
+  let country = req.headers['x-vercel-ip-country'];
+  let currency = 'USD';
   try {
     const rates = await getExchangeRates();
 
-    let country = req.headers['x-vercel-ip-country'];
-    let currency = 'USD';
-
     // Manual test override ?currency=XXX
-    if (req.query.currency) {
+    if (req.query && req.query.currency) {
       const queryCur = req.query.currency.toUpperCase();
       if (SUPPORTED_CURRENCIES.has(queryCur) && rates[queryCur]) {
         currency = queryCur;
@@ -96,7 +120,7 @@ router.get('/locale', async (req, res) => {
         currency = COUNTRY_CURRENCY_MAP[country] || 'USD';
       } else {
         // Fallback: try geolocating based on request IP if it's a public IP
-        let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        let ip = req.headers['x-forwarded-for'] || (req.socket && req.socket.remoteAddress);
         if (ip && ip !== '127.0.0.1' && ip !== '::1' && !ip.startsWith('192.168.') && !ip.startsWith('10.')) {
           // Extract first IP if list
           if (ip.includes(',')) {
@@ -141,31 +165,6 @@ router.get('/locale', async (req, res) => {
       }
     }
 
-    function roundPrice(amount, cur) {
-      const threeDecimalCurrencies = ['BHD', 'KWD', 'OMR', 'LYD', 'IQD', 'TND'];
-      if (threeDecimalCurrencies.includes(cur)) {
-        return Math.ceil(amount * 10) / 10;
-      }
-      return Math.ceil(amount);
-    }
-
-    function formatMoney(amount, currencyCode) {
-      const rounded = roundPrice(amount, currencyCode);
-      const threeDecimalCurrencies = ['BHD', 'KWD', 'OMR', 'LYD', 'IQD', 'TND'];
-      if (threeDecimalCurrencies.includes(currencyCode)) {
-        return currencyCode + ' ' + rounded.toFixed(1);
-      }
-      return currencyCode + ' ' + rounded.toFixed(0);
-    }
-
-    // Generate package and upgrade quotes
-    const PACK_OPTIONS = [
-      { id: "single", price: 5, insightsPrice: 1 },
-      { id: "small", price: 8, insightsPrice: 1.50 },
-      { id: "friends", price: 15, insightsPrice: 2 },
-      { id: "celebration", price: 25, insightsPrice: 2.50 }
-    ];
-
     const rate = rates[currency] || 1.0;
 
     const packagesQuote = {};
@@ -209,23 +208,50 @@ router.get('/locale', async (req, res) => {
     });
   } catch (error) {
     console.error('[Pricing Router Error]:', error);
+    
+    // Ensure active currency is valid inside fallback
+    const activeCurrency = (currency && SUPPORTED_CURRENCIES.has(currency.toUpperCase()) && FALLBACK_RATES[currency.toUpperCase()])
+      ? currency.toUpperCase()
+      : 'USD';
+      
+    const rate = FALLBACK_RATES[activeCurrency] || 1.0;
+
+    const packagesQuote = {};
+    PACK_OPTIONS.forEach(pkg => {
+      const rawPrice = pkg.price * rate;
+      const roundedPrice = roundPrice(rawPrice, activeCurrency);
+      
+      const rawInsights = pkg.insightsPrice * rate;
+      const roundedInsights = roundPrice(rawInsights, activeCurrency);
+      
+      packagesQuote[pkg.id] = {
+        basePrice: roundedPrice,
+        formattedBase: formatMoney(rawPrice, activeCurrency),
+        insightsPrice: roundedInsights,
+        formattedInsights: formatMoney(rawInsights, activeCurrency)
+      };
+    });
+
+    const bhdQuotes = {};
+    PACK_OPTIONS.forEach(pkg => {
+      bhdQuotes[`${pkg.id}_noalert`] = createQuote(pkg.id, false, activeCurrency, FALLBACK_RATES);
+      bhdQuotes[`${pkg.id}_alert`] = createQuote(pkg.id, true, activeCurrency, FALLBACK_RATES);
+    });
+
     res.json({
       success: false,
-      currency: 'USD',
-      rates: { USD: 1.0 },
+      country: country || null,
+      currency: activeCurrency,
+      rates: FALLBACK_RATES,
       quote: {
         basePriceUsd: 5,
-        currency: 'USD',
-        rate: 1.0,
-        rawConverted: 5.0,
-        roundedAmount: 5,
-        formatted: 'USD 5',
-        packages: {
-          single: { basePrice: 5, formattedBase: 'USD 5', insightsPrice: 1, formattedInsights: 'USD 1' },
-          small: { basePrice: 8, formattedBase: 'USD 8', insightsPrice: 1.5, formattedInsights: 'USD 1.5' },
-          friends: { basePrice: 15, formattedBase: 'USD 15', insightsPrice: 2, formattedInsights: 'USD 2' },
-          celebration: { basePrice: 25, formattedBase: 'USD 25', insightsPrice: 2.5, formattedInsights: 'USD 2.5' }
-        },
+        currency: activeCurrency,
+        rate,
+        rawConverted: 5 * rate,
+        roundedAmount: roundPrice(5 * rate, activeCurrency),
+        formatted: formatMoney(5 * rate, activeCurrency),
+        packages: packagesQuote,
+        bhdQuotes,
         timestamp: Date.now()
       }
     });

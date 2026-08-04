@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../services/api';
 import { packageForRecipientCount } from '../services/pricing';
 import { COUNTRIES } from '../config/countries';
-import { formatMoney, resolveVisitorCurrency, getActiveQuote } from '../services/jigzoPricing';
+import { formatMoney, resolveVisitorCurrency, getActiveQuote, initializePricing } from '../services/jigzoPricing';
 import { PACK_OPTIONS, UPGRADES } from '../config/packages';
 import { PIECE_OPTIONS, OCCASIONS, TONES, suggestedMessage } from '../config/difficulties';
 import WhatsAppPreview from '../components/WhatsAppPreview';
@@ -697,7 +697,26 @@ export default function CreatePage() {
       }
 
       // 2. Create Order
-      const activeQuote = getActiveQuote(currentPack.id, selectedUpgrades.includes("insights"));
+      let activeQuote = getActiveQuote(currentPack.id, selectedUpgrades.includes("insights"));
+      if (!activeQuote || !activeQuote.token) {
+        try {
+          await initializePricing();
+          activeQuote = getActiveQuote(currentPack.id, selectedUpgrades.includes("insights"));
+        } catch (refetchErr) {
+          console.error("Failed to refetch pricing:", refetchErr);
+        }
+      }
+
+      if (!activeQuote || !activeQuote.token) {
+        const fallbackMsg = isAr
+          ? 'تفاصيل التسعير غير متوفرة حالياً. يرجى إعادة تحميل الصفحة أو المحاولة لاحقاً.'
+          : 'Pricing details are currently unavailable. Please refresh or try again.';
+        setPaymentError(t('create.review.pricingUnavailable') || fallbackMsg);
+        setIsProcessing(false);
+        isSubmittingRef.current = false;
+        return;
+      }
+
       const orderRes = await api.createOrder({
         puzzleId: publicId,
         recipientCount: recipients.length,

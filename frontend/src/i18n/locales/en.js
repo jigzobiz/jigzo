@@ -235,6 +235,7 @@ const en = {
       createTestReveal: 'Create Free Test Puzzle',
       paymentErrorPrefix: 'Tap could not start the payment.',
       paymentErrorFallback: 'Please try again or contact support.',
+      pricingUnavailable: 'Pricing details are currently unavailable. Please refresh or try again.',
       bhdNoticeHeadline: '💳 You’ll be charged in Bahraini dinars (BHD) 🇧🇭',
       bhdNoticeMulticurrencySub: 'The equivalent amount in your selected currency will remain visible for reference.',
       bhdNoticeBhdOnlySub: 'Your payment will be processed securely in BHD.',

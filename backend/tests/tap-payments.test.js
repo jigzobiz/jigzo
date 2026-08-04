@@ -708,3 +708,115 @@ test('mode-aware redirect and webhook verification (accepts and rejects appropri
   // Restore TAP_MODE
   process.env.TAP_MODE = originalTapMode;
 });
+
+// Append pricing and validation tests
+const pricingRouter = require('../src/routes/pricing').router;
+const pricingLocaleHandler = pricingRouter.stack.find(s => s.route?.path === '/locale' && s.route.methods.get)?.route.stack[0]?.handle;
+
+test('pricing endpoint returns signed bhdQuotes on success', async () => {
+  const req = makeMockReq({});
+  const res = makeMockRes();
+  await pricingLocaleHandler(req, res, () => {});
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.success, true);
+  assert.ok(res.body.quote.bhdQuotes);
+  
+  // Every package has alert/noalert quotes
+  const packages = ['single', 'small', 'friends', 'celebration'];
+  packages.forEach(pkg => {
+    assert.ok(res.body.quote.bhdQuotes[`${pkg}_noalert`].token);
+    assert.ok(res.body.quote.bhdQuotes[`${pkg}_alert`].token);
+  });
+});
+
+test('pricing endpoint returns signed fallback bhdQuotes on provider failure', async () => {
+  // Force a failure in the try block by stubbing https.get and invalidating the ratesCache using Date.now
+  const https = require('https');
+  const originalGet = https.get;
+  https.get = () => { throw new Error('Simulated api failure'); };
+
+  const originalDateNow = Date.now;
+  Date.now = () => originalDateNow() + 10000000;
+
+  const req = makeMockReq({});
+  const res = makeMockRes();
+  await pricingLocaleHandler(req, res, () => {});
+  
+  // Restore
+  https.get = originalGet;
+  Date.now = originalDateNow;
+
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.success, false);
+  assert.ok(res.body.quote.bhdQuotes);
+  
+  // Fallback quote has bhdQuotes for all options
+  const packages = ['single', 'small', 'friends', 'celebration'];
+  packages.forEach(pkg => {
+    assert.ok(res.body.quote.bhdQuotes[`${pkg}_noalert`].token);
+    assert.ok(res.body.quote.bhdQuotes[`${pkg}_alert`].token);
+  });
+});
+
+test('orders endpoint rejects orders with missing, invalid, or expired quotes', async () => {
+  const puzzle = new Puzzle({
+    publicId: 'puz_validation_tests',
+    cropImageUrl: 'http://image',
+    recipients: [{ name: 'Sam' }]
+  });
+  await puzzle.save();
+
+  // 1. Missing quote
+  const req1 = makeMockReq({ puzzleId: 'puz_validation_tests', recipientCount: 1, hasRevealAlert: false, currency: 'USD' });
+  delete req1.body.quote; // Force missing quote
+  const res1 = makeMockRes();
+  await ordersPostHandler(req1, res1, () => {});
+  assert.strictEqual(res1.statusCode, 400);
+  assert.match(res1.body.error, /Missing quote token/);
+
+  // 2. Invalid quote signature
+  const req2 = makeMockReq({ puzzleId: 'puz_validation_tests', recipientCount: 1, hasRevealAlert: false, currency: 'USD' });
+  req2.body.quote.token = 'invalid_signature_token';
+  const res2 = makeMockRes();
+  await ordersPostHandler(req2, res2, () => {});
+  assert.strictEqual(res2.statusCode, 400);
+  assert.match(res2.body.error, /Invalid quote signature/);
+
+  // 3. Expired quote
+  const req3 = makeMockReq({ puzzleId: 'puz_validation_tests', recipientCount: 1, hasRevealAlert: false, currency: 'USD' });
+  req3.body.quote.expiry = Date.now() - 1000; // Force expiry in the past
+  // Re-sign to make signature valid but expired
+  const crypto = require('crypto');
+  const secret = require('../src/utils/runtimeConfig').resolveJwtSecret() || 'fallback-secret-for-jigzo';
+  const msg = [
+    req3.body.quote.selectedCurrency,
+    req3.body.quote.selectedTotal,
+    req3.body.quote.packageId,
+    req3.body.quote.hasRevealAlert ? 'true' : 'false',
+    req3.body.quote.finalBhdFils,
+    req3.body.quote.timestamp,
+    req3.body.quote.expiry
+  ].join('|');
+  req3.body.quote.token = crypto.createHmac('sha256', secret).update(msg).digest('hex');
+
+  const res3 = makeMockRes();
+  await ordersPostHandler(req3, res3, () => {});
+  assert.strictEqual(res3.statusCode, 400);
+  assert.match(res3.body.error, /token has expired/);
+
+  // 4. Package mismatch
+  const req4 = makeMockReq({ puzzleId: 'puz_validation_tests', recipientCount: 1, hasRevealAlert: false, currency: 'USD' });
+  req4.body.recipientCount = 10; // Package mismatch (single vs friends)
+  const res4 = makeMockRes();
+  await ordersPostHandler(req4, res4, () => {});
+  assert.strictEqual(res4.statusCode, 400);
+  assert.match(res4.body.error, /package mismatch/i);
+
+  // 5. Reveal Alert mismatch
+  const req5 = makeMockReq({ puzzleId: 'puz_validation_tests', recipientCount: 1, hasRevealAlert: false, currency: 'USD' });
+  req5.body.hasRevealAlert = true; // Mismatch with quote which has no reveal alert
+  const res5 = makeMockRes();
+  await ordersPostHandler(req5, res5, () => {});
+  assert.strictEqual(res5.statusCode, 400);
+  assert.match(res5.body.error, /Reveal Alert mismatch/i);
+});
