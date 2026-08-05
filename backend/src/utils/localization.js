@@ -92,23 +92,55 @@ function formatCompletionDateTimeArabic(dateInput) {
  */
 function formatDurationArabic(durationSeconds) {
   // Safe handling of null, undefined, NaN, or negative values
-  let seconds = Number(durationSeconds);
-  if (isNaN(seconds) || seconds < 0) {
-    seconds = 0;
+  let secondsTotal = Number(durationSeconds);
+  if (isNaN(secondsTotal) || secondsTotal < 0) {
+    secondsTotal = 0;
   }
 
-  if (seconds < 60) {
-    // Under 60 seconds: return "أقل من"
-    return 'أقل من';
+  const totalSecs = Math.round(secondsTotal);
+  const minutes = Math.floor(totalSecs / 60);
+  const seconds = totalSecs % 60;
+
+  const toArabicDigits = (num) => {
+    return new Intl.NumberFormat('ar-BH-u-nu-arab', { useGrouping: false }).format(num);
+  };
+
+  const formatArabicSeconds = (s) => {
+    if (s === 1) return 'ثانية واحدة';
+    if (s === 2) return 'ثانيتان';
+    if (s >= 3 && s <= 10) return `${toArabicDigits(s)} ثوانٍ`;
+    return `${toArabicDigits(s)} ثانية`;
+  };
+
+  if (minutes === 0) {
+    if (seconds === 0) {
+      return `${toArabicDigits(0)} ثانية`;
+    }
+    return formatArabicSeconds(seconds);
   }
 
-  // 60 seconds or more: use Math.max(1, Math.round(seconds / 60))
-  // The approved Arabic Meta template contains the fixed singular word "دقيقة".
-  // Numeric values above one therefore remain a temporary compatibility compromise
-  // until the replacement Meta template accepts the complete localized duration phrase.
-  const minutes = Math.max(1, Math.round(seconds / 60));
-  
-  return new Intl.NumberFormat('ar-BH-u-nu-arab', { useGrouping: false }).format(minutes);
+  let minutesStr = '';
+  if (minutes === 1) {
+    if (seconds === 0) {
+      return 'دقيقة واحدة';
+    }
+    minutesStr = 'دقيقة';
+  } else if (minutes === 2) {
+    if (seconds === 0) {
+      return 'دقيقتان';
+    }
+    minutesStr = 'دقيقتان';
+  } else if (minutes >= 3 && minutes <= 10) {
+    minutesStr = `${toArabicDigits(minutes)} دقائق`;
+  } else {
+    minutesStr = `${toArabicDigits(minutes)} دقيقة`;
+  }
+
+  if (seconds === 0) {
+    return minutesStr;
+  } else {
+    return `${minutesStr} و${formatArabicSeconds(seconds)}`;
+  }
 }
 
 module.exports = {

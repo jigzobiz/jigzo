@@ -1792,10 +1792,10 @@ async function runAllTests() {
     assert.deepStrictEqual(capturedPayload.template.components[0].parameters[2], { type: 'text', text: '٢٤ يوليو ٢٠٢٦' });
     // ٨:١٣ م
     assert.deepStrictEqual(capturedPayload.template.components[0].parameters[3], { type: 'text', text: '٨:١٣ م' });
-    // 155 seconds / 60 = 2.5833... -> rounded to 3 minutes -> ٣
-    assert.deepStrictEqual(capturedPayload.template.components[0].parameters[4], { type: 'text', text: '٣' });
+    // 155 seconds / 60 = 2.5833... -> دقيقتان و٣٥ ثانية
+    assert.deepStrictEqual(capturedPayload.template.components[0].parameters[4], { type: 'text', text: 'دقيقتان و٣٥ ثانية' });
 
-    // Test 2: Duration under 60 seconds (sends "أقل من")
+    // Test 2: Duration under 60 seconds (sends exact seconds)
     mockDb.puzzles['lc-ar'].recipients[0].completedAt = new Date('2026-07-24T17:13:08.828Z');
     delete mockDb.messages['puzzle-solved:lc-ar:0:jigzo_puzzle_solved:v1'];
     await whatsappService.sendRevealAlert({
@@ -1806,7 +1806,7 @@ async function runAllTests() {
       durationSeconds: 45
     });
     assert.strictEqual(capturedPayload.template.components[0].parameters.length, 5);
-    assert.deepStrictEqual(capturedPayload.template.components[0].parameters[4], { type: 'text', text: 'أقل من' });
+    assert.deepStrictEqual(capturedPayload.template.components[0].parameters[4], { type: 'text', text: '٤٥ ثانية' });
 
     // Test 3: Language code normalization for other Arabic formats (e.g. ar-BH, ar_BH)
     mockDb.puzzles['lc-ar-locale'] = {
@@ -2066,6 +2066,7 @@ async function runAllTests() {
   console.log('✓ Scenario 9.7: Missing purchaser consent checks removed: Success');
 
   // Scenario 9.8: English jigzo_puzzle_solved contract validation
+  whatsappService.sendRevealAlert = originalSend;
   let interceptedEnglishPayload = null;
   const originalFetchEn = global.fetch;
   global.fetch = async (url, options) => {
@@ -2152,8 +2153,8 @@ async function runAllTests() {
   assert.ok(arParams[2].text.includes('أغسطس') || arParams[2].text.includes('٢٠٢٦'), 'Parameter 3 is not date formatted: ' + arParams[2].text);
   // 4. Completion time
   assert.ok(arParams[3].text.includes('ص') || arParams[3].text.includes('م') || arParams[3].text.includes('١٢'), 'Parameter 4 is not time formatted: ' + arParams[3].text);
-  // 5. Duration
-  assert.strictEqual(arParams[4].text, '٣');
+  // 5. Duration (150 seconds -> دقيقتان و٣٠ ثانية)
+  assert.strictEqual(arParams[4].text, 'دقيقتان و٣٠ ثانية');
 
   arParams.forEach((param, idx) => {
     assert.strictEqual(param.type, 'text');
@@ -2184,6 +2185,141 @@ async function runAllTests() {
   }
   assert.strictEqual(defensiveErrorThrown, true);
   console.log('✓ Scenario 9.10: Defensive count validation logic blocks invalid payloads: Success');
+
+  // Scenario 9.11: Comprehensive Arabic duration template validation
+  console.log('Starting Scenario 9.11: Comprehensive Arabic duration contract & payload validation...');
+  const { formatDurationArabic } = require('../src/utils/localization');
+
+  // 1. Arabic durations below 60 seconds show the exact seconds.
+  assert.strictEqual(formatDurationArabic(42), '٤٢ ثانية');
+  assert.strictEqual(formatDurationArabic(59), '٥٩ ثانية');
+  assert.strictEqual(formatDurationArabic(1), 'ثانية واحدة');
+  assert.strictEqual(formatDurationArabic(2), 'ثانيتان');
+  assert.strictEqual(formatDurationArabic(5), '٥ ثوانٍ');
+
+  // 2. 60 seconds shows دقيقة واحدة.
+  assert.strictEqual(formatDurationArabic(60), 'دقيقة واحدة');
+
+  // 3. 61–119 seconds show one minute plus exact seconds.
+  assert.strictEqual(formatDurationArabic(72), 'دقيقة و١٢ ثانية');
+  assert.strictEqual(formatDurationArabic(61), 'دقيقة وثانية واحدة');
+  assert.strictEqual(formatDurationArabic(62), 'دقيقة وثانيتان');
+  assert.strictEqual(formatDurationArabic(65), 'دقيقة و٥ ثوانٍ');
+  assert.strictEqual(formatDurationArabic(119), 'دقيقة و٥٩ ثانية');
+
+  // 4. 120 seconds shows دقيقتان.
+  assert.strictEqual(formatDurationArabic(120), 'دقيقتان');
+
+  // 5. More than two minutes shows exact minutes and seconds.
+  assert.strictEqual(formatDurationArabic(125), 'دقيقتان و٥ ثوانٍ');
+  assert.strictEqual(formatDurationArabic(200), '٣ دقائق و٢٠ ثانية');
+  assert.strictEqual(formatDurationArabic(180), '٣ دقائق');
+  assert.strictEqual(formatDurationArabic(720), '١٢ دقيقة');
+  assert.strictEqual(formatDurationArabic(725), '١٢ دقيقة و٥ ثوانٍ');
+
+  // Let's run a full sendRevealAlert integration test with multiple durations
+  // to ensure 5 parameters, correct order, no nulls, etc.
+  const testDurations = [42, 60, 72, 120, 125, 200];
+  const expectedArabicDurations = [
+    '٤٢ ثانية',
+    'دقيقة واحدة',
+    'دقيقة و١٢ ثانية',
+    'دقيقتان',
+    'دقيقتان و٥ ثوانٍ',
+    '٣ دقائق و٢٠ ثانية'
+  ];
+
+  for (let i = 0; i < testDurations.length; i++) {
+    const durSec = testDurations[i];
+    const expectedArText = expectedArabicDurations[i];
+
+    let interceptedPayloadAr = null;
+    const originalFetch = global.fetch;
+    global.fetch = async (url, options) => {
+      interceptedPayloadAr = JSON.parse(options.body);
+      return {
+        ok: true,
+        text: async () => JSON.stringify({ messages: [{ id: `wamid.ar-test-${durSec}` }] })
+      };
+    };
+
+    mockDb.puzzles[`contract-ar-test-${durSec}`] = {
+      publicId: `contract-ar-test-${durSec}`,
+      experienceLanguage: 'ar',
+      senderName: 'Jane',
+      senderPhone: '97311112222',
+      recipients: [{ name: 'Bob', completedAt: new Date('2026-08-04T12:00:00Z'), completionSeconds: durSec }],
+      save: async function() { return this; }
+    };
+
+    await whatsappService.sendRevealAlert({
+      puzzleId: `contract-ar-test-${durSec}`,
+      recipientIndex: 0,
+      senderPhone: '97311112222',
+      recipientName: 'Bob',
+      durationSeconds: durSec
+    });
+    global.fetch = originalFetch;
+
+    assert.ok(interceptedPayloadAr, `Payload must be intercepted for duration ${durSec}`);
+    // 6. Arabic jigzo_puzzle_solved still contains exactly 5 parameters.
+    const params = interceptedPayloadAr.template.components[0].parameters;
+    assert.strictEqual(params.length, 5, `Expected 5 parameters, got ${params.length} for duration ${durSec}`);
+
+    // 7. Duration remains parameter 5 (index 4).
+    assert.strictEqual(params[4].text, expectedArText, `Duration parameter 5 mismatch for ${durSec}`);
+
+    // 8. Date remains parameter 3 (index 2).
+    assert.ok(params[2].text.includes('أغسطس') || params[2].text.includes('٢٠٢٦'), `Date parameter 3 is not date formatted for duration ${durSec}`);
+
+    // 9. Time remains parameter 4 (index 3).
+    assert.ok(params[3].text.includes('ص') || params[3].text.includes('م'), `Time parameter 4 is not time formatted for duration ${durSec}`);
+
+    // 11. No parameter is null, undefined or empty.
+    params.forEach((param, idx) => {
+      assert.strictEqual(param.type, 'text');
+      assert.ok(param.text !== undefined && param.text !== null && param.text !== '', `Param at ${idx} is null/undefined/empty for duration ${durSec}`);
+    });
+  }
+
+  // 10. English payload and duration formatting remain unchanged.
+  let interceptedEnglishPayloadSpec = null;
+  const originalFetchEnSpec = global.fetch;
+  global.fetch = async (url, options) => {
+    interceptedEnglishPayloadSpec = JSON.parse(options.body);
+    return {
+      ok: true,
+      text: async () => JSON.stringify({ messages: [{ id: 'wamid.en-test' }] })
+    };
+  };
+
+  mockDb.puzzles['contract-en-test-spec'] = {
+    publicId: 'contract-en-test-spec',
+    experienceLanguage: 'en_US',
+    senderName: 'Jane',
+    senderPhone: '97311112222',
+    recipients: [{ name: 'Bob', completedAt: new Date('2026-08-04T12:00:00Z'), completionSeconds: 72 }],
+    save: async function() { return this; }
+  };
+
+  await whatsappService.sendRevealAlert({
+    puzzleId: 'contract-en-test-spec',
+    recipientIndex: 0,
+    senderPhone: '97311112222',
+    recipientName: 'Bob',
+    durationSeconds: 72
+  });
+  global.fetch = originalFetchEnSpec;
+
+  assert.ok(interceptedEnglishPayloadSpec);
+  assert.strictEqual(interceptedEnglishPayloadSpec.template.name, 'jigzo_puzzle_solved');
+  assert.strictEqual(interceptedEnglishPayloadSpec.template.language.code, 'en_US');
+  const enParamsSpec = interceptedEnglishPayloadSpec.template.components[0].parameters;
+  assert.strictEqual(enParamsSpec.length, 5);
+  // english duration is "1m 12s" for 72 seconds
+  assert.strictEqual(enParamsSpec[4].text, '1m 12s');
+
+  console.log('✓ Scenario 9.11: Comprehensive Arabic duration contract & payload validation: Success');
 
   process.env.WHATSAPP_ENABLED = 'false';
 
