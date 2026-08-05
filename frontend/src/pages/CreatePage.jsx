@@ -1868,18 +1868,36 @@ export default function CreatePage() {
                     onChange={(e) => setTermsAgreed(e.target.checked)}
                     style={{ marginTop: 4, flex: "none", cursor: "pointer" }}
                   />
-                  <label htmlFor="consent-checkbox" style={{ fontSize: 13, lineHeight: 1.4, color: T.ink, cursor: "pointer" }}>
-                    I agree to the{" "}
-                    <a
-                      href="https://jigzo.biz/terms"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      style={{ color: T.goldDeep, textDecoration: "underline" }}
-                    >
-                      Terms & Conditions
-                    </a>{" "}
-                    and confirm I have the right to use this photo.
+                  <label htmlFor="consent-checkbox" style={{ fontSize: 13, lineHeight: 1.4, color: T.ink, cursor: "pointer", textAlign: isAr ? 'right' : 'left' }}>
+                    {isAr ? (
+                      <>
+                        أوافق على{" "}
+                        <a
+                          href="https://jigzo.biz/terms"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ color: T.goldDeep, textDecoration: "underline" }}
+                        >
+                          الشروط والأحكام
+                        </a>{" "}
+                        وأؤكد أن لدي الحق في استخدام هذه الصورة.
+                      </>
+                    ) : (
+                      <>
+                        I agree to the{" "}
+                        <a
+                          href="https://jigzo.biz/terms"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ color: T.goldDeep, textDecoration: "underline" }}
+                        >
+                          Terms & Conditions
+                        </a>{" "}
+                        and confirm I have the right to use this photo.
+                      </>
+                    )}
                   </label>
                 </div>
               )}
