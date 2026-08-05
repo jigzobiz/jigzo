@@ -217,54 +217,7 @@ export default function PaymentResult() {
             <p style={{ color: T.ink74, fontSize: '16px', marginBottom: 32, lineHeight: 1.6 }}>
               {t('payment.successFinalLine')}
             </p>
-            {puzzleId && (
-              <div style={{
-                backgroundColor: 'rgba(166, 124, 61, 0.08)',
-                border: `1px solid ${T.goldWarm}`,
-                borderRadius: '12px',
-                padding: '16px',
-                marginBottom: '24px',
-                width: '100%',
-                boxSizing: 'border-box',
-                textAlign: 'left'
-              }}>
-                <h3 style={{ fontSize: '15px', color: T.goldDeep, marginTop: 0, marginBottom: 8, fontWeight: 700 }}>
-                  {isAr ? 'روابط الوصول المباشر للغز:' : 'Direct Puzzle Access Links:'}
-                </h3>
-                <p style={{ fontSize: '13px', color: T.ink74, marginTop: 0, marginBottom: 12 }}>
-                  {isAr 
-                    ? 'بما أن تسليم رسائل WhatsApp التلقائية معطل مؤقتاً، يرجى نسخ الرابط أدناه ومشاركته مع مستلم اللغز:' 
-                    : 'Since automated WhatsApp delivery is temporarily offline, please copy and share the link below directly with your recipient:'}
-                </p>
-                {Array.from({ length: recipientCount || 1 }).map((_, idx) => {
-                  const link = `${window.location.origin}/p/${puzzleId}?r=${idx}`;
-                  return (
-                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: idx === (recipientCount || 1) - 1 ? 0 : 12 }}>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: T.ink }}>
-                        {isAr ? `المستلم ${idx + 1}:` : `Recipient ${idx + 1}:`}
-                      </span>
-                      <input 
-                        type="text" 
-                        readOnly 
-                        value={link} 
-                        onClick={(e) => e.target.select()}
-                        style={{
-                          width: '100%',
-                          padding: '8px',
-                          fontSize: '13px',
-                          border: `1px solid ${T.goldWarm}`,
-                          borderRadius: '6px',
-                          backgroundColor: '#FFFFFF',
-                          color: T.ink,
-                          boxSizing: 'border-box',
-                          cursor: 'text'
-                        }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+
           </>
         ) : (
           <p style={{ color: T.ink74, fontSize: '16px', lineHeight: 1.6, maxWidth: '460px', marginBottom: 32 }}>

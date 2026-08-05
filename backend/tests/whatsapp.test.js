@@ -378,7 +378,6 @@ function resetMocks() {
   mockDb.messages = {};
   mockDb.webhookEvents = {};
   process.env.WHATSAPP_ENABLED = 'false';
-  process.env.WHATSAPP_MARKETING_PUZZLE_DELIVERY_ENABLED = 'true';
   process.env.KAPSO_API_KEY = 'mock_api_key_123';
   process.env.KAPSO_PHONE_NUMBER_ID = '10928374';
   process.env.KAPSO_WEBHOOK_SECRET = 'mock_webhook_secret_abc';
