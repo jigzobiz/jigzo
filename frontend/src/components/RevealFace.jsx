@@ -3,12 +3,17 @@ import { useTranslation } from 'react-i18next';
 
 export default function RevealFace({ photo, toName, fromName, message }) {
   const { i18n } = useTranslation();
-  const isAr = i18n.language === 'ar';
+  const isAr = i18n.language === 'ar' || /[\u0600-\u06FF]/.test(message || "");
 
   const T = {
     mono: isAr ? "'Noto Sans Arabic', sans-serif" : "'JetBrains Mono', ui-monospace, monospace",
     serif: isAr ? "'Noto Naskh Arabic', serif" : "'Playfair Display', Georgia, serif",
   };
+
+  // Customize fonts size factors based on isAr (mirroring receiver changes)
+  const recipientFontSize = isAr ? "6.08cqw" : "4.34cqw";
+  const messageFontSize = isAr ? "8.32cqw" : "6.94cqw";
+  const senderFontSize = isAr ? "5.8cqw" : "4.17cqw";
 
   return (
     <div
@@ -62,7 +67,7 @@ export default function RevealFace({ photo, toName, fromName, message }) {
             style={{
               fontFamily: T.mono,
               fontWeight: 500,
-              fontSize: "4.34cqw",
+              fontSize: recipientFontSize,
               letterSpacing: isAr ? "normal" : "0.1em",
               color: "#E6C67F",
               marginBottom: "6.25cqw",
@@ -78,7 +83,7 @@ export default function RevealFace({ photo, toName, fromName, message }) {
             fontFamily: T.serif,
             fontStyle: isAr ? "normal" : "italic",
             fontWeight: 400,
-            fontSize: "6.94cqw",
+            fontSize: messageFontSize,
             lineHeight: 1.32,
             color: "#F3ECDD",
             whiteSpace: "pre-line",
@@ -105,7 +110,7 @@ export default function RevealFace({ photo, toName, fromName, message }) {
             style={{
               fontFamily: T.mono,
               fontWeight: 500,
-              fontSize: "4.17cqw",
+              fontSize: senderFontSize,
               letterSpacing: isAr ? "normal" : "0.08em",
               color: "rgba(238,232,220,0.82)",
               marginTop: "4.86cqw",

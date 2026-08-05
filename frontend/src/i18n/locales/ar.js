@@ -146,13 +146,15 @@ const ar = {
         zoomOut: 'تصغير',
         rotateLeft: 'تدوير لليسار',
         rotateRight: 'تدوير لليمين'
-      }
+      },
+      privacyNote: 'صورتك تبقى خاصة وتُستخدم فقط لإنشاء هذا الجيجزو لك وللمستلم أو المستلمين.'
     },
     recipient: {
       title: 'لمن هذه المفاجأة؟',
       subtitle: 'خصّص المفاجأة. اختر المناسبة والنبرة واكتب رسالتك المخفية.',
       nameLabel: 'المستلم (إلى)',
       namePlaceholder: 'اسم المستلم',
+      recipientNote: 'يمكنك إضافة مستلمين آخرين في الخطوة التالية.',
       recipientLabel: 'المستلم (إلى)',
       recipientPlaceholder: 'اسم المستلم',
       occasionLabel: 'ما هي المناسبة؟',
@@ -170,7 +172,7 @@ const ar = {
     },
     delivery: {
       title: 'إعدادات التسليم',
-      subtitle: 'اختر باقتك وأخبرنا بمن سيستلم المفاجأة.',
+      subtitle: 'أضف بيانات المستلم. يتم تحديث الباقة تلقائيًا.',
       currentPlan: 'الباقة الحالية',
       currentPackage: 'الباقة الحالية',
       autoPlanSelection: 'تُختار باقتك تلقائياً بناءً على عدد المستلمين.',

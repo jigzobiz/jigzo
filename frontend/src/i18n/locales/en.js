@@ -138,13 +138,15 @@ const en = {
         zoomOut: 'Zoom out',
         rotateLeft: 'Rotate left',
         rotateRight: 'Rotate right'
-      }
+      },
+      privacyNote: 'Your photo stays private and is used only to create this JIGZO for you and your recipient(s).'
     },
     recipient: {
       title: 'Who is this for?',
       subtitle: 'Personalize the surprise. Choose the occasion, the tone, and write your hidden message.',
       nameLabel: 'Recipient (to)',
       namePlaceholder: 'Their name',
+      recipientNote: 'You can add more recipients in the next step.',
       recipientLabel: 'Recipient (to)',
       recipientPlaceholder: 'Their name',
       occasionLabel: "What's the occasion?",
@@ -162,7 +164,7 @@ const en = {
     },
     delivery: {
       title: 'Set up delivery',
-      subtitle: 'Choose your package and tell us who will receive the surprise.',
+      subtitle: 'Add the recipient details. Your package updates automatically.',
       currentPlan: 'Current Package',
       currentPackage: 'Current Package',
       autoPlanSelection: 'Your package is selected automatically based on the number of recipients.',

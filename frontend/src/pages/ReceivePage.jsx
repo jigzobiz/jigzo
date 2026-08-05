@@ -656,10 +656,10 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
     const generationKey = getExportKey();
     const promise = new Promise((resolve, reject) => {
       const { width: CW, height: CH } = deviceWallpaper;
-      const rules = getCompositionRules(CW, CH);
+      const isArabic = data.experienceLanguage === 'ar' || /[\u0600-\u06FF]/.test(data.message || "");
+      const rules = getCompositionRules(CW, CH, isArabic);
       const S = rules.S;
       const CREAM = "rgb(250,248,236)";
-      const isArabic = /[\u0600-\u06FF]/.test(data.message || "");
 
       let hasPainted = false;
       const paint = (img) => {
@@ -677,7 +677,10 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
             const s = Math.max(CW / img.width, CH / img.height);
             const dw = img.width * s, dh = img.height * s;
             ctx.drawImage(img, (CW - dw) / 2, (CH - dh) / 2, dw, dh);
-          } else { ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, CW, CH); }
+          } else {
+            ctx.fillStyle = "#050505";
+            ctx.fillRect(0, 0, CW, CH);
+          }
 
           const cx = rules.cx, cy = rules.cy;
           const R = rules.R;
@@ -915,7 +918,7 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
               ) : revealObjectUrl ? (
                 <img src={revealObjectUrl} alt={t('receive.cardAlt')} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               ) : (
-                <RenderFallbackCard data={data} t={t} rules={getCompositionRules(cardDims.width, cardDims.height)} />
+                <RenderFallbackCard data={data} t={t} rules={getCompositionRules(cardDims.width, cardDims.height, data.experienceLanguage === 'ar' || /[\u0600-\u06FF]/.test(data.message || ""))} />
               )}
             </div>
 
@@ -1005,10 +1008,9 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
 }
 
 const RenderFallbackCard = ({ data, t, rules }) => {
-  const isArabic = /[\u0600-\u06FF]/.test(data.message || "");
+  const isArabic = data.experienceLanguage === 'ar' || /[\u0600-\u06FF]/.test(data.message || "");
   const recipientName = data.recipient?.name || data.toName || '';
   const msgLines = (data.message || "").split("\n");
-  
   return (
     <div style={{
       width: "100%",

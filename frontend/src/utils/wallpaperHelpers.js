@@ -40,7 +40,7 @@ export function getDeviceWallpaperDimensions(screenWidth, screenHeight) {
 /**
  * Shared composition rules for rendering wallpaper components.
  */
-export function getCompositionRules(width, height) {
+export function getCompositionRules(width, height, isArabic = false) {
   const S = width / 340; // Scale factor based on baseline 340px card width
 
   // Proportional safe areas
@@ -52,6 +52,12 @@ export function getCompositionRules(width, height) {
   const cy = Math.round(height * 0.42);
   const R = Math.round(Math.hypot(Math.max(cx, width - cx), Math.max(cy, height - cy)) * 1.02);
 
+  // Moderate increase for Arabic full message font (e.g. 20 -> 24 (+20%))
+  // More noticeable increase for sender/recipient name fonts (e.g. recipient: 12.5 -> 17.5 (+40%), sender: 11.5 -> 16.1 (+40%))
+  const recipientFontSize = isArabic ? 17.5 * S : 12.5 * S;
+  const messageFontSize = isArabic ? 24.0 * S : 20 * S;
+  const senderFontSize = isArabic ? 16.1 * S : 11.5 * S;
+
   return {
     S,
     topSafe,
@@ -62,13 +68,13 @@ export function getCompositionRules(width, height) {
     cy,
     R,
     recipient: {
-      fontSize: 12.5 * S,
-      lineHeight: 12.5 * S * 1.3,
+      fontSize: recipientFontSize,
+      lineHeight: recipientFontSize * 1.3,
       gap: 18 * S
     },
     message: {
-      fontSize: 20 * S,
-      lineHeight: 20 * S * 1.32,
+      fontSize: messageFontSize,
+      lineHeight: messageFontSize * 1.32,
       gap: 18 * S
     },
     separator: {
@@ -77,8 +83,8 @@ export function getCompositionRules(width, height) {
       gap: 14 * S
     },
     sender: {
-      fontSize: 11.5 * S,
-      lineHeight: 11.5 * S * 1.3
+      fontSize: senderFontSize,
+      lineHeight: senderFontSize * 1.3
     }
   };
 }

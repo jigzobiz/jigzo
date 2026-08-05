@@ -15,6 +15,7 @@ import { buildEdgeMap, piecePath, mulberry32 } from '../puzzle/puzzle-shape';
 import { analytics } from '../services/analytics';
 import { isValidPhoneNumber } from 'libphonenumber-js';
 import { normalizePhoneInput } from '../utils/phone';
+import SiteFooter from '../components/SiteFooter';
 
 const T = {
   bg: "#FAF8EC",
@@ -595,6 +596,7 @@ export default function CreatePage() {
     const canvas = document.createElement("canvas");
     canvas.width = OUT_W; canvas.height = OUT_H;
     const ctx = canvas.getContext("2d");
+    
     ctx.fillStyle = "#1C1913";
     ctx.fillRect(0, 0, OUT_W, OUT_H);
     try {
@@ -1132,13 +1134,19 @@ export default function CreatePage() {
               </div>
             )}
 
+            <div style={{ marginTop: 12, textAlign: "center", fontSize: 12.5, color: T.ink50, lineHeight: 1.4, padding: "0 10px" }}>
+              {t('create.photo.privacyNote')}
+            </div>
+
             {imgSrc && !cropData && (
               <div>
                 <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
                   <div
                     ref={cropFrameRef}
                     style={{ position: "relative", width: "100%", maxWidth: 300, aspectRatio: "9 / 16", borderRadius: 20,
-                      overflow: "hidden", background: T.ink, cursor: "grab", touchAction: "none", margin: "0 auto",
+                      overflow: "hidden",
+                      background: T.ink,
+                      cursor: "grab", touchAction: "none", margin: "0 auto",
                       boxShadow: "0 0 0 2px " + T.bg + ", 0 0 0 3px " + T.ink08 }}
                     onPointerDown={onPointerDown}
                     onPointerMove={onPointerMove}
@@ -1263,6 +1271,8 @@ export default function CreatePage() {
                   </div>
                 )}
 
+
+
                 <div className="footer-nav" style={{ marginTop: 24 }}>
                   <PrimaryButton onClick={handleStep1Continue} style={{ flex: 1 }}>{t('common.continue')}</PrimaryButton>
                 </div>
@@ -1286,6 +1296,9 @@ export default function CreatePage() {
               <input type="text" placeholder={t('create.recipient.recipientPlaceholder')} value={primaryRecipientName}
                 onChange={(e) => handlePrimaryRecipientNameChange(e.target.value)} style={inputStyle}
                 autoComplete="off" />
+              <div style={{ fontSize: 12.5, color: T.ink50, marginTop: 6, lineHeight: 1.4 }}>
+                {t('create.recipient.recipientNote')}
+              </div>
             </div>
 
             <div style={{ marginBottom: 18 }}>
@@ -1334,44 +1347,17 @@ export default function CreatePage() {
               {t('create.delivery.subtitle')}
             </p>
 
-            <div onClick={() => setPackageAccordionOpen(!packageAccordionOpen)} role="button" aria-expanded={packageAccordionOpen}
-              style={{ padding: 18, borderRadius: 16, background: T.card, border: "1.5px solid " + T.ink15, marginBottom: 16, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 2 }}>{t('create.delivery.currentPackage')}</div>
-                <div style={{ fontSize: 16, fontWeight: 600 }}>{t(`packages.${currentPack.id}.label`)} · {currentPack.limit === 1 ? t('create.delivery.recipientLimit_one') : t('create.delivery.recipientLimit_other', { count: currentPack.limit })} · {formatPrice(currentPack.price)}</div>
-              </div>
-              <span style={{ fontSize: 12 }}>{packageAccordionOpen ? "▲" : "▼"}</span>
+            <div style={{ padding: 18, borderRadius: 16, background: T.card, border: "1.5px solid " + T.ink15, marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 2 }}>{t('create.delivery.currentPackage')}</div>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>{t(`packages.${currentPack.id}.label`)} · {currentPack.limit === 1 ? t('create.delivery.recipientLimit_one') : t('create.delivery.recipientLimit_other', { count: currentPack.limit })} · {formatPrice(currentPack.price)}</div>
             </div>
 
-            {packageAccordionOpen && (
-              <div style={{ padding: 16, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, marginBottom: 16, animation: "fadeUp 0.3s ease" }}>
-                <div style={{ fontSize: 12, color: T.ink50, marginBottom: 12, lineHeight: 1.4 }}>
-                  {t('create.delivery.autoPlanSelection')}
-                </div>
-                <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 10 }}>{t('create.delivery.availablePlans')}</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {PACK_OPTIONS.map((pack) => {
-                    const isSel = pack.id === currentPack.id;
-                    return (
-                      <div key={pack.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", borderRadius: 10, border: isSel ? "1.5px solid " + T.ink : "1px solid " + T.ink08, background: isSel ? "rgba(28,25,19,0.02)" : "transparent" }}>
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 14.5, display: "flex", alignItems: "center", gap: 6 }}>
-                            <span>{t(`packages.${pack.id}.label`)}</span>
-                            {isSel && (
-                              <span style={{ fontSize: 10.5, fontWeight: 700, background: T.goldWarm, color: T.ink, padding: "2px 8px", borderRadius: 99, whiteSpace: "nowrap", display: "inline-block" }}>
-                                {t('packages.active')}
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: 12, color: T.ink66, marginTop: 4 }}>{pack.limit === 1 ? t('create.delivery.recipientLimit_one') : t('create.delivery.recipientLimit_other', { count: pack.limit })}</div>
-                        </div>
-                        <span style={{ fontFamily: T.mono, fontWeight: 600, fontSize: 15, color: T.ink }}>{formatPrice(pack.price)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
+            <div style={{ padding: "0 10px", marginBottom: 20 }}>
+              <div style={{ fontSize: 12.5, color: T.ink50, lineHeight: 1.45 }}>
+                {t('create.delivery.autoPlanSelection')}
               </div>
-            )}
+            </div>
+
 
             {/* Recipient Details List */}
             {recipients.map((rec, idx) => {
@@ -1682,9 +1668,7 @@ export default function CreatePage() {
                       </div>
                     </div>
                   ) : (
-                    <div style={{ position: "absolute", inset: 0, animation: "fadeUp 0.5s ease" }}>
                       <RevealFace photo={cropData} toName={recipients[0]?.name} fromName={senderName} message={message} />
-                    </div>
                   )}
 
                   {/* Standard loader overlay */}
