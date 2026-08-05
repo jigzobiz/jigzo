@@ -175,7 +175,7 @@ const ar = {
       subtitle: 'أضف بيانات المستلم. يتم تحديث الباقة تلقائيًا.',
       currentPlan: 'الباقة الحالية',
       currentPackage: 'الباقة الحالية',
-      autoPlanSelection: 'تُختار باقتك تلقائياً بناءً على عدد المستلمين.',
+      autoPlanSelection: 'يتم اختيار باقتك تلقائيًا بناءً على عدد المستلمين.',
       availablePlans: 'الباقات المتاحة',
       limitWording_one: 'لمستلم واحد فقط',
       limitWording_other: 'حتى {{count}} مستلمين',

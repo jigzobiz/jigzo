@@ -1347,17 +1347,44 @@ export default function CreatePage() {
               {t('create.delivery.subtitle')}
             </p>
 
-            <div style={{ padding: 18, borderRadius: 16, background: T.card, border: "1.5px solid " + T.ink15, marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 2 }}>{t('create.delivery.currentPackage')}</div>
-              <div style={{ fontSize: 16, fontWeight: 600 }}>{t(`packages.${currentPack.id}.label`)} · {currentPack.limit === 1 ? t('create.delivery.recipientLimit_one') : t('create.delivery.recipientLimit_other', { count: currentPack.limit })} · {formatPrice(currentPack.price)}</div>
-            </div>
-
-            <div style={{ padding: "0 10px", marginBottom: 20 }}>
-              <div style={{ fontSize: 12.5, color: T.ink50, lineHeight: 1.45 }}>
-                {t('create.delivery.autoPlanSelection')}
+            <div onClick={() => setPackageAccordionOpen(!packageAccordionOpen)} role="button" aria-expanded={packageAccordionOpen}
+              style={{ padding: 18, borderRadius: 16, background: T.card, border: "1.5px solid " + T.ink15, marginBottom: 16, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 2 }}>{t('create.delivery.currentPackage')}</div>
+                <div style={{ fontSize: 16, fontWeight: 600 }}>{t(`packages.${currentPack.id}.label`)} · {currentPack.limit === 1 ? t('create.delivery.recipientLimit_one') : t('create.delivery.recipientLimit_other', { count: currentPack.limit })} · {formatPrice(currentPack.price)}</div>
               </div>
+              <span style={{ fontSize: 12 }}>{packageAccordionOpen ? "▲" : "▼"}</span>
             </div>
 
+            {packageAccordionOpen && (
+              <div style={{ padding: 16, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, marginBottom: 16, animation: "fadeUp 0.3s ease" }}>
+                <div style={{ fontSize: 12, color: T.ink50, marginBottom: 12, lineHeight: 1.4 }}>
+                  {t('create.delivery.autoPlanSelection')}
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 10 }}>{t('create.delivery.availablePlans')}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {PACK_OPTIONS.map((pack) => {
+                    const isSel = pack.id === currentPack.id;
+                    return (
+                      <div key={pack.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", borderRadius: 10, border: isSel ? "1.5px solid " + T.ink : "1px solid " + T.ink08, background: isSel ? "rgba(28,25,19,0.02)" : "transparent" }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 14.5, display: "flex", alignItems: "center", gap: 6 }}>
+                            <span>{t(`packages.${pack.id}.label`)}</span>
+                            {isSel && (
+                              <span style={{ fontSize: 10.5, fontWeight: 700, background: T.goldWarm, color: T.ink, padding: "2px 8px", borderRadius: 99, whiteSpace: "nowrap", display: "inline-block" }}>
+                                {t('packages.active')}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 12, color: T.ink66, marginTop: 4 }}>{pack.limit === 1 ? t('create.delivery.recipientLimit_one') : t('create.delivery.recipientLimit_other', { count: pack.limit })}</div>
+                        </div>
+                        <span style={{ fontFamily: T.mono, fontWeight: 600, fontSize: 15, color: T.ink }}>{formatPrice(pack.price)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Recipient Details List */}
             {recipients.map((rec, idx) => {
