@@ -3,6 +3,13 @@ const Puzzle = require('../models/Puzzle');
 const emailService = require('./emailService');
 const whatsappService = require('./whatsappService');
 const { getFrontendOrigin, isNonProduction } = require('../utils/runtimeConfig');
+const { isImageExpired } = require('../utils/imageRetention');
+const { logRef } = require('../utils/puzzleRef');
+
+// Sanitized internal marker for a verified payment that arrived after the
+// image-retention deadline. Delivery is withheld; a human resolves it
+// (re-contact/refund) — there is no automated refund mechanism to invoke.
+const MANUAL_RESOLUTION_IMAGE_EXPIRED = 'PAID_AFTER_IMAGE_RETENTION_DEADLINE_MANUAL_RESOLUTION_REQUIRED';
 
 /**
  * Idempotently marks the order and associated puzzle as paid,
@@ -27,6 +34,19 @@ async function markOrderAndPuzzlePaid(order, providerChargeId, transactionRefere
     if (puzzle.status === 'draft' || puzzle.status === 'pending_payment') {
       puzzle.status = 'paid';
       await puzzle.save();
+    }
+
+    // Defensive late-payment handling: a verified CAPTURED payment that
+    // arrives after the image-retention deadline must NOT trigger delivery
+    // (the image is gone or about to be) and must NOT mark the puzzle
+    // delivered. The payment stays recorded as paid; a sanitized marker
+    // flags the order for manual resolution. No automatic refund — no
+    // tested refund mechanism exists. Log carries a one-way ref only.
+    if (isImageExpired(puzzle, new Date())) {
+      order.lastPaymentError = MANUAL_RESOLUTION_IMAGE_EXPIRED;
+      await order.save();
+      console.error(`[PaymentCompletion] Verified payment arrived after the image retention deadline; delivery withheld for manual resolution (ref=${logRef(puzzle.publicId)}).`);
+      return order;
     }
 
     // Block all external delivery during staging/non-production payment QA
@@ -108,5 +128,6 @@ async function markOrderAndPuzzlePaid(order, providerChargeId, transactionRefere
 }
 
 module.exports = {
-  markOrderAndPuzzlePaid
+  markOrderAndPuzzlePaid,
+  MANUAL_RESOLUTION_IMAGE_EXPIRED
 };

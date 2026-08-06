@@ -9,10 +9,16 @@ const { isNonProduction } = require('../utils/runtimeConfig');
 // shorter than it was when the checkout runway gate passed.
 const CHARGE_EXPIRY_MINUTES = 30;
 
+// Safety allowance layered on top of the charge expiry: used both to stop
+// reusing stored checkout URLs shortly before Tap kills them, and (via the
+// checkout runway gate) to guarantee the retention runway still holds at
+// the very last moment a charge could legally capture.
+const CHARGE_SAFETY_MARGIN_MINUTES = 5;
+
 // Stored checkout URLs older than this are treated as dead when deciding
-// whether to reuse them (5-minute safety margin before Tap's own expiry),
-// so a returning customer always receives a live payment session.
-const CHECKOUT_REUSE_MAX_AGE_MS = (CHARGE_EXPIRY_MINUTES - 5) * 60 * 1000;
+// whether to reuse them, so a returning customer always receives a live
+// payment session.
+const CHECKOUT_REUSE_MAX_AGE_MS = (CHARGE_EXPIRY_MINUTES - CHARGE_SAFETY_MARGIN_MINUTES) * 60 * 1000;
 
 class PaymentService {
   _getTapConfig() {
@@ -158,6 +164,17 @@ class PaymentService {
   }
 
   /**
+   * Per-attempt Tap idempotency key. Includes the payment-attempt ordinal
+   * so that replacing an expired checkout session creates a genuinely NEW
+   * charge — Tap's idempotency can never hand back the expired one —
+   * while concurrent retries of the SAME attempt still deduplicate.
+   */
+  buildChargeIdempotencyKey(order) {
+    const attemptNumber = ((order && order.paymentAttempts) || []).length;
+    return `${order.orderId}:a${attemptNumber}`;
+  }
+
+  /**
    * Whether an order's stored hosted-checkout URL is still safe to hand
    * back to the customer. Anchored to the latest payment attempt's
    * creation time; anything older than the reuse window (or with no
@@ -236,5 +253,6 @@ class PaymentService {
 
 const paymentService = new PaymentService();
 paymentService.CHARGE_EXPIRY_MINUTES = CHARGE_EXPIRY_MINUTES;
+paymentService.CHARGE_SAFETY_MARGIN_MINUTES = CHARGE_SAFETY_MARGIN_MINUTES;
 paymentService.CHECKOUT_REUSE_MAX_AGE_MS = CHECKOUT_REUSE_MAX_AGE_MS;
 module.exports = paymentService;

@@ -313,6 +313,57 @@ test('unchanged duplicate checkout reuses the same charge', async () => {
   restoreTapRequest();
 });
 
+test('replacing an expired checkout creates a genuinely fresh attempt, never returns the expired charge', async () => {
+  const puzzle = new Puzzle({
+    publicId: 'puz_expired_checkout_test',
+    cropImageUrl: 'http://image',
+    recipients: [{ name: 'Sam' }]
+  });
+  await puzzle.save();
+
+  let captured = stubTapRequest({
+    id: 'chg_expired_1',
+    status: 'INITIATED',
+    transaction: { url: 'https://checkout.tap.company/pay/chg_expired_1' },
+    reference: { transaction: 'tx_expired_1' }
+  });
+
+  // First checkout: creates order + attempt 0, gets charge chg_expired_1.
+  const req1 = makeMockReq({ puzzleId: 'puz_expired_checkout_test', recipientCount: 1, hasRevealAlert: false, currency: 'USD' });
+  const res1 = makeMockRes();
+  await ordersPostHandler(req1, res1, (err) => { if (err) throw err; });
+  const orderId = res1.body.order.orderId;
+  const expiredChargeUrl = res1.body.order.checkoutUrl;
+  assert.strictEqual(expiredChargeUrl, 'https://checkout.tap.company/pay/chg_expired_1');
+  assert.strictEqual(captured.payload.reference.idempotent, `${orderId}:a0`);
+
+  // Simulate Tap's own 30-minute expiry having elapsed: back-date the
+  // recorded attempt beyond the reuse window (25 minutes).
+  const staleOrder = mockDb.orders[orderId];
+  staleOrder.paymentAttempts[0].createdAt = new Date(Date.now() - 26 * 60 * 1000);
+
+  // Second identical checkout request: the stored URL must NOT be reused
+  // (it would hand the customer a dead Tap session); a fresh charge must
+  // be created on the SAME order with a new attempt/idempotency key.
+  captured = stubTapRequest({
+    id: 'chg_fresh_2',
+    status: 'INITIATED',
+    transaction: { url: 'https://checkout.tap.company/pay/chg_fresh_2' },
+    reference: { transaction: 'tx_fresh_2' }
+  });
+  const req2 = makeMockReq({ puzzleId: 'puz_expired_checkout_test', recipientCount: 1, hasRevealAlert: false, currency: 'USD' });
+  const res2 = makeMockRes();
+  await ordersPostHandler(req2, res2, (err) => { if (err) throw err; });
+
+  assert.strictEqual(res2.body.order.orderId, orderId, 'Same order is reused, not a new one');
+  assert.notStrictEqual(res2.body.order.checkoutUrl, expiredChargeUrl, 'Never returns the expired charge URL');
+  assert.strictEqual(res2.body.order.checkoutUrl, 'https://checkout.tap.company/pay/chg_fresh_2');
+  assert.strictEqual(captured.payload.reference.idempotent, `${orderId}:a1`, 'Fresh idempotency key for the new attempt');
+  assert.notStrictEqual(captured.payload.reference.idempotent, `${orderId}:a0`, 'Never reuses the expired attempt\'s idempotency key');
+
+  restoreTapRequest();
+});
+
 test('changed currency or amount creates a new safe order/attempt and new idempotency value', async () => {
   const puzzle = new Puzzle({
     publicId: 'puz_change_test',
@@ -346,7 +397,11 @@ test('changed currency or amount creates a new safe order/attempt and new idempo
 
   const secondOrderId = res2.body.order.orderId;
   assert.notStrictEqual(secondOrderId, firstOrderId, 'Creates a brand new order ID');
-  assert.strictEqual(captured.payload.reference.idempotent, secondOrderId, 'Idempotency value is updated to the new order ID');
+  // Idempotency keys are now per-attempt ("orderId:aN") so an expired/replaced
+  // checkout can never be handed back by Tap's own idempotency matching; the
+  // key for this fresh order's first attempt must be scoped to the NEW order.
+  assert.strictEqual(captured.payload.reference.idempotent, `${secondOrderId}:a0`, 'Idempotency value is scoped to the new order, attempt 0');
+  assert.ok(!captured.payload.reference.idempotent.includes(firstOrderId), 'Idempotency value never references the superseded order');
 
   // Verify that the old order was marked failed/superseded
   const oldOrder = mockDb.orders[firstOrderId];

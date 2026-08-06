@@ -9,11 +9,26 @@
  * The deadline may only stay the same or move earlier — never later.
  */
 
+const {
+  CHARGE_EXPIRY_MINUTES,
+  CHARGE_SAFETY_MARGIN_MINUTES
+} = require('../services/paymentService');
+
 const RETENTION_MAX_DAYS = 30;
 const POST_COMPLETION_DAYS = 7;
 const CHECKOUT_MIN_RUNWAY_DAYS = 7;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+
+// Centralized checkout runway: 7 days for the recipient experience PLUS the
+// full window in which an already-issued Tap charge could still legally
+// capture (30-minute charge expiry + 5-minute safety allowance). Guarantees
+// at least 7 complete days of retention remain even for a payment captured
+// at the last possible moment: 7 days and 35 minutes total.
+const CHECKOUT_MIN_RUNWAY_MS =
+  CHECKOUT_MIN_RUNWAY_DAYS * DAY_MS +
+  (CHARGE_EXPIRY_MINUTES + CHARGE_SAFETY_MARGIN_MINUTES) * MINUTE_MS;
 
 function addDays(date, days) {
   return new Date(date.getTime() + days * DAY_MS);
@@ -46,9 +61,9 @@ function remainingRetentionMs(puzzle, now) {
   return addDays(storedAt, RETENTION_MAX_DAYS).getTime() - now.getTime();
 }
 
-/** Checkout requires at least CHECKOUT_MIN_RUNWAY_DAYS of retention left. */
+/** Checkout requires at least CHECKOUT_MIN_RUNWAY_MS of retention left. */
 function hasCheckoutRunway(puzzle, now) {
-  return remainingRetentionMs(puzzle, now) >= CHECKOUT_MIN_RUNWAY_DAYS * DAY_MS;
+  return remainingRetentionMs(puzzle, now) >= CHECKOUT_MIN_RUNWAY_MS;
 }
 
 /**
@@ -112,6 +127,7 @@ module.exports = {
   RETENTION_MAX_DAYS,
   POST_COMPLETION_DAYS,
   CHECKOUT_MIN_RUNWAY_DAYS,
+  CHECKOUT_MIN_RUNWAY_MS,
   DAY_MS,
   addDays,
   computeInitialDueAt,

@@ -48,11 +48,18 @@ router.post('/', async (req, res, next) => {
       return res.status(404).json({ error: 'Puzzle not found.' });
     }
 
-    // Image-retention runway gate: the uploaded image must have at least
-    // seven complete days of its 30-day retention window remaining at
-    // checkout. Runs BEFORE any pricing, order write or Tap charge, so no
-    // Tap charge is ever initiated for an image that is already too old.
-    if (!hasCheckoutRunway(puzzle, new Date())) {
+    // Already-paid puzzles must keep returning their normal "paid" response
+    // (idempotent recovery), so the runway gate below applies only to NEW
+    // payment activity — creating, replacing, or re-serving a checkout.
+    const paidOrder = await Order.findOne({ puzzleId: puzzle.publicId, paymentStatus: 'paid' });
+
+    // Image-retention runway gate: at checkout the image must retain at
+    // least CHECKOUT_MIN_RUNWAY_MS — 7 days for the recipient PLUS the
+    // 30-minute Tap charge expiry and 5-minute safety allowance (7 days and
+    // 35 minutes total). Runs BEFORE any pricing, order write, stored-URL
+    // reuse/replacement, or Tap charge, so no Tap request is ever made for
+    // an image below the boundary.
+    if (!paidOrder && puzzle.status !== 'paid' && !hasCheckoutRunway(puzzle, new Date())) {
       return res.status(422).json({
         error: 'The uploaded image is too old to complete checkout. Please create the puzzle again with a fresh upload.',
         code: 'IMAGE_RETENTION_TOO_OLD'
@@ -113,8 +120,7 @@ router.post('/', async (req, res, next) => {
 
     const finalBhdFils = q.finalBhdFils;
 
-    // Check if any order for this puzzle is already paid
-    const paidOrder = await Order.findOne({ puzzleId: puzzle.publicId, paymentStatus: 'paid' });
+    // Check if any order for this puzzle is already paid (looked up above)
     if (paidOrder) {
       return res.status(200).json({
         success: true,
@@ -246,8 +252,10 @@ router.post('/', async (req, res, next) => {
       await puzzle.save();
     }
 
-    // Stable idempotency reference for Tap
-    const stableIdempotencyKey = order.orderId;
+    // Per-attempt idempotency reference for Tap: concurrent retries of the
+    // same attempt deduplicate, but replacing an expired checkout gets a
+    // fresh key so Tap can never hand back the expired charge.
+    const stableIdempotencyKey = paymentService.buildChargeIdempotencyKey(order);
 
     // Construct redirect and webhook URLs
     const host = req.get('host');

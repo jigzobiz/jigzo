@@ -11,6 +11,7 @@ process.env.CRON_SECRET = 'test_cron_secret_for_unit_tests_only';
 
 const {
   DAY_MS,
+  CHECKOUT_MIN_RUNWAY_MS,
   addDays,
   earlierDate,
   computeInitialDueAt,
@@ -187,24 +188,33 @@ test('nothing in the checkout path can extend the deadline (read-only gate)', ()
 
 // --- Checkout runway gate ---------------------------------------------------
 
-test('checkout rejected with fewer than 7 days of retention remaining', () => {
+test('checkout runway constant is exactly 7 days and 35 minutes', () => {
+  assert.strictEqual(CHECKOUT_MIN_RUNWAY_MS, 7 * DAY_MS + 35 * 60 * 1000);
+});
+
+test('checkout rejected when remaining retention is clearly below the boundary', () => {
   const p = makePuzzle(1);
-  assert.strictEqual(hasCheckoutRunway(p, day(24)), false); // 6 days left
+  assert.strictEqual(hasCheckoutRunway(p, day(23)), false); // 7d left < 7d35m
+  assert.strictEqual(hasCheckoutRunway(p, day(24)), false);
   assert.strictEqual(hasCheckoutRunway(p, day(29)), false);
 });
 
-test('checkout allowed at the exact 7-day boundary and earlier', () => {
+test('checkout boundary: allowed at exactly 7d35m remaining, rejected 1ms past it', () => {
   const p = makePuzzle(1);
-  assert.strictEqual(hasCheckoutRunway(p, day(23)), true); // exactly 7 days left
-  assert.strictEqual(hasCheckoutRunway(p, new Date(day(23).getTime() + 1)), false);
+  // The instant at which remaining retention equals exactly 7d + 35min.
+  const boundary = new Date(day(30).getTime() - CHECKOUT_MIN_RUNWAY_MS);
+  assert.strictEqual(hasCheckoutRunway(p, new Date(boundary.getTime() - 1)), true);  // just above
+  assert.strictEqual(hasCheckoutRunway(p, boundary), true);                          // exactly at
+  assert.strictEqual(hasCheckoutRunway(p, new Date(boundary.getTime() + 1)), false); // just below
   assert.strictEqual(hasCheckoutRunway(p, day(1)), true);
 });
 
 test('runway falls back to createdAt for legacy records without imageStoredAt', () => {
   const p = makePuzzle(1);
   p.imageStoredAt = null;
-  assert.strictEqual(hasCheckoutRunway(p, day(23)), true);
-  assert.strictEqual(hasCheckoutRunway(p, day(24)), false);
+  const boundary = new Date(day(30).getTime() - CHECKOUT_MIN_RUNWAY_MS);
+  assert.strictEqual(hasCheckoutRunway(p, boundary), true);
+  assert.strictEqual(hasCheckoutRunway(p, new Date(boundary.getTime() + 1)), false);
 });
 
 // --- Expiry gate -------------------------------------------------------------
@@ -274,9 +284,19 @@ stubModule('../src/models/Puzzle', {
   }
 });
 stubModule('../src/models/Order', { findOne: async () => null });
+const deliveryCalls = { whatsapp: 0, email: 0 };
 stubModule('../src/services/whatsappService', {
-  claimAndSendPuzzleDelivery: async () => ({}),
+  claimAndSendPuzzleDelivery: async () => { deliveryCalls.whatsapp += 1; return {}; },
   sendRevealAlert: async () => ({})
+});
+stubModule('../src/services/emailService', {
+  sendRevealEmail: async () => { deliveryCalls.email += 1; return { success: true }; }
+});
+// Force the production delivery path so the late-payment guard (not the
+// staging QA block) is what withholds delivery in the test below.
+stubModule('../src/utils/runtimeConfig', {
+  isNonProduction: () => false,
+  getFrontendOrigin: () => 'https://test.example'
 });
 const streamCalls = [];
 stubModule('../src/services/storageService', {
@@ -288,7 +308,11 @@ stubModule('../src/services/storageService', {
   })
 });
 
+// Required AFTER the stubs above are seeded into require.cache: this module
+// (and puzzlesRouter below) do their own top-level require('../models/...')
+// etc., so they must resolve to the fakes, not the real Mongoose models.
 const puzzlesRouter = require('../src/routes/puzzles');
+const { markOrderAndPuzzlePaid, MANUAL_RESOLUTION_IMAGE_EXPIRED } = require('../src/services/paymentCompletion');
 
 function getHandler(router, method, routePath) {
   const layer = router.stack.find(
@@ -546,15 +570,78 @@ test('cleanup logs never contain full publicIds, cookies, phone numbers or secre
   assert.ok(!/\+\d{8,}/.test(text));
 });
 
+// --- Defensive late-payment handling ------------------------------------------
+
+test('a verified CAPTURED payment arriving after the retention deadline withholds delivery', async () => {
+  const puzzle = makePuzzle(2, { status: 'paid' });
+  // Past its deletion deadline: isImageExpired(puzzle, now) === true.
+  puzzle.imageDeletionDueAt = new Date(Date.now() - 60 * 1000);
+  puzzle.senderPhone = '+97300000000';
+  puzzle.recipients = puzzle.recipients.map((r) => ({ ...r, deliveryMethod: 'whatsapp', deliveryStatus: 'pending' }));
+  puzzle.save = async () => puzzle;
+  dbState.puzzle = puzzle;
+
+  const order = {
+    orderId: 'ord_late_payment_test',
+    puzzleId: puzzle.publicId,
+    paymentStatus: 'pending',
+    addOns: 0,
+    lastPaymentError: '',
+    save: async function () { return this; }
+  };
+
+  const before = { whatsapp: deliveryCalls.whatsapp, email: deliveryCalls.email };
+  const result = await markOrderAndPuzzlePaid(order, 'chg_late_test', 'tx_late_test');
+
+  // Payment itself is still recorded as captured/paid...
+  assert.strictEqual(result.paymentStatus, 'paid');
+  // ...but delivery must NOT have fired, and the puzzle must NOT be marked delivered.
+  assert.strictEqual(deliveryCalls.whatsapp, before.whatsapp);
+  assert.strictEqual(deliveryCalls.email, before.email);
+  assert.notStrictEqual(puzzle.status, 'delivered');
+  assert.notStrictEqual(puzzle.status, 'partially_delivered');
+  // A sanitized internal marker records the case for manual resolution —
+  // no automatic refund, since no tested refund mechanism exists.
+  assert.strictEqual(order.lastPaymentError, MANUAL_RESOLUTION_IMAGE_EXPIRED);
+});
+
+test('late-payment log never contains the full publicId, phone number or Tap payload', async () => {
+  const puzzle = makePuzzle(1, { status: 'paid' });
+  puzzle.imageDeletionDueAt = new Date(Date.now() - 1000);
+  puzzle.senderPhone = '+97355512345';
+  puzzle.save = async () => puzzle;
+  dbState.puzzle = puzzle;
+
+  const order = {
+    orderId: 'ord_late_payment_log_test',
+    puzzleId: puzzle.publicId,
+    paymentStatus: 'pending',
+    lastPaymentError: '',
+    save: async function () { return this; }
+  };
+
+  const captured = [];
+  const origErr = console.error;
+  console.error = (...a) => captured.push(a.join(' '));
+  try {
+    await markOrderAndPuzzlePaid(order, 'chg_secret_charge_id', 'tx_secret_ref');
+  } finally {
+    console.error = origErr;
+  }
+
+  const text = captured.join('\n');
+  assert.ok(!text.includes(puzzle.publicId));
+  assert.ok(!text.includes(puzzle.senderPhone));
+  assert.ok(!text.includes('chg_secret_charge_id'));
+  assert.ok(!text.includes('tx_secret_ref'));
+});
+
 // --- vercel.json configuration ---------------------------------------------------
 
-test('vercel.json: cleanup cron targets the cleanup route', () => {
-  // NOTE: hourly ("15 * * * *") was requested, but Vercel rejected it at
-  // deploy time — the linked team is on the HOBBY plan, which allows only
-  // daily crons. Flip the schedule to hourly after upgrading to Pro.
+test('vercel.json: hourly cleanup cron at minute 15 (Pro plan)', () => {
   const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'vercel.json'), 'utf8'));
   assert.deepStrictEqual(config.crons, [
-    { path: '/api/internal/images/cleanup', schedule: '15 3 * * *' }
+    { path: '/api/internal/images/cleanup', schedule: '15 * * * *' }
   ]);
 });
 
