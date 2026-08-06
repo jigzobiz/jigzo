@@ -79,7 +79,32 @@ const PuzzleSchema = new mongoose.Schema({
   recipients: [RecipientSchema],
   checkoutAttemptId: { type: String, unique: true, sparse: true, index: true },
   createdAt: { type: Date, default: Date.now },
-  expiresAt: { type: Date, default: null }
+  expiresAt: { type: Date, default: null },
+
+  // --- Image retention (see utils/imageRetention.js) ---
+  // When the image binary was written to GridFS. createdAt is only a
+  // backfill substitute for records that predate this field.
+  imageStoredAt: { type: Date, default: null },
+  // Set once, when every intended recipient has completed the puzzle.
+  allRecipientsCompletedAt: { type: Date, default: null },
+  // min(imageStoredAt + 30d, allRecipientsCompletedAt + 7d). Only ever
+  // moves earlier ($min), never later.
+  imageDeletionDueAt: { type: Date, default: null },
+  imageDeletedAt: { type: Date, default: null },
+  imageDeletionStatus: {
+    type: String,
+    enum: ['scheduled', 'blocked', 'deleted', 'failed'],
+    default: null
+  },
+  imageDeletionFailureReason: { type: String, default: '' }
 });
+
+// Efficient cleanup lookup: only puzzles still holding a GridFS binary.
+// Deliberately NOT a TTL index — TTL would delete the Puzzle document,
+// orphaning the GridFS file and destroying delivery/transaction history.
+PuzzleSchema.index(
+  { imageDeletionDueAt: 1 },
+  { partialFilterExpression: { imageStorageId: { $type: 'objectId' } } }
+);
 
 module.exports = mongoose.model('Puzzle', PuzzleSchema);

@@ -8,6 +8,7 @@ const { markOrderAndPuzzlePaid } = require('../services/paymentCompletion');
 const { getExchangeRates, SUPPORTED_CURRENCIES } = require('./pricing');
 const { getFrontendOrigin } = require('../utils/runtimeConfig');
 const { verifyQuote, calculateDisplayTotal } = require('../utils/checkoutQuote');
+const { hasCheckoutRunway } = require('../utils/imageRetention');
 
 // Helper to determine package rules by count
 function getPackageDetails(count) {
@@ -45,6 +46,17 @@ router.post('/', async (req, res, next) => {
     const puzzle = await Puzzle.findOne({ publicId: puzzleId });
     if (!puzzle) {
       return res.status(404).json({ error: 'Puzzle not found.' });
+    }
+
+    // Image-retention runway gate: the uploaded image must have at least
+    // seven complete days of its 30-day retention window remaining at
+    // checkout. Runs BEFORE any pricing, order write or Tap charge, so no
+    // Tap charge is ever initiated for an image that is already too old.
+    if (!hasCheckoutRunway(puzzle, new Date())) {
+      return res.status(422).json({
+        error: 'The uploaded image is too old to complete checkout. Please create the puzzle again with a fresh upload.',
+        code: 'IMAGE_RETENTION_TOO_OLD'
+      });
     }
 
     const count = parseInt(recipientCount) || puzzle.recipients.length || 1;

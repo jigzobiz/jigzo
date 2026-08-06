@@ -2,6 +2,24 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
+import { sanitizeRoutePath } from './services/analytics';
+
+// Vercel Analytics URL redaction: the puzzle publicId is an access capability
+// and must never reach a third party. Every reported URL is reduced to a
+// route template with no query string or fragment; unparseable URLs are
+// dropped rather than sent raw.
+const redactAnalyticsEvent = (event) => {
+  if (!event || !event.url) return event;
+  try {
+    const url = new URL(event.url);
+    url.search = '';
+    url.hash = '';
+    url.pathname = sanitizeRoutePath(url.pathname);
+    return { ...event, url: url.toString() };
+  } catch (e) {
+    return null;
+  }
+};
 import ScrollToTop from './components/ScrollToTop';
 import LandingPage from './pages/LandingPage';
 import CreatePage from './pages/CreatePage';
@@ -94,7 +112,7 @@ const router = createBrowserRouter([
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <RouterProvider router={router} />
-    <Analytics />
+    <Analytics beforeSend={redactAnalyticsEvent} />
   </React.StrictMode>
 );
 

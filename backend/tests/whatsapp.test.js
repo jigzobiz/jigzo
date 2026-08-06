@@ -2041,6 +2041,16 @@ async function runAllTests() {
       recipients: [{ name: 'NadiaRecip', completedAt: null, completionSeconds: 0 }],
       save: async function() { return this; }
     });
+    // The completion route now records completion via atomic
+    // findOneAndUpdate calls (image-retention change). Step 1 (per-recipient
+    // $elemMatch guard) must report a fresh completion so the reveal alert
+    // fires; step 2 (all-recipients retention update) result is ignored here.
+    MockPuzzle.findOneAndUpdate = async (filter) => {
+      if (filter.recipients && filter.recipients.$elemMatch) {
+        return { publicId: 'puz-solved-9' };
+      }
+      return null;
+    };
     const MockOrderModel = require('../src/models/Order');
     MockOrderModel.findOne = async () => ({ puzzleId: 'puz-solved-9', addOns: 1, paymentStatus: 'paid' });
 

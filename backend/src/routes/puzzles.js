@@ -3,10 +3,37 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const Puzzle = require('../models/Puzzle');
 const Order = require('../models/Order');
-const imageService = require('../services/imageService');
 const whatsappService = require('../services/whatsappService');
 const { validatePhone, validateEmail } = require('../utils/contactValidation');
 const storageService = require('../services/storageService');
+const {
+  computeInitialDueAt,
+  isImageExpired,
+  buildRecipientCompletionUpdate,
+  buildAllRecipientsCompleteUpdate
+} = require('../utils/imageRetention');
+const imageToken = require('../utils/imageToken');
+
+// Customer images and puzzle metadata must never be stored by browsers,
+// intermediary caches or Vercel's CDN.
+function setNoStoreHeaders(res) {
+  res.setHeader('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+  res.setHeader('CDN-Cache-Control', 'no-store');
+  res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+}
+
+// Resolves and validates the recipient index from ?r= against the puzzle.
+// Returns an integer index, or null when invalid/ambiguous.
+function resolveRecipientIndex(rQuery, puzzle) {
+  if (rQuery === undefined || rQuery === null || rQuery === '') {
+    return puzzle.recipients.length === 1 ? 0 : null;
+  }
+  const idx = parseInt(rQuery, 10);
+  if (isNaN(idx) || idx < 0 || idx >= puzzle.recipients.length) return null;
+  return idx;
+}
 
 /**
  * POST /api/puzzles
@@ -180,12 +207,18 @@ router.post('/', async (req, res, next) => {
       publicId
     });
 
+    // Retention clock starts at the authoritative GridFS write time.
+    const imageStoredAt = new Date();
+
     const puzzle = new Puzzle({
       publicId,
       status: 'draft',
       cropImageUrl: `/api/puzzles/${publicId}/image`,
       imageStorageId,
       imageMimeType: detectedMime,
+      imageStoredAt,
+      imageDeletionDueAt: computeInitialDueAt(imageStoredAt),
+      imageDeletionStatus: 'scheduled',
       message: message || '',
       senderName: senderName || '',
       senderPhone: normalizedSenderPhone,
@@ -289,6 +322,9 @@ router.post('/recovery', async (req, res, next) => {
  */
 router.get('/:publicId', async (req, res, next) => {
   try {
+    // Puzzle metadata may contain the customer's content — never cacheable.
+    setNoStoreHeaders(res);
+
     const puzzle = await Puzzle.findOne({ publicId: req.params.publicId });
     if (!puzzle) {
       return res.status(404).json({ error: 'Puzzle not found.' });
@@ -304,19 +340,9 @@ router.get('/:publicId', async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
-    const rQuery = req.query.r;
-    let recipientIndex;
-    if (rQuery === undefined || rQuery === null || rQuery === '') {
-      if (puzzle.recipients.length === 1) {
-        recipientIndex = 0;
-      } else {
-        return res.status(400).json({ error: 'Invalid or missing recipient index.' });
-      }
-    } else {
-      recipientIndex = parseInt(rQuery, 10);
-      if (isNaN(recipientIndex) || recipientIndex < 0 || recipientIndex >= puzzle.recipients.length) {
-        return res.status(400).json({ error: 'Invalid or missing recipient index.' });
-      }
+    const recipientIndex = resolveRecipientIndex(req.query.r, puzzle);
+    if (recipientIndex === null) {
+      return res.status(400).json({ error: 'Invalid or missing recipient index.' });
     }
 
     const recipient = puzzle.recipients[recipientIndex];
@@ -331,11 +357,30 @@ router.get('/:publicId', async (req, res, next) => {
     const safeRecipients = [];
     safeRecipients[recipientIndex] = safeRecipient;
 
+    // Retention gate: once the image deadline passes, the image is gone for
+    // good; the metadata stays readable so the page can show a controlled
+    // expired state instead of a broken image.
+    const imageExpired = isImageExpired(puzzle, new Date());
+
+    if (!imageExpired) {
+      // Anti-hotlinking cookie for this puzzle's image route only. This is
+      // NOT recipient authentication — the puzzle link itself remains the
+      // access capability. Fails closed: no secret => no cookie => image 403.
+      const secure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+      const cookie = imageToken.buildImageCookie(puzzle.publicId, recipientIndex, { secure });
+      if (cookie) {
+        res.setHeader('Set-Cookie', cookie);
+      } else {
+        console.error('[PuzzleRoute] IMAGE_TOKEN_SECRET is not configured; image access will fail closed.');
+      }
+    }
+
     res.json({
       success: true,
       puzzle: {
         publicId: puzzle.publicId,
-        cropImageUrl: `${puzzle.cropImageUrl}?r=${recipientIndex}`,
+        ...(imageExpired ? {} : { cropImageUrl: `${puzzle.cropImageUrl}?r=${recipientIndex}` }),
+        imageExpired,
         senderName: puzzle.senderName,
         revealIdentity: puzzle.revealIdentity,
         pieceCount: puzzle.pieceCount,
@@ -351,17 +396,24 @@ router.get('/:publicId', async (req, res, next) => {
 
 /**
  * GET /api/puzzles/:publicId/image
- * Streams GridFS image or falls back to legacy path redirect.
+ * Streams the GridFS image behind the retention gate and the
+ * anti-hotlinking cookie issued by GET /api/puzzles/:publicId.
  */
 router.get('/:publicId/image', async (req, res, next) => {
   try {
+    // Customer images must never be stored by any cache.
+    setNoStoreHeaders(res);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+
     const puzzle = await Puzzle.findOne({ publicId: req.params.publicId });
     if (!puzzle) {
       return res.status(404).json({ error: 'Puzzle not found.' });
     }
 
+    // Legacy test-reveal expiry — an expired link means an expired image.
     if (puzzle.expiresAt && new Date() > puzzle.expiresAt) {
-      return res.status(410).json({ error: 'Puzzle link has expired.' });
+      return res.status(410).json({ error: { code: 'IMAGE_EXPIRED' } });
     }
 
     // Status / TestMode check
@@ -369,43 +421,38 @@ router.get('/:publicId/image', async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
-    if (puzzle.status === 'ready' && puzzle.testMode) {
-      const rQuery = req.query.r;
-      let recipientIndex;
-      if (rQuery === undefined || rQuery === null || rQuery === '') {
-        if (puzzle.recipients.length === 1) {
-          recipientIndex = 0;
-        } else {
-          return res.status(400).json({ error: 'Invalid or missing recipient index.' });
-        }
-      } else {
-        recipientIndex = parseInt(rQuery, 10);
-        if (isNaN(recipientIndex) || recipientIndex < 0 || recipientIndex >= puzzle.recipients.length) {
-          return res.status(400).json({ error: 'Invalid or missing recipient index.' });
-        }
-      }
+    // Retention gate FIRST: an expired image is consistently 410 regardless
+    // of any cookie, and regardless of whether physical cleanup has run yet.
+    if (isImageExpired(puzzle, new Date())) {
+      return res.status(410).json({ error: { code: 'IMAGE_EXPIRED' } });
+    }
+
+    const recipientIndex = resolveRecipientIndex(req.query.r, puzzle);
+    if (recipientIndex === null) {
+      return res.status(400).json({ error: 'Invalid or missing recipient index.' });
+    }
+
+    // Anti-hotlinking cookie check (timing-safe). Fails closed when
+    // IMAGE_TOKEN_SECRET is unset. The response body never echoes the
+    // cookie or any token material.
+    if (!imageToken.verifyImageCookieHeader(req.headers.cookie, puzzle.publicId, recipientIndex)) {
+      return res.status(403).json({ error: { code: 'IMAGE_TOKEN_INVALID' } });
     }
 
     if (puzzle.imageStorageId) {
       res.setHeader('Content-Type', puzzle.imageMimeType || 'image/jpeg');
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
 
       const stream = storageService.getImageStream(puzzle.imageStorageId);
       stream.on('error', (err) => {
-        console.error('[ImageRoute] GridFS Stream error:', err);
+        console.error('[ImageRoute] GridFS Stream error:', err.message);
         if (!res.headersSent) {
           res.status(404).json({ error: 'Image not found.' });
         }
       });
       stream.pipe(res);
-    } else if (puzzle.cropImageUrl) {
-      // Legacy compatibility: redirect only to trusted local same-origin paths
-      const cleanUrl = String(puzzle.cropImageUrl).trim();
-      if (cleanUrl.startsWith('/uploads/') || cleanUrl.startsWith('/assets/')) {
-        return res.redirect(cleanUrl);
-      }
-      return res.status(404).json({ error: 'Image not found.' });
     } else {
+      // No binary. Legacy /uploads redirects are retired: the local
+      // filesystem on Vercel is ephemeral, so those records are dangling.
       return res.status(404).json({ error: 'Image not found.' });
     }
   } catch (error) {
@@ -539,30 +586,29 @@ router.post('/:publicId/complete', async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
-    const rQuery = req.query.r;
-    let recipientIndex;
-    if (rQuery === undefined || rQuery === null || rQuery === '') {
-      if (puzzle.recipients.length === 1) {
-        recipientIndex = 0;
-      } else {
-        return res.status(400).json({ error: 'Invalid or missing recipient index.' });
-      }
-    } else {
-      recipientIndex = parseInt(rQuery, 10);
-      if (isNaN(recipientIndex) || recipientIndex < 0 || recipientIndex >= puzzle.recipients.length) {
-        return res.status(400).json({ error: 'Invalid or missing recipient index.' });
-      }
+    const recipientIndex = resolveRecipientIndex(req.query.r, puzzle);
+    if (recipientIndex === null) {
+      return res.status(400).json({ error: 'Invalid or missing recipient index.' });
     }
 
-    const recipient = puzzle.recipients[recipientIndex];
+    // Atomic step 1: record this recipient's completion exactly once. The
+    // filter only matches while completedAt is unset, so repeated or
+    // simultaneous completion requests are no-ops after the first — which
+    // also guarantees the reveal alert below cannot fire twice.
+    const now = new Date();
+    const completionSeconds = parseInt(durationSeconds) || 0;
+    const recipientId = puzzle.recipients[recipientIndex]._id;
+    const step1 = buildRecipientCompletionUpdate(puzzle.publicId, recipientId, now, completionSeconds);
+    const recordedDoc = await Puzzle.findOneAndUpdate(step1.filter, step1.update, { new: true });
+    const completionRecorded = !!recordedDoc;
 
-    let completionRecorded = false;
-
-    if (!recipient.completedAt) {
-      recipient.completedAt = new Date();
-      recipient.completionSeconds = parseInt(durationSeconds) || 0;
-      await puzzle.save();
-      completionRecorded = true;
+    if (completionRecorded) {
+      // Atomic step 2: if every intended recipient has now completed, set
+      // allRecipientsCompletedAt exactly once and tighten the retention
+      // deadline via $min — the deadline can never move later, so replays
+      // and re-completions cannot extend image retention.
+      const step2 = buildAllRecipientsCompleteUpdate(puzzle.publicId, now);
+      await Puzzle.findOneAndUpdate(step2.filter, step2.update);
 
       // Check if Reveal Alert addon was purchased for this puzzle order
       const order = await Order.findOne({ puzzleId: puzzle.publicId, paymentStatus: 'paid' });
@@ -579,10 +625,10 @@ router.post('/:publicId/complete', async (req, res, next) => {
           puzzleId: puzzle.publicId,
           recipientIndex,
           senderPhone: puzzle.senderPhone,
-          recipientName: recipient.name,
-          durationSeconds: recipient.completionSeconds
+          recipientName: puzzle.recipients[recipientIndex].name,
+          durationSeconds: completionSeconds
         }).catch(err => {
-          console.error(`[Background Alert Error] Failed to trigger Reveal Alert for puzzle ${puzzle.publicId} index ${recipientIndex}:`, err);
+          console.error(`[Background Alert Error] Failed to trigger Reveal Alert (recipient index ${recipientIndex}):`, err.message);
         });
 
         if (vercelWaitUntil) {
@@ -591,12 +637,16 @@ router.post('/:publicId/complete', async (req, res, next) => {
       }
     }
 
+    const completedAt = completionRecorded
+      ? now
+      : puzzle.recipients[recipientIndex].completedAt;
+
     res.json({
       success: true,
       completionRecorded,
       message: puzzle.message,
       senderName: puzzle.senderName,
-      completedAt: recipient.completedAt
+      completedAt
     });
   } catch (error) {
     next(error);

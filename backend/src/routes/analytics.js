@@ -4,6 +4,7 @@ const AnonymousSession = require('../models/AnonymousSession');
 const JourneyEvent = require('../models/JourneyEvent');
 const Customer = require('../models/Customer');
 const DraftPuzzle = require('../models/DraftPuzzle');
+const { sanitizePageUrl, derivePuzzleRef, scrubMetadata } = require('../utils/analyticsSanitize');
 
 // Event Ingestion Endpoint
 router.post('/events', async (req, res, next) => {
@@ -87,14 +88,24 @@ router.post('/events', async (req, res, next) => {
       );
     }
 
-    // 3. Save Funnel Journey Event
+    // 3. Sanitize BEFORE persistence — the backend never trusts the client.
+    // puzzleRef is derived first (one-way keyed hash), then every capability
+    // identifier, token, URL, phone number and personal detail is removed.
+    // The email/phone/name consumed by the Customer mapping above are never
+    // written to the event log itself.
+    const safePageUrl = sanitizePageUrl(pageUrl);
+    const safePuzzleRef = derivePuzzleRef(metadata, pageUrl);
+    const safeMetadata = scrubMetadata(metadata);
+
+    // Save Funnel Journey Event
     const journeyEvent = new JourneyEvent({
       anonymousId,
       sessionId,
       customerId,
       eventType,
-      pageUrl,
-      metadata
+      pageUrl: safePageUrl,
+      puzzleRef: safePuzzleRef,
+      metadata: safeMetadata
     });
     await journeyEvent.save();
 
@@ -117,7 +128,9 @@ router.post('/events', async (req, res, next) => {
         {
           sessionId,
           stepsCompleted: step,
-          $set: { currentStepData: metadata },
+          // Scrubbed copy only — the draft cache must not hold capability
+          // identifiers or personal details either.
+          $set: { currentStepData: safeMetadata },
           updatedAt: new Date()
         },
         { upsert: true, new: true }

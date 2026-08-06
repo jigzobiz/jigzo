@@ -190,6 +190,10 @@ router.post('/reveals', async (req, res, next) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
+    // Retention: test reveals expire in 7 days, well inside the 30-day cap,
+    // so the cleanup job can purge their GridFS binaries at expiresAt.
+    const imageStoredAt = new Date();
+
     // We set status directly to 'ready' to accurately represent staging state.
     const puzzle = new Puzzle({
       publicId,
@@ -197,6 +201,9 @@ router.post('/reveals', async (req, res, next) => {
       cropImageUrl: `/api/puzzles/${publicId}/image`,
       imageStorageId: createdStorageId,
       imageMimeType: detectedMime,
+      imageStoredAt,
+      imageDeletionDueAt: expiresAt,
+      imageDeletionStatus: 'scheduled',
       testMode: true,
       message: cleanMessage,
       senderName: cleanSenderName,

@@ -69,6 +69,15 @@ export default function ReceivePage() {
         const finalRIndex = puzzle.recipient?.index ?? 0;
         setResolvedRIndex(finalRIndex);
 
+        // Retention: the backend omits cropImageUrl and sets imageExpired
+        // once the image's deletion deadline has passed. Show the existing
+        // localized expired state instead of attempting an image load.
+        if (puzzle && puzzle.imageExpired) {
+          setError('Puzzle link has expired.');
+          setLoading(false);
+          return;
+        }
+
         if (puzzle && puzzle.cropImageUrl && puzzle.cropImageUrl.startsWith('/uploads')) {
           // Uploads are served same-origin via the /uploads route (see vercel.json)
           // and the Vite dev proxy, so a relative URL is correct in every
@@ -93,10 +102,29 @@ export default function ReceivePage() {
             setLoading(false);
           };
 
-          const handleFailure = (err) => {
+          const handleFailure = async (err) => {
             if (!active || completed) return;
             completed = true;
             console.error('[ReceivePage] Image loading/decoding failed:', err);
+            // The image may have expired between the metadata fetch and the
+            // image request (410 IMAGE_EXPIRED). Re-check the metadata so the
+            // recipient sees the controlled expired state, not a broken image.
+            try {
+              const check = await api.getPuzzle(publicId, finalRIndex);
+              if (active && check?.puzzle?.imageExpired) {
+                setError('Puzzle link has expired.');
+                setLoading(false);
+                return;
+              }
+            } catch (checkErr) {
+              const checkMsg = checkErr?.response?.data?.error;
+              if (active && checkMsg === 'Puzzle link has expired.') {
+                setError(checkMsg);
+                setLoading(false);
+                return;
+              }
+            }
+            if (!active) return;
             setError('Failed to load JIGZO puzzle image.');
             setLoading(false);
           };
@@ -785,7 +813,9 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
       const run = () => {
         if (data && data.cropImageUrl) {
           const img = new Image();
-          img.crossOrigin = "anonymous";
+          // use-credentials so the HttpOnly image-access cookie is sent;
+          // "anonymous" would omit it and the export would lose the photo.
+          img.crossOrigin = "use-credentials";
           img.onload = () => paint(img);
           img.onerror = () => paint(null);
           img.src = data.cropImageUrl;

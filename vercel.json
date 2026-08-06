@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "crons": [
+    {
+      "path": "/api/internal/images/cleanup",
+      "schedule": "15 3 * * *"
+    }
+  ],
   "builds": [
     {
       "src": "backend/src/server.js",
@@ -21,6 +27,15 @@
     {
       "src": "/uploads/(.*)",
       "dest": "backend/src/server.js"
+    },
+    {
+      "src": "/p/(.*)",
+      "dest": "frontend/index.html",
+      "headers": {
+        "Referrer-Policy": "no-referrer",
+        "X-Robots-Tag": "noindex, nofollow, noarchive",
+        "Cache-Control": "no-store"
+      }
     },
     {
       "src": "/assets/(.*)",

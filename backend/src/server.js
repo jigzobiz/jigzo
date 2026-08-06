@@ -20,6 +20,7 @@ const { router: pricingRouter } = require('./routes/pricing');
 const testRouter = require('./routes/test');
 const whatsappWebhookRouter = require('./routes/webhooks/whatsapp');
 const whatsappReconciliationRouter = require('./routes/internal/whatsappReconciliation');
+const imageCleanupRouter = require('./routes/internal/imageCleanup');
 const { isTestModeAllowed } = require('./utils/testModeGuard');
 
 
@@ -123,6 +124,7 @@ app.use('/api/admin/v2', adminRebuildRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/pricing', pricingRouter);
 app.use('/api/internal/whatsapp/reconcile', whatsappReconciliationRouter);
+app.use('/api/internal/images/cleanup', imageCleanupRouter);
 
 
 
