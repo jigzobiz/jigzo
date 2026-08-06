@@ -16,6 +16,7 @@ import { analytics } from '../services/analytics';
 import { isValidPhoneNumber } from 'libphonenumber-js';
 import { normalizePhoneInput } from '../utils/phone';
 import SiteFooter from '../components/SiteFooter';
+import SiteHeader from '../components/SiteHeader';
 
 const T = {
   bg: "#FAF8EC",
@@ -1074,29 +1075,7 @@ export default function CreatePage() {
 
   return (
     <div className="create-page">
-      {/* ===================== NAV ===================== */}
-      <header className="nav" style={{ marginBottom: 20 }}>
-        <div className="nav__inner">
-          <Link to="/" aria-label={t('landing.nav.home')}>
-            <img className="nav__logo" src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" />
-          </Link>
-          <Link to="/" aria-label={t('common.home')} style={{
-            background: T.ink,
-            color: T.bg,
-            border: "none",
-            borderRadius: 999,
-            padding: "8px 18px",
-            fontSize: 14,
-            fontWeight: 700,
-            textDecoration: "none",
-            display: "inline-flex",
-            alignItems: "center",
-            fontFamily: "Archia, sans-serif"
-          }}>
-            {t('common.home')}
-          </Link>
-        </div>
-      </header>
+      <SiteHeader switcherLocation="create_nav" />
 
       <div style={{ fontFamily: "Archia, sans-serif", color: T.ink, padding: "0 20px 70px" }}>
         <style>{`
