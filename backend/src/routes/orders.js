@@ -161,8 +161,12 @@ router.post('/', async (req, res, next) => {
         order.packageId === packageId &&
         order.addOns === addOns
       ) {
-        // If we already have a valid pending checkout URL, return it directly
-        if (order.paymentReference && order.paymentReference.startsWith('http') && order.providerChargeId) {
+        // If we already have a valid pending checkout URL, return it directly.
+        // Tap charges now expire (transaction.expiry), so a stored URL is
+        // only reused while its charge is still comfortably alive; otherwise
+        // fall through and create a fresh charge on this same order.
+        if (order.paymentReference && order.paymentReference.startsWith('http') && order.providerChargeId &&
+            paymentService.isStoredCheckoutFresh(order)) {
           return res.status(200).json({
             success: true,
             order: {

@@ -2,6 +2,18 @@ const https = require('https');
 const crypto = require('crypto');
 const { isNonProduction } = require('../utils/runtimeConfig');
 
+// Tap hosted-checkout sessions expire after this window (sent to Tap as
+// transaction.expiry). This bounds the image-retention "delayed payment"
+// scenario: a charge can only be completed within this many minutes of
+// creation, so the retention runway at delivery is at most this much
+// shorter than it was when the checkout runway gate passed.
+const CHARGE_EXPIRY_MINUTES = 30;
+
+// Stored checkout URLs older than this are treated as dead when deciding
+// whether to reuse them (5-minute safety margin before Tap's own expiry),
+// so a returning customer always receives a live payment session.
+const CHECKOUT_REUSE_MAX_AGE_MS = (CHARGE_EXPIRY_MINUTES - 5) * 60 * 1000;
+
 class PaymentService {
   _getTapConfig() {
     const secretKey = process.env.TAP_SECRET_KEY;
@@ -121,6 +133,12 @@ class PaymentService {
       post: {
         url: postUrl
       },
+      transaction: {
+        expiry: {
+          period: CHARGE_EXPIRY_MINUTES,
+          type: 'MINUTE'
+        }
+      },
       customer: {
         first_name: puzzle.senderName || 'JIGZO Customer',
         email: 'customer@jigzo.biz'
@@ -137,6 +155,20 @@ class PaymentService {
     };
 
     return this._request('POST', 'https://api.tap.company/v2/charges/', headers, payload);
+  }
+
+  /**
+   * Whether an order's stored hosted-checkout URL is still safe to hand
+   * back to the customer. Anchored to the latest payment attempt's
+   * creation time; anything older than the reuse window (or with no
+   * recorded attempt) is stale and a fresh Tap charge must be created.
+   */
+  isStoredCheckoutFresh(order, now = new Date()) {
+    const attempts = (order && order.paymentAttempts) || [];
+    const last = attempts.length ? attempts[attempts.length - 1] : null;
+    if (!last || !last.createdAt) return false;
+    const age = now.getTime() - new Date(last.createdAt).getTime();
+    return age >= 0 && age < CHECKOUT_REUSE_MAX_AGE_MS;
   }
 
   async retrieveCharge(chargeId) {
@@ -202,4 +234,7 @@ class PaymentService {
   }
 }
 
-module.exports = new PaymentService();
+const paymentService = new PaymentService();
+paymentService.CHARGE_EXPIRY_MINUTES = CHARGE_EXPIRY_MINUTES;
+paymentService.CHECKOUT_REUSE_MAX_AGE_MS = CHECKOUT_REUSE_MAX_AGE_MS;
+module.exports = paymentService;

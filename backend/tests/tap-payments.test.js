@@ -235,11 +235,42 @@ test('correct Tap URL, merchant ID, source.id=src_all, lang_code, idempotent, re
   assert.strictEqual(captured.payload.reference.idempotent, 'idem_key');
   assert.strictEqual(captured.payload.receipt, undefined, 'Receipt object must be omitted');
 
+  // Charge sessions must expire so a hosted checkout URL cannot be
+  // completed long after the image-retention runway gate passed.
+  assert.deepStrictEqual(captured.payload.transaction, {
+    expiry: { period: 30, type: 'MINUTE' }
+  });
+
   // Test Arabic lang selection
   await paymentService.createCheckout(mockOrder, mockPuzzleAr, 'http://redir', 'http://webhook', 'idem_key');
   assert.strictEqual(captured.headers['lang_code'], 'ar');
 
   restoreTapRequest();
+});
+
+test('stored checkout URLs are reused only while the Tap charge is still alive', () => {
+  const now = new Date('2026-08-06T12:00:00.000Z');
+  const minsAgo = (m) => new Date(now.getTime() - m * 60 * 1000);
+  const orderWithAttempt = (createdAt) => ({
+    paymentReference: 'https://checkout.tap.company/pay/chg_x',
+    providerChargeId: 'chg_x',
+    paymentAttempts: createdAt ? [{ providerChargeId: 'chg_x', createdAt }] : []
+  });
+
+  // Fresh: well inside the 25-minute reuse window (30-min expiry - 5-min margin).
+  assert.strictEqual(paymentService.isStoredCheckoutFresh(orderWithAttempt(minsAgo(10)), now), true);
+  assert.strictEqual(paymentService.isStoredCheckoutFresh(orderWithAttempt(minsAgo(24)), now), true);
+
+  // Stale: at/past the reuse boundary, or with no recorded attempt
+  // (legacy pending orders) — a new charge must be created instead.
+  assert.strictEqual(paymentService.isStoredCheckoutFresh(orderWithAttempt(minsAgo(25)), now), false);
+  assert.strictEqual(paymentService.isStoredCheckoutFresh(orderWithAttempt(minsAgo(26)), now), false);
+  assert.strictEqual(paymentService.isStoredCheckoutFresh(orderWithAttempt(minsAgo(24 * 60)), now), false);
+  assert.strictEqual(paymentService.isStoredCheckoutFresh(orderWithAttempt(null), now), false);
+  assert.strictEqual(paymentService.isStoredCheckoutFresh({}, now), false);
+
+  // Clock skew safety: an attempt "from the future" is not treated as fresh.
+  assert.strictEqual(paymentService.isStoredCheckoutFresh(orderWithAttempt(minsAgo(-5)), now), false);
 });
 
 test('AED, USD, and BHD decimal formatting rules', () => {
