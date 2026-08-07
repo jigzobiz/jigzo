@@ -22,26 +22,24 @@
  * documents are updated one at a time via a cursor.
  *
  * Output contains counts only — never stored URLs, publicIds or metadata.
+ *
+ * The core logic lives in ../src/utils/migrationSanitizeJourney.js, shared
+ * with the temporary authenticated internal apply endpoint — this file is a
+ * thin CLI wrapper (env loading, argv parsing, Mongoose connect/disconnect)
+ * around that single, tested implementation.
  */
 
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
-const mongoose = require('mongoose');
-const JourneyEvent = require('../src/models/JourneyEvent');
-const { sanitizePageUrl, derivePuzzleRef, scrubMetadata } = require('../src/utils/analyticsSanitize');
-
-const APPLY = process.argv.includes('--apply');
+const { runSanitizeJourneyEvents } = require('../src/utils/migrationSanitizeJourney');
 
 function isLocalUri(uri) {
   return /localhost|127\.0\.0\.1/.test(String(uri || ''));
 }
 
-const CAPABILITY_URL_RE = /\/p\/(?!:puzzleId)[^/?#]+/;
-
-function metadataNeedsScrub(metadata, scrubbed) {
-  return JSON.stringify(metadata || {}) !== JSON.stringify(scrubbed || {});
-}
-
 async function main() {
+  require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+  const mongoose = require('mongoose');
+
+  const APPLY = process.argv.includes('--apply');
   const uri = process.env.MONGODB_URI;
   if (!uri) {
     console.error('MONGODB_URI is not configured.');
@@ -57,56 +55,7 @@ async function main() {
   await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
   console.log(`[SanitizeJourney] Connected. Mode: ${APPLY ? 'APPLY' : 'DRY-RUN (read-only)'}`);
 
-  const counts = {
-    totalEvents: 0,
-    pageUrlWithCapability: 0,
-    pageUrlWithQueryOrHash: 0,
-    metadataWithPuzzleId: 0,
-    metadataWithOtherSensitive: 0,
-    updated: 0
-  };
-
-  const cursor = JourneyEvent.find({}).cursor();
-
-  for (let event = await cursor.next(); event != null; event = await cursor.next()) {
-    counts.totalEvents += 1;
-
-    const rawUrl = event.pageUrl || '';
-    const rawMetadata = (event.metadata && typeof event.metadata === 'object') ? event.metadata : {};
-
-    const hasCapabilityUrl = CAPABILITY_URL_RE.test(rawUrl);
-    const hasQueryOrHash = /[?#]/.test(rawUrl) || /^https?:\/\//i.test(rawUrl);
-    const hasPuzzleId = 'puzzleId' in rawMetadata || 'publicId' in rawMetadata;
-
-    if (hasCapabilityUrl) counts.pageUrlWithCapability += 1;
-    if (hasQueryOrHash) counts.pageUrlWithQueryOrHash += 1;
-    if (hasPuzzleId) counts.metadataWithPuzzleId += 1;
-
-    const safeUrl = sanitizePageUrl(rawUrl);
-    const safeMetadata = scrubMetadata(rawMetadata);
-    const metadataChanged = metadataNeedsScrub(rawMetadata, safeMetadata);
-    if (metadataChanged && !hasPuzzleId) counts.metadataWithOtherSensitive += 1;
-
-    const urlChanged = safeUrl !== rawUrl;
-    if (!urlChanged && !metadataChanged) continue;
-
-    if (APPLY) {
-      const update = {
-        $set: {
-          pageUrl: safeUrl,
-          metadata: safeMetadata
-        }
-      };
-      if (!event.puzzleRef) {
-        const ref = derivePuzzleRef(rawMetadata, rawUrl);
-        if (ref) update.$set.puzzleRef = ref;
-      }
-      await JourneyEvent.updateOne({ _id: event._id }, update);
-      counts.updated += 1;
-    } else {
-      counts.updated += 1; // would-update count in dry-run
-    }
-  }
+  const { counts } = await runSanitizeJourneyEvents({ apply: APPLY });
 
   console.log('[SanitizeJourney] Summary (counts only):');
   console.log(JSON.stringify(counts, null, 2));
@@ -117,7 +66,11 @@ async function main() {
   await mongoose.disconnect();
 }
 
-main().catch((err) => {
-  console.error('[SanitizeJourney] Fatal:', err.name || 'Error');
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('[SanitizeJourney] Fatal:', err.name || 'Error');
+    process.exit(1);
+  });
+}
+
+module.exports = { isLocalUri };
