@@ -94,6 +94,43 @@ const puzzles = [
     get imageStoredAt() { throw new Error('boom'); },
     imageDeletionDueAt: null,
     recipients: []
+  },
+  // 7. Manual review via REFUNDED order only (status 'draft' is not in the
+  // auto-trigger list) -> exercises the refundedOrder breakdown dimension
+  // and shows a non-"active" payment status can still force manual review.
+  {
+    publicId: 'g'.repeat(32),
+    status: 'draft',
+    imageStorageId: 'sid-7',
+    imageStoredAt: daysAgo(4),
+    createdAt: daysAgo(4),
+    imageDeletionDueAt: null,
+    recipients: [{ completedAt: null }]
+  },
+  // 8. Manual review via RECENTLY-PAID order only (status 'delivered' is
+  // not in the auto-trigger list, but the order paid 2 days ago) -> proves
+  // byPuzzleStatus.delivered and recentlyPaidOrder can overlap on one
+  // record, and exercises allRecipientsCompleted within the review set.
+  {
+    publicId: 'h'.repeat(32),
+    status: 'delivered',
+    imageStorageId: 'sid-8',
+    imageStoredAt: daysAgo(6),
+    createdAt: daysAgo(6),
+    imageDeletionDueAt: null,
+    recipients: [{ completedAt: daysAgo(5) }]
+  },
+  // 9. Manual review via puzzle.status alone ('preparing'); order is paid
+  // but OLD (10 days ago) -> proves activePaidOrder (payment currently
+  // paid) is a distinct signal from recentlyPaidOrder (paid <7 days ago).
+  {
+    publicId: 'i'.repeat(32),
+    status: 'preparing',
+    imageStorageId: 'sid-9',
+    imageStoredAt: daysAgo(1),
+    createdAt: daysAgo(1),
+    imageDeletionDueAt: null,
+    recipients: []
   }
 ];
 
@@ -118,14 +155,16 @@ function trackReadOnlyCountDocuments(query) {
   return Promise.resolve(2);
 }
 
+const ORDERS_BY_PUZZLE_ID = {
+  ['e'.repeat(32)]: { paymentStatus: 'paid', paidAt: daysAgo(1) },       // recently paid
+  ['g'.repeat(32)]: { paymentStatus: 'refunded' },                       // refunded
+  ['h'.repeat(32)]: { paymentStatus: 'paid', paidAt: daysAgo(2) },       // recently paid
+  ['i'.repeat(32)]: { paymentStatus: 'paid', paidAt: daysAgo(10) }       // paid, but NOT recent
+};
+
 stubModule('../src/models/Order', {
   findOne: (query) => ({
-    sort: async () => {
-      if (query.puzzleId === 'e'.repeat(32)) {
-        return { paymentStatus: 'paid', paidAt: daysAgo(1) }; // paid within last 7 days
-      }
-      return null;
-    }
+    sort: async () => ORDERS_BY_PUZZLE_ID[query.puzzleId] || null
   }),
   updateOne: trackWrite('Order.updateOne'),
   updateMany: trackWrite('Order.updateMany'),
@@ -235,15 +274,36 @@ test('authorized dry-run performs zero writes and returns exact counts for both 
   assert.strictEqual(res.body.success, true);
 
   assert.deepStrictEqual(res.body.imageRetention, {
-    totalStoredImages: 6,       // sid-1..sid-6
-    olderThan30Days: 1,         // only puzzle 1 (45 days old); puzzle 3 is 10 days old (not >30)
+    totalStoredImages: 9,       // sid-1..sid-9
+    olderThan30Days: 1,         // only puzzle 1 (45 days old)
     deadlineAlreadyPassed: 2,   // puzzle 1 (30d cap passed) + puzzle 3 (7d-after-completion passed)
     stillWithinRetention: 2,    // puzzle 2 (fresh) + puzzle 4 (already-stamped, future)
-    allRecipientsCompleted: 1,  // puzzle 3
-    incompleteRecipients: 4,    // puzzles 1, 2, 4, 5 (classified before the manual-review branch)
-    manualReview: 1,            // puzzle 5 (excluded from the deadline buckets above)
+    allRecipientsCompleted: 2,  // puzzle 3 + puzzle 8
+    incompleteRecipients: 6,    // puzzles 1, 2, 4, 5, 7, 9 (classified before the manual-review branch)
+    manualReview: 4,            // puzzles 5, 7, 8, 9 (excluded from the deadline buckets above)
     legacyUploads: 2,           // from the stubbed countDocuments
-    unclassified: 1             // puzzle 6 (throws while reading imageStoredAt)
+    unclassified: 1,            // puzzle 6 (throws while reading imageStoredAt)
+    manualReviewBreakdown: {
+      byPuzzleStatus: {
+        draft: 1,               // puzzle 7 (refunded-only trigger)
+        pending_payment: 0,
+        paid: 1,                // puzzle 5
+        preparing: 1,           // puzzle 9
+        ready: 0,
+        partially_delivered: 0,
+        delivered: 1,           // puzzle 8 (recently-paid-only trigger)
+        failed: 0,
+        expired: 0,
+        other: 0
+      },
+      refundedOrder: 1,         // puzzle 7
+      recentlyPaidOrder: 2,     // puzzles 5, 8 (NOT puzzle 9 — paid 10 days ago)
+      activePaidOrder: 3,       // puzzles 5, 8, 9 (paid & not refunded); puzzle 7 excluded (refunded)
+      allRecipientsCompleted: 1,   // puzzle 8, WITHIN the manual-review set
+      incompleteRecipients: 3,    // puzzles 5, 7, 9, WITHIN the manual-review set
+      ageDaysOldest: 6,           // puzzle 8
+      ageDaysYoungest: 1          // puzzle 9
+    }
   });
 
   assert.deepStrictEqual(res.body.analytics, {

@@ -45,17 +45,26 @@ function safeTokenEqual(received, expected) {
 
 const CAPABILITY_URL_RE = /\/p\/(?!:puzzleId)[^/?#]+/;
 
-/** Mirrors backfill-image-retention.js's manual-review classification. */
-async function needsManualReview(puzzle, now) {
-  if (['pending_payment', 'paid', 'preparing'].includes(puzzle.status)) return true;
+const KNOWN_PUZZLE_STATUSES = [
+  'draft', 'pending_payment', 'paid', 'preparing', 'ready',
+  'partially_delivered', 'delivered', 'failed', 'expired'
+];
+
+/**
+ * Mirrors backfill-image-retention.js's manual-review classification, but
+ * returns the full reasoning (not just a boolean) so the report can break
+ * the 25-record bucket down by status/reason without a second DB pass.
+ * Read-only: Order.findOne only.
+ */
+async function classifyManualReview(puzzle, now) {
+  const statusTriggered = ['pending_payment', 'paid', 'preparing'].includes(puzzle.status);
   const order = await Order.findOne({ puzzleId: puzzle.publicId }).sort({ createdAt: -1 });
-  if (!order) return false;
-  if (order.paymentStatus === 'refunded') return true;
-  if (order.paymentStatus === 'paid' && order.paidAt &&
-      now.getTime() - order.paidAt.getTime() < 7 * DAY_MS) {
-    return true;
-  }
-  return false;
+  const orderPaymentStatus = order ? order.paymentStatus : null;
+  const refunded = orderPaymentStatus === 'refunded';
+  const recentlyPaid = orderPaymentStatus === 'paid' && !!order.paidAt &&
+    now.getTime() - order.paidAt.getTime() < 7 * DAY_MS;
+  const isManualReview = statusTriggered || refunded || recentlyPaid;
+  return { isManualReview, orderPaymentStatus, refunded, recentlyPaid };
 }
 
 async function buildImageRetentionReport(now) {
@@ -70,6 +79,24 @@ async function buildImageRetentionReport(now) {
     legacyUploads: 0,
     unclassified: 0
   };
+
+  // Breakdown of the manualReview bucket only. Dimensions can overlap
+  // (e.g. a "delivered" puzzle can also be "recentlyPaid" if its order
+  // paid within the last 7 days) — byPuzzleStatus values sum to exactly
+  // manualReview; refundedOrder / recentlyPaidOrder are separate,
+  // independently-overlapping counts, not additional partition slices.
+  const manualReviewBreakdown = {
+    byPuzzleStatus: {},
+    refundedOrder: 0,
+    recentlyPaidOrder: 0,
+    activePaidOrder: 0,       // order.paymentStatus === 'paid' (not refunded)
+    allRecipientsCompleted: 0,
+    incompleteRecipients: 0,
+    ageDaysOldest: null,
+    ageDaysYoungest: null
+  };
+  for (const status of KNOWN_PUZZLE_STATUSES) manualReviewBreakdown.byPuzzleStatus[status] = 0;
+  manualReviewBreakdown.byPuzzleStatus.other = 0;
 
   // READ-ONLY: countDocuments only, no updateMany.
   counts.legacyUploads = await Puzzle.countDocuments({
@@ -101,8 +128,32 @@ async function buildImageRetentionReport(now) {
       // Matches the backfill script: manual-review records are surfaced
       // separately rather than folded into the deadline classification,
       // since their disposition depends on payment/delivery context.
-      if (await needsManualReview(puzzle, now)) {
+      const review = await classifyManualReview(puzzle, now);
+      if (review.isManualReview) {
         counts.manualReview += 1;
+
+        const statusKey = KNOWN_PUZZLE_STATUSES.includes(puzzle.status) ? puzzle.status : 'other';
+        manualReviewBreakdown.byPuzzleStatus[statusKey] += 1;
+        if (review.refunded) manualReviewBreakdown.refundedOrder += 1;
+        if (review.recentlyPaid) manualReviewBreakdown.recentlyPaidOrder += 1;
+        if (review.orderPaymentStatus === 'paid' && !review.refunded) {
+          manualReviewBreakdown.activePaidOrder += 1;
+        }
+        if (allCompleted) {
+          manualReviewBreakdown.allRecipientsCompleted += 1;
+        } else {
+          manualReviewBreakdown.incompleteRecipients += 1;
+        }
+        if (storedAt) {
+          const ageDays = (now.getTime() - storedAt.getTime()) / DAY_MS;
+          if (manualReviewBreakdown.ageDaysOldest === null || ageDays > manualReviewBreakdown.ageDaysOldest) {
+            manualReviewBreakdown.ageDaysOldest = ageDays;
+          }
+          if (manualReviewBreakdown.ageDaysYoungest === null || ageDays < manualReviewBreakdown.ageDaysYoungest) {
+            manualReviewBreakdown.ageDaysYoungest = ageDays;
+          }
+        }
+
         continue;
       }
 
@@ -133,6 +184,13 @@ async function buildImageRetentionReport(now) {
     }
   }
 
+  // Round ages to 2 decimals for a readable report; null stays null when
+  // there were no manual-review records (or none with a known storedAt).
+  const round2 = (n) => (n === null ? null : Math.round(n * 100) / 100);
+  manualReviewBreakdown.ageDaysOldest = round2(manualReviewBreakdown.ageDaysOldest);
+  manualReviewBreakdown.ageDaysYoungest = round2(manualReviewBreakdown.ageDaysYoungest);
+
+  counts.manualReviewBreakdown = manualReviewBreakdown;
   return counts;
 }
 
