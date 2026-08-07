@@ -195,6 +195,35 @@ test('wrong secret returns 401 and never writes', async () => {
   assert.strictEqual(writeAttempts.length, before);
 });
 
+test('MIGRATION_DRYRUN_SECRET, when unset, grants no access on its own', async () => {
+  delete process.env.MIGRATION_DRYRUN_SECRET;
+  const res = await new Promise((resolve, reject) => {
+    const r = mockRes();
+    handler({ headers: { authorization: 'Bearer whatever-someone-guesses' } }, { ...r, json(o) { this.body = o; resolve(this); return this; } }, reject);
+  });
+  assert.strictEqual(res.statusCode, 401);
+});
+
+test('the alternate MIGRATION_DRYRUN_SECRET, when configured, also authorizes (CRON_SECRET is Sensitive/unretrievable)', async () => {
+  process.env.MIGRATION_DRYRUN_SECRET = 'test_alt_secret_never_a_real_value';
+  try {
+    const res = await new Promise((resolve, reject) => {
+      const r = mockRes();
+      handler({ headers: { authorization: `Bearer ${process.env.MIGRATION_DRYRUN_SECRET}` } }, { ...r, json(o) { this.body = o; resolve(this); return this; } }, reject);
+    });
+    assert.strictEqual(res.statusCode, 200); // res.status() was never called -> default 200 path (json() called directly)
+    assert.strictEqual(res.body.success, true);
+
+    const wrong = await new Promise((resolve, reject) => {
+      const r = mockRes();
+      handler({ headers: { authorization: 'Bearer definitely-wrong' } }, { ...r, json(o) { this.body = o; resolve(this); return this; } }, reject);
+    });
+    assert.strictEqual(wrong.statusCode, 401);
+  } finally {
+    delete process.env.MIGRATION_DRYRUN_SECRET;
+  }
+});
+
 test('authorized dry-run performs zero writes and returns exact counts for both reports', async () => {
   const before = writeAttempts.length;
   const res = await new Promise((resolve, reject) => {

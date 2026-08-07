@@ -182,9 +182,19 @@ async function buildAnalyticsReport() {
 router.get('/', async (req, res, next) => {
   try {
     // Authenticate BEFORE any database read.
-    const cronSecret = process.env.CRON_SECRET;
+    // Same pattern as the other internal routes (Bearer + timing-safe
+    // compare, 401 before any DB read). MIGRATION_DRYRUN_SECRET is an
+    // additional, narrowly-scoped credential accepted alongside
+    // CRON_SECRET solely because CRON_SECRET is a Vercel Sensitive
+    // variable — write-only once set, so its value cannot be retrieved
+    // by anyone (including the project owner) to make a manual call.
+    // Remove this alternate check together with the endpoint itself.
     const authorization = req.headers.authorization || '';
-    if (!cronSecret || !safeTokenEqual(authorization, `Bearer ${cronSecret}`)) {
+    const cronSecret = process.env.CRON_SECRET;
+    const altSecret = process.env.MIGRATION_DRYRUN_SECRET;
+    const authorizedByCron = cronSecret && safeTokenEqual(authorization, `Bearer ${cronSecret}`);
+    const authorizedByAlt = altSecret && safeTokenEqual(authorization, `Bearer ${altSecret}`);
+    if (!authorizedByCron && !authorizedByAlt) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
