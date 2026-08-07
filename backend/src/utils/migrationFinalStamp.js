@@ -3,6 +3,7 @@ const Order = require('../models/Order');
 const { logRef } = require('./puzzleRef');
 const { MANUAL_RESOLUTION_IMAGE_EXPIRED } = require('../services/paymentCompletion');
 const {
+  addDays,
   earlierDate,
   computeInitialDueAt,
   computePostCompletionDueAt,
@@ -57,8 +58,17 @@ async function buildOverdueDetail(puzzle, now, imageStoredAt, allCompletedAt, du
  *    completely untouched (no stamp, no 'blocked' status change, nothing)
  *    — returning a non-identifying `overdueDetails` summary for each
  *    instead, for manual operator review.
+ *  - mode: 'grandfather' — approved ONE-TIME exception for legacy
+ *    records that predate this retention system: stamps
+ *    imageDeletionDueAt = min(now + 7 days, imageStoredAt + 30 days),
+ *    i.e. a fresh 7-day review window still capped by the original
+ *    30-day-from-storage ceiling. Sets ONLY imageStoredAt,
+ *    imageDeletionDueAt, and imageDeletionStatus — never
+ *    allRecipientsCompletedAt, and never payment/puzzle/recipient/
+ *    WhatsApp data. Refuses (per-record) rather than writing an
+ *    already-past deadline.
  *
- * In both modes:
+ * In all modes:
  *  - Never touches a record that already has imageDeletionDueAt set —
  *    the update filter guards on `imageDeletionDueAt: null`, so an
  *    existing deadline can never be extended, shortened, or touched.
@@ -70,6 +80,7 @@ async function buildOverdueDetail(puzzle, now, imageStoredAt, allCompletedAt, du
  */
 async function runFinalRetentionStamp({ apply = false, now = new Date(), mode = 'allOrNothing' } = {}) {
   const skipOverdue = mode === 'skipOverdue';
+  const grandfather = mode === 'grandfather';
   const counts = {
     totalStoredImages: 0,
     withImageStoredAt: 0,
@@ -101,6 +112,22 @@ async function runFinalRetentionStamp({ apply = false, now = new Date(), mode = 
       if (hasDueAt) continue;
 
       const imageStoredAt = puzzle.imageStoredAt || puzzle.createdAt;
+
+      if (grandfather) {
+        const grandfatherDueAt = earlierDate(addDays(now, 7), addDays(imageStoredAt, 30));
+        if (grandfatherDueAt.getTime() <= now.getTime()) {
+          // Defensive: refuse rather than silently write an already-past
+          // deadline (unreachable for records under 23 days old, but
+          // never assume — verify).
+          counts.wouldBeOverdue += 1;
+          overdueRefs.push(logRef(puzzle.publicId));
+          continue;
+        }
+        counts.wouldStamp += 1;
+        toStamp.push({ id: puzzle._id, imageStoredAt, dueAt: grandfatherDueAt, grandfather: true });
+        continue;
+      }
+
       const recipients = Array.isArray(puzzle.recipients) ? puzzle.recipients : [];
       let allCompletedAt = null;
       if (recipients.length > 0 && recipients.every(r => r.completedAt)) {
@@ -138,22 +165,28 @@ async function runFinalRetentionStamp({ apply = false, now = new Date(), mode = 
 
   // allOrNothing: refuse to write ANYTHING if even one eligible record's
   // computed deadline is already in the past, or is unclassifiable.
-  if (!skipOverdue && (counts.wouldBeOverdue > 0 || counts.unclassified > 0)) {
+  // skipOverdue and grandfather have their own per-record safety handling.
+  if (mode === 'allOrNothing' && (counts.wouldBeOverdue > 0 || counts.unclassified > 0)) {
     return { counts, overdueRefs, overdueDetails: [], stopped: true };
   }
 
   if (apply) {
     for (const item of toStamp) {
-      await Puzzle.updateOne(
-        { _id: item.id, imageDeletionDueAt: null },
-        {
-          $set: {
+      const setFields = item.grandfather
+        ? {
+            imageStoredAt: item.imageStoredAt,
+            imageDeletionDueAt: item.dueAt,
+            imageDeletionStatus: 'scheduled'
+          }
+        : {
             imageStoredAt: item.imageStoredAt,
             allRecipientsCompletedAt: item.allCompletedAt,
             imageDeletionDueAt: item.dueAt,
             imageDeletionStatus: 'scheduled'
-          }
-        }
+          };
+      await Puzzle.updateOne(
+        { _id: item.id, imageDeletionDueAt: null },
+        { $set: setFields }
       );
       counts.applied += 1;
     }

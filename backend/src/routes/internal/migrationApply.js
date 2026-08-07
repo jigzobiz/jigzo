@@ -88,7 +88,7 @@ router.post('/', async (req, res, next) => {
     // if any eligible record is overdue/unclassifiable). mode:"skipOverdue"
     // instead stamps every safe record and reports overdueDetails for the
     // rest, untouched. dryRun:true previews either mode without writing.
-    const mode = req.body.mode === 'skipOverdue' ? 'skipOverdue' : 'allOrNothing';
+    const mode = ['skipOverdue', 'grandfather'].includes(req.body.mode) ? req.body.mode : 'allOrNothing';
     const wantsApply = req.body.dryRun !== true;
     const result = await runFinalRetentionStamp({ apply: wantsApply, now, mode });
     if (result.stopped) {

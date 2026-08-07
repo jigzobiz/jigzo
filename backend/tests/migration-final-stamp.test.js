@@ -418,3 +418,109 @@ test('skipOverdue with dryRun:true previews without writing anything', async () 
   // Nothing written despite mode:skipOverdue identifying a safe record.
   assert.strictEqual(puzzleWrites.length, 0);
 });
+
+// --- grandfather mode: approved one-time exception for legacy records ---
+
+test('grandfather: stamps min(now+7d, imageStoredAt+30d), sets ONLY the 3 named fields, never touches Order', async () => {
+  resetPuzzles([
+    {
+      // Legacy-A-like: ~14 days old -> imageStoredAt+30d is ~16 days out,
+      // so now+7d (the earlier one) should win.
+      _id: 'pid-legacy-a',
+      publicId: 'n'.repeat(32),
+      status: 'paid',
+      imageStorageId: 'sid-legacy-a',
+      imageStoredAt: null,
+      createdAt: daysAgo(14),
+      imageDeletionDueAt: null,
+      recipients: [{ completedAt: daysAgo(13) }]
+    }
+  ]);
+
+  const res = await invokeApply({ confirm: 'I_UNDERSTAND', target: 'finalRetentionStamp', mode: 'grandfather' });
+
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.mode, 'grandfather');
+  assert.strictEqual(res.body.counts.wouldStamp, 1);
+  assert.strictEqual(res.body.counts.wouldBeOverdue, 0);
+  assert.strictEqual(res.body.counts.applied, 1);
+
+  assert.strictEqual(puzzleWrites.length, 1);
+  const { filter, update } = puzzleWrites[0];
+  assert.strictEqual(filter._id, 'pid-legacy-a');
+  assert.strictEqual(filter.imageDeletionDueAt, null); // write guard: never touch an existing deadline
+
+  const set = update.$set;
+  assert.deepStrictEqual(Object.keys(set).sort(), ['imageDeletionDueAt', 'imageDeletionStatus', 'imageStoredAt'].sort());
+  assert.deepStrictEqual(set.imageStoredAt, daysAgo(14)); // fell back to createdAt
+  assert.strictEqual(set.imageDeletionStatus, 'scheduled');
+
+  const expected7d = daysFromNow(7).getTime();
+  assert.ok(Math.abs(set.imageDeletionDueAt.getTime() - expected7d) < 5000, 'due date is ~7 days from now (the earlier bound)');
+  assert.ok(set.imageDeletionDueAt.getTime() > now.getTime());
+});
+
+test('grandfather: a record already 25 days old gets capped by the 30-day bound, not now+7d', async () => {
+  resetPuzzles([
+    {
+      // 25 days old -> imageStoredAt+30d is only 5 days out, EARLIER than now+7d.
+      _id: 'pid-legacy-old',
+      publicId: 'o'.repeat(32),
+      status: 'delivered',
+      imageStorageId: 'sid-legacy-old',
+      imageStoredAt: null,
+      createdAt: daysAgo(25),
+      imageDeletionDueAt: null,
+      recipients: []
+    }
+  ]);
+
+  const res = await invokeApply({ confirm: 'I_UNDERSTAND', target: 'finalRetentionStamp', mode: 'grandfather' });
+
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.counts.applied, 1);
+  const set = puzzleWrites[0].update.$set;
+  const expected5d = daysFromNow(5).getTime();
+  assert.ok(Math.abs(set.imageDeletionDueAt.getTime() - expected5d) < 5000, 'due date is ~5 days from now (the 30-day-from-storage bound, which is earlier than now+7d here)');
+});
+
+test('grandfather never touches a record that already has a deadline', async () => {
+  const existingDueAt = daysFromNow(20);
+  resetPuzzles([
+    {
+      _id: 'pid-already-2',
+      publicId: 'p'.repeat(32),
+      status: 'delivered',
+      imageStorageId: 'sid-already-2',
+      imageStoredAt: daysAgo(5),
+      createdAt: daysAgo(5),
+      imageDeletionDueAt: existingDueAt,
+      recipients: []
+    }
+  ]);
+
+  const res = await invokeApply({ confirm: 'I_UNDERSTAND', target: 'finalRetentionStamp', mode: 'grandfather' });
+
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.counts.applied, 0);
+  assert.strictEqual(puzzleWrites.length, 0);
+});
+
+test('grandfather never calls Order (payment/puzzle/recipient/WhatsApp data untouched)', async () => {
+  resetPuzzles([
+    {
+      _id: 'pid-legacy-b',
+      publicId: 'q'.repeat(32),
+      status: 'paid',
+      imageStorageId: 'sid-legacy-b',
+      imageStoredAt: null,
+      createdAt: daysAgo(8),
+      imageDeletionDueAt: null,
+      recipients: [{ completedAt: daysAgo(8) }]
+    }
+  ]);
+  // ordersByPuzzleId stays null (default) -> Order.findOne would throw if called.
+  const res = await invokeApply({ confirm: 'I_UNDERSTAND', target: 'finalRetentionStamp', mode: 'grandfather' });
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.counts.applied, 1);
+});
