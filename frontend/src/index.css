@@ -1289,6 +1289,89 @@ a { color:inherit; text-decoration:none; }
   font-size: 12px;
 }
 
+@media (min-width: 1024px) {
+  .footer__inner {
+    width: min(100% - 80px, 1240px);
+    margin: 0 auto;
+    padding: 46px 0;
+    display: grid;
+    grid-template-columns: minmax(150px, 0.7fr) minmax(260px, 1fr) minmax(420px, 1.4fr);
+    gap: 36px 54px;
+    align-items: center;
+  }
+  .footer__tag {
+    max-width: 34ch;
+    line-height: 1.55;
+  }
+  .footer__links {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+    column-gap: 30px;
+    row-gap: 12px;
+    margin-top: 0;
+    padding-left: 32px;
+    border-left: 1px solid var(--ink-08);
+  }
+  html[dir="rtl"] .footer__links {
+    padding-right: 32px;
+    padding-left: 0;
+    border-right: 1px solid var(--ink-08);
+    border-left: 0;
+  }
+
+  .legal-page__container {
+    width: min(100% - 96px, 1020px);
+    padding: 72px 0 112px;
+  }
+  .legal-page__policy-nav {
+    gap: 10px 24px;
+    padding: 0 0 30px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .legal-page__article {
+    max-width: 820px;
+    margin: 58px auto 0;
+    font-size: 16.5px;
+    line-height: 1.82;
+  }
+  .legal-page__article h1 {
+    max-width: 16ch;
+    margin-bottom: 18px;
+    font-size: clamp(48px, 4.4vw, 64px);
+    line-height: 1.02;
+  }
+  .legal-page[dir="rtl"] .legal-page__article h1 {
+    max-width: 22ch;
+    letter-spacing: 0;
+  }
+  .legal-page__article h2 {
+    margin: 58px 0 18px;
+    padding-top: 42px;
+    border-top: 1px solid var(--ink-08);
+    font-size: 29px;
+    line-height: 1.22;
+    letter-spacing: -0.015em;
+  }
+  .legal-page[dir="rtl"] .legal-page__article h2 {
+    letter-spacing: 0;
+  }
+  .legal-page__article h3 {
+    margin: 34px 0 12px;
+    font-size: 20px;
+    line-height: 1.35;
+  }
+  .legal-page__article p {
+    margin-bottom: 20px;
+  }
+  .legal-page__article ul {
+    margin-bottom: 26px;
+  }
+  .legal-page__article li + li {
+    margin-top: 10px;
+  }
+}
+
 /* Mobile-only footer layout. Desktop (>=761px) keeps the original flex row and
    markup untouched. Here `.footer__links` is flattened with display:contents so
    its two links become direct grid items of `.footer__inner`, letting us place
@@ -1510,6 +1593,106 @@ a { color:inherit; text-decoration:none; }
   cursor: pointer;
   font-family: inherit;
   font-size: 14px;
+}
+
+.create-page .package-accordion {
+  overflow: hidden;
+  margin-bottom: 20px;
+  border: 1.5px solid rgba(28, 25, 19, 0.15);
+  border-radius: 16px;
+  background: #fff;
+}
+.create-page .package-accordion__trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border: 0;
+  background: transparent;
+  color: #1c1913;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.create-page .package-accordion__summary {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+.create-page .package-accordion__eyebrow {
+  color: rgba(28, 25, 19, 0.4);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.create-page .package-accordion__current {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.create-page .package-accordion__arrow {
+  flex: none;
+  color: #8a6d3a;
+  font-size: 12px;
+}
+.create-page .package-accordion__panel {
+  padding: 0 18px 18px;
+  border-top: 1px solid rgba(28, 25, 19, 0.08);
+}
+.create-page .package-accordion__explanation {
+  margin: 0;
+  padding: 14px 0;
+  color: rgba(28, 25, 19, 0.6);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.create-page .package-accordion__options {
+  display: grid;
+  gap: 8px;
+}
+.create-page .package-accordion__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(28, 25, 19, 0.08);
+  border-radius: 11px;
+  background: #fbf7ee;
+}
+.create-page .package-accordion__option > span:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.create-page .package-accordion__option strong {
+  font-size: 13.5px;
+}
+.create-page .package-accordion__option small {
+  color: rgba(28, 25, 19, 0.5);
+  font-size: 11.5px;
+}
+.create-page .package-accordion__option.is-selected {
+  border-color: rgba(166, 124, 61, 0.62);
+  background: rgba(230, 198, 127, 0.18);
+}
+.create-page .package-accordion__option-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  font-size: 13px;
+  font-weight: 700;
+}
+.create-page .package-accordion__check {
+  color: #8a6d3a;
+}
+html[dir="rtl"] .create-page .package-accordion__trigger {
+  text-align: right;
 }
 
 .create-page .difficulty-option {

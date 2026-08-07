@@ -1332,17 +1332,44 @@ export default function CreatePage() {
               {t('create.delivery.subtitle')}
             </p>
 
-            <div style={{ padding: 18, borderRadius: 16, background: T.card, border: "1.5px solid " + T.ink15, marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink40, marginBottom: 2 }}>{t('create.delivery.currentPackage')}</div>
-              <div style={{ fontSize: 16, fontWeight: 600 }}>{t(`packages.${currentPack.id}.label`)} · {currentPack.limit === 1 ? t('create.delivery.recipientLimit_one') : t('create.delivery.recipientLimit_other', { count: currentPack.limit })} · {formatPrice(currentPack.price)}</div>
-            </div>
+            <div className={`package-accordion${packageAccordionOpen ? ' is-open' : ''}`}>
+              <button
+                type="button"
+                className="package-accordion__trigger"
+                aria-expanded={packageAccordionOpen}
+                onClick={() => setPackageAccordionOpen((open) => !open)}
+              >
+                <span className="package-accordion__summary">
+                  <span className="package-accordion__eyebrow">{t('create.delivery.currentPackage')}</span>
+                  <span className="package-accordion__current">
+                    {t(`packages.${currentPack.id}.label`)} · {currentPack.limit === 1 ? t('create.delivery.recipientLimit_one') : t('create.delivery.recipientLimit_other', { count: currentPack.limit })} · {formatPrice(currentPack.price)}
+                  </span>
+                </span>
+                <span className="package-accordion__arrow" aria-hidden="true">{packageAccordionOpen ? '▲' : '▼'}</span>
+              </button>
 
-            <div style={{ padding: "0 10px", marginBottom: 20 }}>
-              <div style={{ fontSize: 12.5, color: T.ink50, lineHeight: 1.45 }}>
-                {t('create.delivery.autoPlanSelection')}
-              </div>
+              {packageAccordionOpen && (
+                <div className="package-accordion__panel">
+                  <p className="package-accordion__explanation">{t('create.delivery.autoPlanSelection')}</p>
+                  <div className="package-accordion__options" aria-label={t('create.delivery.availablePlans')}>
+                    {PACK_OPTIONS.map((pack) => {
+                      const selected = pack.id === currentPack.id;
+                      return (
+                        <div key={pack.id} className={`package-accordion__option${selected ? ' is-selected' : ''}`} aria-current={selected ? 'true' : undefined}>
+                          <span>
+                            <strong>{t(`packages.${pack.id}.label`)}</strong>
+                            <small>{pack.limit === 1 ? t('create.delivery.recipientLimit_one') : t('create.delivery.recipientLimit_other', { count: pack.limit })}</small>
+                          </span>
+                          <span className="package-accordion__option-price">
+                            {formatPrice(pack.price)}{selected && <span className="package-accordion__check" aria-hidden="true">✓</span>}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
-
 
             {/* Recipient Details List */}
             {recipients.map((rec, idx) => {

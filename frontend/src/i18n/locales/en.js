@@ -245,7 +245,7 @@ const en = {
       paymentErrorFallback: 'Please try again or contact support.',
       pricingUnavailable: 'Pricing details are currently unavailable. Please refresh or try again.',
       bhdNoticeHeadline: '💳 You’ll be charged in Bahraini dinars (BHD) 🇧🇭',
-      bhdNoticeMulticurrencySub: 'The equivalent amount in your selected currency will remain visible for reference.',
+      bhdNoticeMulticurrencySub: 'JIGZO converts your total to BHD before payment.',
       bhdNoticeBhdOnlySub: 'Your payment will be processed securely in BHD.',
       bhdProcessingMulticurrency: 'You’ll pay securely in Bahraini dinars (BHD) 🇧🇭, with the equivalent amount shown in your selected currency.',
       bhdProcessingBhdOnly: 'You’ll complete your payment securely in Bahraini dinars (BHD) 🇧🇭.',

@@ -253,7 +253,7 @@ const ar = {
       paymentErrorFallback: 'يرجى المحاولة مرة أخرى أو الاتصال بالدعم.',
       pricingUnavailable: 'تفاصيل التسعير غير متوفرة حالياً. يرجى إعادة تحميل الصفحة أو المحاولة لاحقاً.',
       bhdNoticeHeadline: '💳 سيتم الدفع بالدينار البحريني (BHD) 🇧🇭',
-      bhdNoticeMulticurrencySub: 'سيبقى المبلغ المقابل بعملتك المختارة ظاهرًا للمرجع.',
+      bhdNoticeMulticurrencySub: 'يحوّل JIGZO إجمالي المبلغ إلى الدينار البحريني قبل الدفع.',
       bhdNoticeBhdOnlySub: 'ستتم معالجة دفعتك بأمان بالدينار البحريني.',
       bhdProcessingMulticurrency: 'ستُكمل الدفع بأمان بالدينار البحريني (BHD) 🇧🇭، مع عرض المبلغ المقابل بعملتك المختارة.',
       bhdProcessingBhdOnly: 'ستُكمل عملية الدفع بأمان بالدينار البحريني (BHD) 🇧🇭.',
