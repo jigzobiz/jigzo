@@ -25,9 +25,14 @@ const { runFinalRetentionStamp } = require('../../utils/migrationFinalStamp');
  *  - {"target":"imageRetention"|"analytics"|"finalRetentionStamp"}
  *    selects exactly ONE migration per call, so each can be applied and
  *    verified independently. "finalRetentionStamp" additionally stamps
- *    previously-manual-review records once cleared by the operator, and
- *    is all-or-nothing: it refuses to write anything if any eligible
- *    record's computed deadline is already in the past.
+ *    previously-manual-review records once cleared by the operator.
+ *    Its default mode is all-or-nothing: it refuses to write anything if
+ *    any eligible record's computed deadline is already in the past.
+ *    Pass {"mode":"skipOverdue"} to instead stamp every safe
+ *    (future-deadline) record while leaving overdue-on-computation
+ *    records completely untouched, returning a non-identifying
+ *    `overdueDetails` summary for each instead. Pass {"dryRun":true}
+ *    (with finalRetentionStamp) to preview either mode without writing.
  *  - Delegates to the SAME functions the CLI scripts use
  *    (src/utils/migrationBackfill.js, migrationSanitizeJourney.js) — no
  *    duplicated migration logic, no risk of behavioral drift.
@@ -79,9 +84,13 @@ router.post('/', async (req, res, next) => {
       return res.json({ success: true, target, applied: true, counts });
     }
 
-    // finalRetentionStamp: all-or-nothing. If any eligible record would be
-    // overdue, runFinalRetentionStamp writes NOTHING and reports stopped.
-    const result = await runFinalRetentionStamp({ apply: true, now });
+    // finalRetentionStamp: default mode is all-or-nothing (writes NOTHING
+    // if any eligible record is overdue/unclassifiable). mode:"skipOverdue"
+    // instead stamps every safe record and reports overdueDetails for the
+    // rest, untouched. dryRun:true previews either mode without writing.
+    const mode = req.body.mode === 'skipOverdue' ? 'skipOverdue' : 'allOrNothing';
+    const wantsApply = req.body.dryRun !== true;
+    const result = await runFinalRetentionStamp({ apply: wantsApply, now, mode });
     if (result.stopped) {
       return res.status(409).json({
         success: false,
@@ -92,7 +101,14 @@ router.post('/', async (req, res, next) => {
         counts: result.counts
       });
     }
-    return res.json({ success: true, target, applied: true, counts: result.counts });
+    return res.json({
+      success: true,
+      target,
+      applied: wantsApply,
+      mode,
+      counts: result.counts,
+      overdueDetails: result.overdueDetails
+    });
   } catch (error) {
     next(error);
   }

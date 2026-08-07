@@ -18,9 +18,10 @@ function stubModule(relPath, exportsObj) {
 const puzzleWrites = [];
 let puzzles; // reassigned per test via resetPuzzles()
 
-function resetPuzzles(list) {
+function resetPuzzles(list, orders = null) {
   puzzles = list;
   puzzleWrites.length = 0;
+  ordersByPuzzleId = orders;
 }
 
 stubModule('../src/models/Puzzle', {
@@ -40,12 +41,22 @@ stubModule('../src/models/Puzzle', {
   deleteMany: async () => { throw new Error('unexpected Puzzle.deleteMany'); }
 });
 
-// finalRetentionStamp never touches Order or JourneyEvent, but the apply
-// router requires all three migration utils at load time — stub them to
-// throw if ever actually called, proving they're untouched.
+// finalRetentionStamp never WRITES Order, but in skipOverdue mode it DOES
+// read Order (read-only) to build the non-identifying overdue detail
+// summary. ordersByPuzzleId is configured per-test; default throws so any
+// test not expecting an Order read fails loudly if one occurs.
+let ordersByPuzzleId = null;
 stubModule('../src/models/Order', {
-  findOne: () => { throw new Error('unexpected Order read/write — finalRetentionStamp must not touch Order'); },
-  updateOne: async () => { throw new Error('unexpected Order write'); }
+  findOne: (query) => ({
+    sort: async () => {
+      if (ordersByPuzzleId === null) {
+        throw new Error('unexpected Order read — this test does not expect one');
+      }
+      return ordersByPuzzleId[query.puzzleId] || null;
+    }
+  }),
+  updateOne: async () => { throw new Error('unexpected Order write — finalRetentionStamp must never write Order'); },
+  updateMany: async () => { throw new Error('unexpected Order write — finalRetentionStamp must never write Order'); }
 });
 stubModule('../src/models/JourneyEvent', {
   find: () => { throw new Error('unexpected JourneyEvent access'); },
@@ -246,4 +257,164 @@ test('response never contains a raw publicId or the CRON_SECRET value', async ()
   const bodyText = JSON.stringify(res.body);
   assert.ok(!bodyText.includes('g'.repeat(32)));
   assert.ok(!bodyText.includes(process.env.CRON_SECRET));
+});
+
+// --- skipOverdue mode: stamp the safe subset, leave overdue records untouched ---
+
+test('skipOverdue: stamps the safe record, leaves the overdue record completely untouched, reports non-identifying detail', async () => {
+  resetPuzzles(
+    [
+      {
+        _id: 'pid-safe',
+        publicId: 'h'.repeat(32),
+        status: 'delivered',
+        imageStorageId: 'sid-safe',
+        imageStoredAt: daysAgo(1),
+        createdAt: daysAgo(1),
+        imageDeletionDueAt: null,
+        recipients: [{ completedAt: null }]
+      },
+      {
+        // All recipients completed 9 days ago -> 7-day deadline already
+        // passed by 2 days. Paid 3 days ago (recently), not refunded,
+        // status still 'delivered' (delivery succeeded).
+        _id: 'pid-overdue',
+        publicId: 'i'.repeat(32),
+        status: 'delivered',
+        imageStorageId: 'sid-overdue',
+        imageStoredAt: daysAgo(20),
+        createdAt: daysAgo(20),
+        imageDeletionDueAt: null,
+        recipients: [{ completedAt: daysAgo(9) }]
+      }
+    ],
+    {
+      ['i'.repeat(32)]: { paymentStatus: 'paid', paidAt: daysAgo(3), lastPaymentError: '' }
+    }
+  );
+
+  const res = await invokeApply({ confirm: 'I_UNDERSTAND', target: 'finalRetentionStamp', mode: 'skipOverdue' });
+
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.success, true);
+  assert.strictEqual(res.body.mode, 'skipOverdue');
+  assert.strictEqual(res.body.counts.wouldStamp, 1);
+  assert.strictEqual(res.body.counts.wouldBeOverdue, 1);
+  assert.strictEqual(res.body.counts.applied, 1); // only the safe one
+
+  // Only the safe record was written.
+  assert.strictEqual(puzzleWrites.length, 1);
+  assert.strictEqual(puzzleWrites[0].filter._id, 'pid-safe');
+
+  // Non-identifying detail for the overdue record.
+  assert.strictEqual(res.body.overdueDetails.length, 1);
+  const detail = res.body.overdueDetails[0];
+  assert.strictEqual(detail.puzzleStatus, 'delivered');
+  assert.strictEqual(detail.deliveredSuccessfully, true);
+  assert.strictEqual(detail.allRecipientsCompleted, true);
+  assert.strictEqual(detail.paymentExists, true);
+  assert.strictEqual(detail.paidWithinLast7Days, true);
+  assert.strictEqual(detail.refunded, false);
+  assert.strictEqual(detail.hasManualResolutionMarker, false);
+  assert.ok(detail.deadlineOverdueDays > 0);
+  assert.strictEqual(typeof detail.imageAgeDays, 'number');
+  assert.strictEqual(typeof detail.daysSinceAllRecipientsCompleted, 'number');
+
+  // No identifying fields anywhere in the detail or the response.
+  const bodyText = JSON.stringify(res.body);
+  assert.ok(!bodyText.includes('h'.repeat(32)));
+  assert.ok(!bodyText.includes('i'.repeat(32)));
+  assert.ok(!('publicId' in detail));
+});
+
+test('skipOverdue detects refunded and manual-resolution-marker orders correctly', async () => {
+  resetPuzzles(
+    [
+      {
+        _id: 'pid-refunded',
+        publicId: 'j'.repeat(32),
+        status: 'delivered',
+        imageStorageId: 'sid-refunded',
+        imageStoredAt: daysAgo(25),
+        createdAt: daysAgo(25),
+        imageDeletionDueAt: null,
+        recipients: [{ completedAt: daysAgo(15) }]
+      },
+      {
+        _id: 'pid-manual',
+        publicId: 'k'.repeat(32),
+        status: 'paid',
+        imageStorageId: 'sid-manual',
+        imageStoredAt: daysAgo(40),
+        createdAt: daysAgo(40),
+        imageDeletionDueAt: null,
+        recipients: []
+      }
+    ],
+    {
+      ['j'.repeat(32)]: { paymentStatus: 'refunded', paidAt: daysAgo(20), lastPaymentError: '' },
+      ['k'.repeat(32)]: { paymentStatus: 'paid', paidAt: daysAgo(35), lastPaymentError: 'PAID_AFTER_IMAGE_RETENTION_DEADLINE_MANUAL_RESOLUTION_REQUIRED' }
+    }
+  );
+
+  const res = await invokeApply({ confirm: 'I_UNDERSTAND', target: 'finalRetentionStamp', mode: 'skipOverdue' });
+
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.counts.wouldBeOverdue, 2);
+  assert.strictEqual(res.body.counts.applied, 0); // neither is safe
+  assert.strictEqual(puzzleWrites.length, 0);
+
+  assert.strictEqual(res.body.overdueDetails.length, 2);
+  const refundedDetail = res.body.overdueDetails.find((d) => d.refunded === true);
+  assert.ok(refundedDetail);
+  assert.strictEqual(refundedDetail.paymentExists, true);
+
+  const manualDetail = res.body.overdueDetails.find((d) => d.hasManualResolutionMarker === true);
+  assert.ok(manualDetail);
+  assert.strictEqual(manualDetail.paymentExists, true);
+  assert.strictEqual(manualDetail.refunded, false);
+
+  // Most-overdue-first ordering (pid-manual is 40 days old with a 30-day
+  // cap deadline vs pid-refunded's 7-day-post-completion deadline).
+  assert.ok(res.body.overdueDetails[0].deadlineOverdueDays >= res.body.overdueDetails[1].deadlineOverdueDays);
+});
+
+test('skipOverdue with dryRun:true previews without writing anything', async () => {
+  resetPuzzles(
+    [
+      {
+        _id: 'pid-safe2',
+        publicId: 'l'.repeat(32),
+        status: 'delivered',
+        imageStorageId: 'sid-safe2',
+        imageStoredAt: daysAgo(1),
+        createdAt: daysAgo(1),
+        imageDeletionDueAt: null,
+        recipients: []
+      },
+      {
+        _id: 'pid-overdue2',
+        publicId: 'm'.repeat(32),
+        status: 'delivered',
+        imageStorageId: 'sid-overdue2',
+        imageStoredAt: daysAgo(20),
+        createdAt: daysAgo(20),
+        imageDeletionDueAt: null,
+        recipients: [{ completedAt: daysAgo(10) }]
+      }
+    ],
+    { ['m'.repeat(32)]: null }
+  );
+
+  const res = await invokeApply({ confirm: 'I_UNDERSTAND', target: 'finalRetentionStamp', mode: 'skipOverdue', dryRun: true });
+
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.applied, false);
+  assert.strictEqual(res.body.counts.wouldStamp, 1);
+  assert.strictEqual(res.body.counts.wouldBeOverdue, 1);
+  assert.strictEqual(res.body.overdueDetails.length, 1);
+  assert.strictEqual(res.body.overdueDetails[0].paymentExists, false);
+
+  // Nothing written despite mode:skipOverdue identifying a safe record.
+  assert.strictEqual(puzzleWrites.length, 0);
 });
