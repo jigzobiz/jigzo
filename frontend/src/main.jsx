@@ -25,6 +25,7 @@ import LandingPage from './pages/LandingPage';
 import CreatePage from './pages/CreatePage';
 import ReceivePage from './pages/ReceivePage';
 import TermsPage from './pages/TermsPage';
+import LegalPolicyPage from './pages/LegalPolicyPage';
 import AboutPage from './pages/AboutPage';
 import AdminLayout from './pages/admin/AdminLayout';
 import Home from './pages/admin/Home';
@@ -81,6 +82,10 @@ const router = createBrowserRouter([
         path: '/terms',
         element: <TermsPage />
       },
+      { path: '/privacy', element: <LegalPolicyPage policy="privacy" /> },
+      { path: '/upload-content', element: <LegalPolicyPage policy="upload" /> },
+      { path: '/refunds', element: <LegalPolicyPage policy="refund" /> },
+      { path: '/cookies', element: <LegalPolicyPage policy="cookies" /> },
       {
         path: '/about',
         element: <AboutPage />

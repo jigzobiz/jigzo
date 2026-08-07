@@ -1114,7 +1114,13 @@ export default function CreatePage() {
             )}
 
             <div style={{ marginTop: 12, textAlign: "center", fontSize: 12.5, color: T.ink50, lineHeight: 1.4, padding: "0 10px" }}>
-              {t('create.photo.privacyNote')}
+              <div>{t('create.photo.privacyNote')}</div>
+              <div style={{ marginTop: 6, fontSize: 11.5 }}>
+                {t('create.photo.permissionNote')}{' '}
+                <Link to="/upload-content#photo-permissions" className="create-photo-terms">
+                  {t('create.photo.photoTerms')}
+                </Link>
+              </div>
             </div>
 
             {imgSrc && !cropData && (
@@ -1832,35 +1838,13 @@ export default function CreatePage() {
                     style={{ marginTop: 4, flex: "none", cursor: "pointer" }}
                   />
                   <label htmlFor="consent-checkbox" style={{ fontSize: 13, lineHeight: 1.4, color: T.ink, cursor: "pointer", textAlign: isAr ? 'right' : 'left' }}>
-                    {isAr ? (
-                      <>
-                        أوافق على{" "}
-                        <a
-                          href="https://jigzo.biz/terms"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          style={{ color: T.goldDeep, textDecoration: "underline" }}
-                        >
-                          الشروط والأحكام
-                        </a>{" "}
-                        وأؤكد أن لدي الحق في استخدام هذه الصورة.
-                      </>
-                    ) : (
-                      <>
-                        I agree to the{" "}
-                        <a
-                          href="https://jigzo.biz/terms"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          style={{ color: T.goldDeep, textDecoration: "underline" }}
-                        >
-                          Terms & Conditions
-                        </a>{" "}
-                        and confirm I have the right to use this photo.
-                      </>
-                    )}
+                    I agree to the{' '}
+                    <Link to="/terms" target="_blank" onClick={(e) => e.stopPropagation()} style={{ color: T.goldDeep, textDecoration: 'underline' }}>Terms of Service</Link>
+                    {' '}and{' '}
+                    <Link to="/privacy" target="_blank" onClick={(e) => e.stopPropagation()} style={{ color: T.goldDeep, textDecoration: 'underline' }}>Privacy Policy</Link>
+                    {' '}and confirm that I have the{' '}
+                    <Link to="/upload-content#photo-permissions" target="_blank" onClick={(e) => e.stopPropagation()} style={{ color: T.goldDeep, textDecoration: 'underline' }}>right to use the uploaded photo</Link>
+                    {' '}and send this JIGZO to the selected recipient(s).
                   </label>
                 </div>
               )}
@@ -1898,7 +1882,12 @@ export default function CreatePage() {
           </div>
           <div className="footer__tag">{t('landing.footer.tag')}</div>
           <div className="footer__links">
+            <Link className="footer__link" to="/about">{t('landing.footer.about')}</Link>
             <Link className="footer__link" to="/terms">{t('landing.footer.terms')}</Link>
+            <Link className="footer__link" to="/privacy">{t('landing.footer.privacy')}</Link>
+            <Link className="footer__link" to="/upload-content">{t('landing.footer.uploadContent')}</Link>
+            <Link className="footer__link" to="/refunds">{t('landing.footer.refunds')}</Link>
+            <Link className="footer__link" to="/cookies">{t('landing.footer.cookies')}</Link>
           </div>
         </div>
       </footer>

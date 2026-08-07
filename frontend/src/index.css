@@ -1192,6 +1192,95 @@ a { color:inherit; text-decoration:none; }
   text-decoration: underline;
 }
 
+.create-photo-terms {
+  color: var(--gold-deep, #8a6d3a);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Public legal pages */
+.legal-page {
+  min-height: 100vh;
+  background: var(--cream);
+  color: var(--ink);
+}
+.legal-page__container {
+  width: min(100% - 40px, 920px);
+  margin: 0 auto;
+  padding: 40px 0 80px;
+}
+.legal-page__language-note {
+  margin: 0 0 20px;
+  padding: 12px 16px;
+  border: 1px solid rgba(166, 124, 61, 0.25);
+  border-radius: 12px;
+  background: rgba(230, 198, 127, 0.16);
+  color: var(--ink-66);
+  font-size: 13px;
+}
+.legal-page__policy-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--ink-08);
+  font-size: 13px;
+}
+.legal-page__policy-nav a {
+  color: var(--ink-50);
+}
+.legal-page__policy-nav a[aria-current="page"] {
+  color: var(--ink);
+  font-weight: 600;
+}
+.legal-page__article {
+  max-width: 760px;
+  margin-top: 42px;
+  font-size: 16px;
+  line-height: 1.75;
+}
+.legal-page__article h1 {
+  margin: 0 0 12px;
+  font-size: clamp(34px, 6vw, 54px);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+}
+.legal-page__article h2 {
+  margin: 46px 0 12px;
+  padding-top: 8px;
+  scroll-margin-top: 24px;
+  font-size: clamp(22px, 3vw, 28px);
+  font-weight: 500;
+  line-height: 1.25;
+}
+.legal-page__article h3 {
+  margin: 28px 0 8px;
+  scroll-margin-top: 24px;
+  font-size: 18px;
+}
+.legal-page__article p {
+  margin: 0 0 16px;
+}
+.legal-page__article ul {
+  margin: 0 0 20px;
+  padding-left: 24px;
+}
+.legal-page__article li + li {
+  margin-top: 7px;
+}
+.legal-page__article a {
+  color: #8a6d3a;
+  text-decoration: underline;
+}
+.legal-page__meta:nth-of-type(-n+2) {
+  margin-bottom: 2px;
+  color: #8a6d3a;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+}
+
 /* Mobile-only footer layout. Desktop (>=761px) keeps the original flex row and
    markup untouched. Here `.footer__links` is flattened with display:contents so
    its two links become direct grid items of `.footer__inner`, letting us place
@@ -1220,7 +1309,9 @@ a { color:inherit; text-decoration:none; }
   .footer__links {
     flex: 0 0 auto;
     display: flex;
-    flex-direction: column-reverse;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     align-items: flex-end;
     gap: 8px;
     margin-top: 0;
@@ -1265,12 +1356,31 @@ a { color:inherit; text-decoration:none; }
     flex-direction: row !important;
     justify-content: center !important;
     align-items: center !important;
-    gap: 16px !important;
+    flex-wrap: wrap !important;
+    gap: 10px 16px !important;
     margin-top: 4px !important;
   }
 
   html[dir="rtl"] .footer__links {
     flex-direction: row-reverse !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .legal-page__container {
+    width: min(100% - 32px, 920px);
+    padding: 26px 0 56px;
+  }
+  .legal-page__policy-nav {
+    gap: 9px 14px;
+  }
+  .legal-page__article {
+    margin-top: 30px;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  .legal-page__article h2 {
+    margin-top: 36px;
   }
 }
 

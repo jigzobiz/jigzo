@@ -7,14 +7,18 @@ import { useLocation } from 'react-router-dom';
 // jump — only genuine page navigations do. Rendered once in the root layout,
 // so it applies site-wide.
 export default function ScrollToTop() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
 
   useEffect(() => {
     // `behavior: 'instant'` overrides the global `scroll-behavior: smooth` so a
     // route change jumps straight to the top instead of animating the new page
     // up from the previous scroll position.
+    if (hash) {
+      requestAnimationFrame(() => document.getElementById(hash.slice(1))?.scrollIntoView());
+      return;
+    }
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-  }, [pathname]);
+  }, [pathname, hash]);
 
   return null;
 }

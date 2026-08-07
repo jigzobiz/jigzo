@@ -18,6 +18,10 @@ export default function SiteFooter() {
         <div className="footer__links">
           <Link className="footer__link footer__link--about" to="/about">{t('landing.footer.about')}</Link>
           <Link className="footer__link footer__link--terms" to="/terms">{t('landing.footer.terms')}</Link>
+          <Link className="footer__link" to="/privacy">{t('landing.footer.privacy')}</Link>
+          <Link className="footer__link" to="/upload-content">{t('landing.footer.uploadContent')}</Link>
+          <Link className="footer__link" to="/refunds">{t('landing.footer.refunds')}</Link>
+          <Link className="footer__link" to="/cookies">{t('landing.footer.cookies')}</Link>
         </div>
       </div>
     </footer>

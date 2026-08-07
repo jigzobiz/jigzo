@@ -110,6 +110,10 @@ const ar = {
       tag: 'كل مفاجأة تستاهل لحظة كشف تعلق في البال.',
       about: 'من نحن',
       terms: 'شروط الخدمة',
+      privacy: 'Privacy Policy',
+      uploadContent: 'Upload & Content',
+      refunds: 'Refunds & Cancellations',
+      cookies: 'Cookies & Storage',
     },
     language: {
       switchTo: 'English',
@@ -147,7 +151,9 @@ const ar = {
         rotateLeft: 'تدوير لليسار',
         rotateRight: 'تدوير لليمين'
       },
-      privacyNote: 'صورتك تبقى خاصة وتُستخدم فقط لإنشاء هذا الجيجزو لك وللمستلم أو المستلمين.'
+      privacyNote: 'Your photo stays protected and is used only to create this JIGZO. It’s automatically deleted 7 days after everyone completes the puzzle, or 30 days after upload—whichever comes first.',
+      permissionNote: 'By uploading, you confirm you have the right to use this photo.',
+      photoTerms: 'Photo terms'
     },
     recipient: {
       title: 'لمن هذه المفاجأة؟',
