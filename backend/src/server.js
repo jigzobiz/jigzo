@@ -21,6 +21,9 @@ const testRouter = require('./routes/test');
 const whatsappWebhookRouter = require('./routes/webhooks/whatsapp');
 const whatsappReconciliationRouter = require('./routes/internal/whatsappReconciliation');
 const imageCleanupRouter = require('./routes/internal/imageCleanup');
+// TEMPORARY — read-only migration dry-run reporting endpoint. Remove this
+// require and its mount below once the migration review work is finished.
+const migrationDryRunRouter = require('./routes/internal/migrationDryRun');
 const { isTestModeAllowed } = require('./utils/testModeGuard');
 
 
@@ -125,6 +128,8 @@ app.use('/api/admin', adminRouter);
 app.use('/api/pricing', pricingRouter);
 app.use('/api/internal/whatsapp/reconcile', whatsappReconciliationRouter);
 app.use('/api/internal/images/cleanup', imageCleanupRouter);
+// TEMPORARY — remove this mount once the migration review work is finished.
+app.use('/api/internal/migrations/dry-run', migrationDryRunRouter);
 
 
 
