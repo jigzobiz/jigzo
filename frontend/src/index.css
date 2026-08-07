@@ -1307,6 +1307,7 @@ a { color:inherit; text-decoration:none; }
     max-width: 34ch;
     line-height: 1.55;
     text-align: center;
+    white-space: nowrap;
   }
   .footer__links {
     justify-self: end;
@@ -1316,13 +1317,10 @@ a { color:inherit; text-decoration:none; }
     row-gap: 12px;
     margin-top: 0;
     padding-left: 32px;
-    border-left: 1px solid var(--ink-08);
   }
   html[dir="rtl"] .footer__links {
     padding-right: 32px;
     padding-left: 0;
-    border-right: 1px solid var(--ink-08);
-    border-left: 0;
   }
 
   .legal-page__container {
