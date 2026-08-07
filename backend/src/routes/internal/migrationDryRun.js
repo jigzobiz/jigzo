@@ -11,6 +11,7 @@ const {
   DAY_MS
 } = require('../../utils/imageRetention');
 const { sanitizePageUrl, scrubMetadata } = require('../../utils/analyticsSanitize');
+const { runFinalRetentionStamp } = require('../../utils/migrationFinalStamp');
 
 /**
  * TEMPORARY, READ-ONLY reporting endpoint.
@@ -257,10 +258,16 @@ router.get('/', async (req, res, next) => {
     }
 
     const now = new Date();
-    const [imageRetention, analytics] = await Promise.all([
+    const [imageRetention, analytics, finalStamp] = await Promise.all([
       buildImageRetentionReport(now),
-      buildAnalyticsReport()
+      buildAnalyticsReport(),
+      runFinalRetentionStamp({ apply: false, now })
     ]);
+
+    // Read-only completeness check: does every stored image have BOTH
+    // imageStoredAt and imageDeletionDueAt? (dry-run only — apply:false
+    // above guarantees zero writes here.)
+    imageRetention.retentionFieldCompleteness = finalStamp.counts;
 
     return res.json({ success: true, imageRetention, analytics });
   } catch (error) {

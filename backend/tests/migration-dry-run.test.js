@@ -303,6 +303,18 @@ test('authorized dry-run performs zero writes and returns exact counts for both 
       incompleteRecipients: 3,    // puzzles 5, 7, 9, WITHIN the manual-review set
       ageDaysOldest: 6,           // puzzle 8
       ageDaysYoungest: 1          // puzzle 9
+    },
+    retentionFieldCompleteness: {
+      // Read-only preview of the (separate, temporary) final-stamp pass —
+      // apply is always false here, so this can never write anything.
+      totalStoredImages: 9,
+      withImageStoredAt: 8,       // all but puzzle 6 (throws on access)
+      withImageDeletionDueAt: 1,  // puzzle 4 only (already stamped)
+      missingEither: 7,           // puzzles 1,2,3,5,7,8,9 (missing the due date)
+      wouldStamp: 5,              // puzzles 2,5,7,8,9
+      wouldBeOverdue: 2,          // puzzles 1,3 (their computed deadline already passed)
+      unclassified: 1,            // puzzle 6
+      applied: 0                  // dry-run: never applies
     }
   });
 

@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { runBackfillImageRetention } = require('../../utils/migrationBackfill');
 const { runSanitizeJourneyEvents } = require('../../utils/migrationSanitizeJourney');
+const { runFinalRetentionStamp } = require('../../utils/migrationFinalStamp');
 
 /**
  * TEMPORARY, WRITE-CAPABLE endpoint — the counterpart to
@@ -21,9 +22,12 @@ const { runSanitizeJourneyEvents } = require('../../utils/migrationSanitizeJourn
  *    the HTTP-path equivalent of the CLI scripts' own
  *    JIGZO_PRODUCTION_APPLY confirmation requirement — so a valid
  *    Bearer token alone can never trigger a write.
- *  - {"target":"imageRetention"|"analytics"} selects exactly ONE
- *    migration per call, so each can be applied and verified
- *    independently.
+ *  - {"target":"imageRetention"|"analytics"|"finalRetentionStamp"}
+ *    selects exactly ONE migration per call, so each can be applied and
+ *    verified independently. "finalRetentionStamp" additionally stamps
+ *    previously-manual-review records once cleared by the operator, and
+ *    is all-or-nothing: it refuses to write anything if any eligible
+ *    record's computed deadline is already in the past.
  *  - Delegates to the SAME functions the CLI scripts use
  *    (src/utils/migrationBackfill.js, migrationSanitizeJourney.js) — no
  *    duplicated migration logic, no risk of behavioral drift.
@@ -60,8 +64,8 @@ router.post('/', async (req, res, next) => {
     if (confirm !== 'I_UNDERSTAND') {
       return res.status(400).json({ error: 'Missing or invalid confirm field.' });
     }
-    if (target !== 'imageRetention' && target !== 'analytics') {
-      return res.status(400).json({ error: 'target must be "imageRetention" or "analytics".' });
+    if (!['imageRetention', 'analytics', 'finalRetentionStamp'].includes(target)) {
+      return res.status(400).json({ error: 'target must be "imageRetention", "analytics", or "finalRetentionStamp".' });
     }
 
     const now = new Date();
@@ -70,8 +74,25 @@ router.post('/', async (req, res, next) => {
       return res.json({ success: true, target, applied: true, counts });
     }
 
-    const { counts } = await runSanitizeJourneyEvents({ apply: true });
-    return res.json({ success: true, target, applied: true, counts });
+    if (target === 'analytics') {
+      const { counts } = await runSanitizeJourneyEvents({ apply: true });
+      return res.json({ success: true, target, applied: true, counts });
+    }
+
+    // finalRetentionStamp: all-or-nothing. If any eligible record would be
+    // overdue, runFinalRetentionStamp writes NOTHING and reports stopped.
+    const result = await runFinalRetentionStamp({ apply: true, now });
+    if (result.stopped) {
+      return res.status(409).json({
+        success: false,
+        target,
+        applied: false,
+        stopped: true,
+        reason: 'One or more eligible records have an already-past calculated deadline; nothing was written.',
+        counts: result.counts
+      });
+    }
+    return res.json({ success: true, target, applied: true, counts: result.counts });
   } catch (error) {
     next(error);
   }
