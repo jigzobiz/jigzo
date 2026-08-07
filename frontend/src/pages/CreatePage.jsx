@@ -1838,13 +1838,26 @@ export default function CreatePage() {
                     style={{ marginTop: 4, flex: "none", cursor: "pointer" }}
                   />
                   <label htmlFor="consent-checkbox" style={{ fontSize: 13, lineHeight: 1.4, color: T.ink, cursor: "pointer", textAlign: isAr ? 'right' : 'left' }}>
-                    I agree to the{' '}
-                    <Link to="/terms" target="_blank" onClick={(e) => e.stopPropagation()} style={{ color: T.goldDeep, textDecoration: 'underline' }}>Terms of Service</Link>
-                    {' '}and{' '}
-                    <Link to="/privacy" target="_blank" onClick={(e) => e.stopPropagation()} style={{ color: T.goldDeep, textDecoration: 'underline' }}>Privacy Policy</Link>
-                    {' '}and confirm that I have the{' '}
-                    <Link to="/upload-content#photo-permissions" target="_blank" onClick={(e) => e.stopPropagation()} style={{ color: T.goldDeep, textDecoration: 'underline' }}>right to use the uploaded photo</Link>
-                    {' '}and send this JIGZO to the selected recipient(s).
+                    {isAr ? (
+                      <>
+                        أوافق على{' '}
+                        <Link to="/terms" target="_blank" onClick={(e) => e.stopPropagation()} style={{ color: T.goldDeep, textDecoration: 'underline' }}>شروط الخدمة</Link>
+                        {' '}و<Link to="/privacy" target="_blank" onClick={(e) => e.stopPropagation()} style={{ color: T.goldDeep, textDecoration: 'underline' }}>سياسة الخصوصية</Link>
+                        ، وأؤكد أن لي{' '}
+                        <Link to="/upload-content#photo-permissions" target="_blank" onClick={(e) => e.stopPropagation()} style={{ color: T.goldDeep, textDecoration: 'underline' }}>الحق في استخدام الصورة المرفوعة</Link>
+                        {' '}وإرسال JIGZO هذه إلى المستلم (أو المستلمين) المحددين.
+                      </>
+                    ) : (
+                      <>
+                        I agree to the{' '}
+                        <Link to="/terms" target="_blank" onClick={(e) => e.stopPropagation()} style={{ color: T.goldDeep, textDecoration: 'underline' }}>Terms of Service</Link>
+                        {' '}and{' '}
+                        <Link to="/privacy" target="_blank" onClick={(e) => e.stopPropagation()} style={{ color: T.goldDeep, textDecoration: 'underline' }}>Privacy Policy</Link>
+                        {' '}and confirm that I have the{' '}
+                        <Link to="/upload-content#photo-permissions" target="_blank" onClick={(e) => e.stopPropagation()} style={{ color: T.goldDeep, textDecoration: 'underline' }}>right to use the uploaded photo</Link>
+                        {' '}and send this JIGZO to the selected recipient(s).
+                      </>
+                    )}
                   </label>
                 </div>
               )}

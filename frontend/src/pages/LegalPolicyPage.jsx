@@ -3,14 +3,15 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import SiteHeader from '../components/SiteHeader';
 import SiteFooter from '../components/SiteFooter';
-import legalSuite from '../content/legal-suite-en.md?raw';
+import legalSuiteEn from '../content/legal-suite-en.md?raw';
+import legalSuiteAr from '../content/legal-suite-ar.md?raw';
 
 const policies = {
-  terms: { heading: 'TERMS OF SERVICE', path: '/terms' },
-  privacy: { heading: 'PRIVACY POLICY', path: '/privacy' },
-  upload: { heading: 'UPLOAD & CONTENT POLICY', path: '/upload-content' },
-  refund: { heading: 'REFUND & CANCELLATION POLICY', path: '/refunds' },
-  cookies: { heading: 'COOKIE & BROWSER STORAGE POLICY', path: '/cookies' },
+  terms: { enHeading: 'TERMS OF SERVICE', arHeading: 'شروط الخدمة', path: '/terms' },
+  privacy: { enHeading: 'PRIVACY POLICY', arHeading: 'سياسة الخصوصية', path: '/privacy' },
+  upload: { enHeading: 'UPLOAD & CONTENT POLICY', arHeading: 'سياسة الرفع والمحتوى', path: '/upload-content' },
+  refund: { enHeading: 'REFUND & CANCELLATION POLICY', arHeading: 'سياسة الاسترداد والإلغاء', path: '/refunds' },
+  cookies: { enHeading: 'COOKIE & BROWSER STORAGE POLICY', arHeading: 'سياسة ملفات تعريف الارتباط وتخزين المتصفح', path: '/cookies' },
 };
 
 const policyOrder = Object.values(policies);
@@ -24,25 +25,31 @@ function slugify(value) {
 }
 
 function sectionId(policy, heading) {
-  if (policy === 'upload' && heading.startsWith('1. You Are Responsible')) return 'photo-permissions';
-  if (policy === 'upload' && heading.startsWith('11. Requesting Removal')) return 'requesting-removal';
+  if (policy === 'upload' && heading.startsWith('1.')) return 'photo-permissions';
+  if (policy === 'upload' && heading.startsWith('11.')) return 'requesting-removal';
   return slugify(heading);
 }
 
-function extractPolicy(heading) {
-  const start = legalSuite.indexOf(`# ${heading}`);
+function extractPolicy(suite, heading, headingKey) {
+  const start = suite.indexOf(`# ${heading}`);
   const nextStarts = policyOrder
-    .map(({ heading: next }) => legalSuite.indexOf(`# ${next}`, start + 2))
+    .map((item) => suite.indexOf(`# ${item[headingKey]}`, start + 2))
     .filter((index) => index > start);
-  const end = nextStarts.length ? Math.min(...nextStarts) : legalSuite.length;
-  return legalSuite.slice(start, end).replace(/\n---\s*$/, '').trim();
+  const end = nextStarts.length ? Math.min(...nextStarts) : suite.length;
+  return suite.slice(start, end).replace(/\n---\s*$/, '').trim();
 }
 
-function parseMarkdown(markdown, policy) {
+function parseMarkdown(markdown, policy, anchorReferenceMarkdown = markdown) {
   const lines = markdown.split(/\r?\n/);
+  const referenceIds = anchorReferenceMarkdown
+    .split(/\r?\n/)
+    .map((line) => line.match(/^#{2,3}\s+(.+)$/))
+    .filter(Boolean)
+    .map((match) => sectionId(policy, match[1]));
   const blocks = [];
   let paragraph = [];
   let list = [];
+  let sectionHeadingIndex = 0;
 
   const flushParagraph = () => {
     if (paragraph.length) blocks.push({ type: 'p', text: paragraph.join(' ') });
@@ -62,7 +69,7 @@ function parseMarkdown(markdown, policy) {
       blocks.push({
         type: `h${heading[1].length}`,
         text: heading[2],
-        id: heading[1].length > 1 ? sectionId(policy, heading[2]) : undefined,
+        id: heading[1].length > 1 ? referenceIds[sectionHeadingIndex++] : undefined,
       });
     } else if (bullet) {
       flushParagraph();
@@ -90,26 +97,28 @@ function InlineText({ children }) {
 export default function LegalPolicyPage({ policy }) {
   const { i18n } = useTranslation();
   const config = policies[policy];
-  const blocks = useMemo(() => parseMarkdown(extractPolicy(config.heading), policy), [config.heading, policy]);
   const isArabic = i18n.language?.startsWith('ar');
+  const heading = isArabic ? config.arHeading : config.enHeading;
+  const headingKey = isArabic ? 'arHeading' : 'enHeading';
+  const suite = isArabic ? legalSuiteAr : legalSuiteEn;
+  const englishPolicy = useMemo(() => extractPolicy(legalSuiteEn, config.enHeading, 'enHeading'), [config.enHeading]);
+  const blocks = useMemo(
+    () => parseMarkdown(extractPolicy(suite, heading, headingKey), policy, englishPolicy),
+    [englishPolicy, heading, headingKey, policy, suite],
+  );
 
   useEffect(() => {
-    document.title = `JIGZO | ${config.heading.replace(/\b\w/g, (letter) => letter.toUpperCase())}`;
-  }, [config.heading]);
+    document.title = `JIGZO | ${heading}`;
+  }, [heading]);
 
   return (
-    <div className="legal-page" dir="ltr">
+    <div className="legal-page" dir={isArabic ? 'rtl' : 'ltr'}>
       <SiteHeader switcherLocation={`legal_${policy}`} />
       <main className="legal-page__container">
-        {isArabic && (
-          <p className="legal-page__language-note" role="note">
-            The approved legal text is currently available in English. Professional Arabic legal translation is pending.
-          </p>
-        )}
-        <nav className="legal-page__policy-nav" aria-label="Legal policies">
+        <nav className="legal-page__policy-nav" aria-label={isArabic ? 'السياسات القانونية' : 'Legal policies'}>
           {policyOrder.map((item) => (
             <Link key={item.path} to={item.path} aria-current={item.path === config.path ? 'page' : undefined}>
-              {item.heading.replace(/\b\w/g, (letter) => letter.toUpperCase())}
+              {isArabic ? item.arHeading : item.enHeading.replace(/\b\w/g, (letter) => letter.toUpperCase())}
             </Link>
           ))}
         </nav>
