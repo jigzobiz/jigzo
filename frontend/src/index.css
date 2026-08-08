@@ -1204,7 +1204,7 @@ a { color:inherit; text-decoration:none; }
   text-decoration: underline;
 }
 
-@media (min-width: 761px) {
+@media (min-width: 601px) {
   .footer__tag {
     font-size: 15px;
   }
@@ -1214,7 +1214,7 @@ a { color:inherit; text-decoration:none; }
   }
 }
 
-@media (min-width: 761px) and (max-width: 1099px) {
+@media (min-width: 601px) and (max-width: 1099px) {
   .footer__links {
     width: 100%;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1383,11 +1383,8 @@ a { color:inherit; text-decoration:none; }
   }
 }
 
-/* Mobile-only footer layout. Desktop (>=1024px) switches .footer__inner to a
-   grid layout instead. Here `.footer__links` is flattened with display:contents so
-   its two links become direct grid items of `.footer__inner`, letting us place
-   Terms top-right next to the logo and About Us on its own row underneath. */
-@media (max-width: 760px) {
+/* Mobile-only footer layout. Above 600px the footer uses its two-column grid. */
+@media (max-width: 600px) {
   .footer__brand-block { display:contents; }
   /* Single row, three columns, all vertically centered:
        [logo + subtitle]      [slogan, centered]      [Terms / About stacked]
