@@ -9,6 +9,7 @@ const { getExchangeRates, SUPPORTED_CURRENCIES } = require('./pricing');
 const { getFrontendOrigin } = require('../utils/runtimeConfig');
 const { verifyQuote, calculateDisplayTotal } = require('../utils/checkoutQuote');
 const { hasCheckoutRunway } = require('../utils/imageRetention');
+const customerService = require('../services/customerService');
 
 // Helper to determine package rules by count
 function getPackageDetails(count) {
@@ -320,6 +321,15 @@ router.post('/', async (req, res, next) => {
       updatedAt: new Date()
     });
     await order.save();
+
+    // A Customer begins only after a genuine Tap checkout exists. This keeps
+    // abandoned-checkout reporting accurate without relying on analytics.
+    // Bookkeeping failure must not change checkout/payment behavior.
+    try {
+      await customerService.upsertCustomerFromPuzzleOrder({ puzzle, order });
+    } catch (error) {
+      console.error('[Orders] Customer synchronization failed.');
+    }
 
     res.status(201).json({
       success: true,

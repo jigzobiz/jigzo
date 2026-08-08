@@ -13,6 +13,8 @@ process.env.WHATSAPP_ENABLED = 'false';
 const Order = require('../src/models/Order');
 const Puzzle = require('../src/models/Puzzle');
 const paymentService = require('../src/services/paymentService');
+const customerService = require('../src/services/customerService');
+customerService.upsertCustomerFromPuzzleOrder = async () => null;
 const { markOrderAndPuzzlePaid } = require('../src/services/paymentCompletion');
 const { createQuote } = require('../src/utils/checkoutQuote');
 
@@ -310,6 +312,35 @@ test('unchanged duplicate checkout reuses the same charge', async () => {
   assert.strictEqual(res2.body.order.orderId, orderId1, 'Reuses same order ID');
   assert.strictEqual(res2.body.order.checkoutUrl, checkoutUrl1, 'Reuses same checkout charge url');
 
+  restoreTapRequest();
+});
+
+test('a genuine Tap checkout upserts a non-paying Customer after the charge exists', async () => {
+  const puzzle = new Puzzle({
+    publicId: 'puz_customer_checkout',
+    cropImageUrl: 'http://image',
+    senderPhone: '+97333333333',
+    recipients: [{ name: 'Sam' }]
+  });
+  await puzzle.save();
+  stubTapRequest({
+    id: 'chg_customer_checkout',
+    status: 'INITIATED',
+    transaction: { url: 'https://checkout.tap.company/pay/chg_customer_checkout' },
+    reference: { transaction: 'tx_customer_checkout' }
+  });
+  let syncCalls = 0;
+  customerService.upsertCustomerFromPuzzleOrder = async ({ order }) => {
+    syncCalls += 1;
+    assert.strictEqual(order.paymentStatus, 'pending');
+    assert.strictEqual(order.providerChargeId, 'chg_customer_checkout');
+  };
+  const req = makeMockReq({ puzzleId: puzzle.publicId, recipientCount: 1, hasRevealAlert: false, currency: 'USD' });
+  const res = makeMockRes();
+  await ordersPostHandler(req, res, (err) => { if (err) throw err; });
+  assert.strictEqual(res.statusCode, 201);
+  assert.strictEqual(syncCalls, 1);
+  customerService.upsertCustomerFromPuzzleOrder = async () => null;
   restoreTapRequest();
 });
 

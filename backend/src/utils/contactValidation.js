@@ -77,6 +77,32 @@ function validatePhone(phone, dial = '') {
   return { valid: true, e164: parsed.number };
 }
 
+/**
+ * Canonical customer identity for an already-complete purchaser phone.
+ * Accepts equivalent international forms such as +973..., 973..., and
+ * 00973..., and always returns E.164. No default country is guessed.
+ */
+function canonicalizeCustomerPhone(value) {
+  const normalized = normalizePhoneInput(value);
+  if (!normalized) return null;
+
+  const digits = normalized.replace(/\D/g, '');
+  const candidates = [];
+  if (normalized.startsWith('+')) candidates.push(normalized);
+  if (normalized.startsWith('00') && digits.length > 2) candidates.push('+' + digits.slice(2));
+  if (digits) candidates.push('+' + digits);
+
+  for (const candidate of [...new Set(candidates)]) {
+    try {
+      const parsed = parsePhoneNumberFromString(candidate);
+      if (parsed && parsed.isValid()) return parsed.number;
+    } catch (err) {
+      // Try the next equivalent representation.
+    }
+  }
+  return null;
+}
+
 // Pragmatic single-@ email shape check (no external dependency).
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -93,4 +119,4 @@ function validateEmail(email) {
   return { valid: true, email: normalized };
 }
 
-module.exports = { normalizePhoneInput, validatePhone, validateEmail };
+module.exports = { normalizePhoneInput, validatePhone, validateEmail, canonicalizeCustomerPhone };

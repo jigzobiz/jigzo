@@ -5,6 +5,7 @@ const whatsappService = require('./whatsappService');
 const { getFrontendOrigin, isNonProduction } = require('../utils/runtimeConfig');
 const { isImageExpired } = require('../utils/imageRetention');
 const { logRef } = require('../utils/puzzleRef');
+const customerService = require('./customerService');
 
 // Sanitized internal marker for a verified payment that arrived after the
 // image-retention deadline. Delivery is withheld; a human resolves it
@@ -34,6 +35,14 @@ async function markOrderAndPuzzlePaid(order, providerChargeId, transactionRefere
     if (puzzle.status === 'draft' || puzzle.status === 'pending_payment') {
       puzzle.status = 'paid';
       await puzzle.save();
+    }
+
+    // Customer bookkeeping is derived from the authoritative Order + Puzzle.
+    // It must never prevent a verified payment from completing or delivering.
+    try {
+      await customerService.upsertCustomerFromPuzzleOrder({ puzzle, order });
+    } catch (error) {
+      console.error('[PaymentCompletion] Customer synchronization failed.');
     }
 
     // Defensive late-payment handling: a verified CAPTURED payment that
