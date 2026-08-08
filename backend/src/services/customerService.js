@@ -47,6 +47,7 @@ async function allocateCustomerId() {
  */
 async function upsertCustomerFromPuzzleOrder({ puzzle, order }) {
   if (!puzzle || !order) return null;
+  if (puzzle.customerIdentityRedacted) return null;
   const normalizedPhone = canonicalizeCustomerPhone(puzzle.senderPhone);
   if (!normalizedPhone) return null;
 

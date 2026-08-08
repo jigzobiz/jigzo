@@ -9,7 +9,7 @@
  *
  * Most write endpoints are limited to ADMIN-ONLY collections:
  *  - expenses      (founder expense management; soft-delete/archive + audit)
- *  - customers     (admin archive/suppress only; operational records untouched)
+ *  - customers     (archive, or guarded deletion with unpaid Puzzle identity redaction)
  * The Delivery Centre also exposes one authenticated, recipient-specific
  * operational action: atomically retrying a terminally failed initial
  * WhatsApp delivery through the normal idempotent delivery service.
@@ -42,6 +42,7 @@ const { sumBHD, toDecimal128, multiplyToBHD } = require('../utils/money');
 const L = require('../utils/adminBusinessLogic');
 const paymentService = require('../services/paymentService');
 const whatsappService = require('../services/whatsappService');
+const { deleteCustomerSafely } = require('../services/customerDeletionService');
 
 const JWT_SECRET = resolveJwtSecret();
 
@@ -284,26 +285,27 @@ router.post('/customers/:customerId/restore', authenticateAdmin, async (req, res
   } catch (err) { next(err); }
 });
 
-// Delete a TEST customer that has never captured a payment. Suppresses the
-// admin record (isArchived + adminSuppressed) so operational records are
-// preserved and a routine refresh will not resurface it. Refuses if any
+// Delete only a zero-financial-history TEST customer. Associated unpaid
+// Puzzle sender identity is redacted before the Customer is removed. Refuse if any
 // captured/paid order exists — the caller must archive instead.
 router.delete('/customers/:customerId', authenticateAdmin, async (req, res, next) => {
   try {
-    const c = await Customer.findOne({ customerId: req.params.customerId });
-    if (!c) return res.status(404).json({ error: 'Customer not found.' });
-    const phone = digits(c.normalizedPhone || c.primaryPhone);
-    const puzzles = await Puzzle.find({}, { publicId: 1, senderPhone: 1 }).lean();
-    const myPuzzleIds = puzzles.filter((p) => digits(p.senderPhone) === phone).map((p) => p.publicId);
-    const paid = await Order.findOne({ puzzleId: { $in: myPuzzleIds }, paymentStatus: 'paid' }).lean();
-    if (paid) {
-      return res.status(409).json({ error: 'This customer has a captured sale. Archive instead of deleting to preserve financial and order history.' });
+    const result = await deleteCustomerSafely(req.params.customerId);
+    if (!result.alreadyDeleted) {
+      audit(req, 'ADMIN_TEST_CUSTOMER_DELETED', 'Customer', req.params.customerId,
+        'Deleted zero-payment test customer and redacted unpaid sender identity', {},
+        { deleted: true, redactedPuzzles: result.redactedPuzzles });
     }
-    c.isArchived = true; c.adminSuppressed = true; c.updatedAt = new Date();
-    await c.save();
-    audit(req, 'ADMIN_TEST_CUSTOMER_DELETED', 'Customer', c.customerId, 'Deleted test customer (no captured payment); admin record suppressed, operational records preserved', { isArchived: false }, { isArchived: true, adminSuppressed: true });
-    res.json({ success: true, suppressed: true });
-  } catch (err) { next(err); }
+    res.json(result);
+  } catch (err) {
+    if (err.code === 'CUSTOMER_HAS_PAID_HISTORY') {
+      return res.status(409).json({ code: err.code, error: 'Customers with payment history cannot be permanently deleted.' });
+    }
+    if (err.code === 'CUSTOMER_IDENTITY_AMBIGUOUS') {
+      return res.status(409).json({ code: err.code, error: 'This customer identity cannot be safely deleted because its phone match is ambiguous.' });
+    }
+    next(err);
+  }
 });
 
 // ============================================================================
