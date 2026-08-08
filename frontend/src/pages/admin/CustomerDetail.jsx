@@ -23,7 +23,11 @@ export default function CustomerDetail() {
     try {
       if (action === 'archive') await adminPost(`/customers/${customerId}/archive`);
       else if (action === 'restore') await adminPost(`/customers/${customerId}/restore`);
-      else if (action === 'delete') await adminDelete(`/customers/${customerId}`);
+      else if (action === 'delete') {
+        await adminDelete(`/customers/${customerId}`);
+        navigate('/admin/customers', { replace: true });
+        return;
+      }
       setAction(null); setReload((n) => n + 1);
     } catch (e) {
       setMsg((e.response && e.response.data && e.response.data.error) || 'Action failed.');
@@ -93,14 +97,14 @@ export default function CustomerDetail() {
       {action && (
         <Modal title={action === 'delete' ? 'Delete test customer' : action === 'archive' ? 'Archive customer' : 'Restore customer'} onClose={() => !busy && setAction(null)}>
           <p style={{ fontSize: 14, color: T.ink66, lineHeight: 1.6 }}>
-            {action === 'delete' && 'This customer has no captured payment. The admin record will be suppressed (operational records preserved) and excluded from lists and metrics. A routine refresh will not resurface it.'}
+            {action === 'delete' && 'This removes the customer profile and disconnects eligible unpaid test activity from this phone number. Paid and financial records are never deleted.'}
             {action === 'archive' && 'The customer will be hidden from default lists but remains under the Archived filter with a Restore option. Financial and order history is preserved.'}
             {action === 'restore' && 'The customer will be returned to active lists.'}
           </p>
           {msg && <div style={{ color: T.red, fontSize: 13, marginBottom: 10 }}>{msg}</div>}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <Button onClick={() => setAction(null)} disabled={busy}>Cancel</Button>
-            <Button tone={action === 'delete' ? 'danger' : 'primary'} onClick={runAction} disabled={busy}>{busy ? 'Working…' : 'Confirm'}</Button>
+            <Button tone={action === 'delete' ? 'danger' : 'primary'} onClick={runAction} disabled={busy}>{busy ? 'Working…' : action === 'delete' ? 'Delete customer' : 'Confirm'}</Button>
           </div>
         </Modal>
       )}
