@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const AnonymousSession = require('../models/AnonymousSession');
 const JourneyEvent = require('../models/JourneyEvent');
-const Customer = require('../models/Customer');
 const DraftPuzzle = require('../models/DraftPuzzle');
 const { sanitizePageUrl, derivePuzzleRef, scrubMetadata } = require('../utils/analyticsSanitize');
 
@@ -33,66 +32,15 @@ router.post('/events', async (req, res, next) => {
       await session.save();
     }
 
-    // 2. Manage identified Customer mapping if details exist
+    // Customer lifecycle is authoritative only from real Order + Puzzle data.
+    // Analytics may retain an existing historical session link, but never
+    // creates or mutates Customer rows from event metadata.
     let customerId = session.customerId || null;
-    const { email, phone, name } = metadata;
-
-    if (email || phone) {
-      let customer;
-      // Search for existing Customer matching email or phone
-      if (email) {
-        customer = await Customer.findOne({ email });
-      }
-      if (!customer && phone) {
-        customer = await Customer.findOne({ phone });
-      }
-
-      if (!customer) {
-        // Create new Customer
-        customer = new Customer({
-          name: name || '',
-          email: email || undefined,
-          phone: phone || undefined,
-          anonymousIds: [anonymousId],
-          sessionIds: [sessionId]
-        });
-      } else {
-        // Merge identifiers
-        if (name && !customer.name) customer.name = name;
-        if (email && !customer.email) customer.email = email;
-        if (phone && !customer.phone) customer.phone = phone;
-        
-        if (!customer.anonymousIds.includes(anonymousId)) {
-          customer.anonymousIds.push(anonymousId);
-        }
-        if (!customer.sessionIds.includes(sessionId)) {
-          customer.sessionIds.push(sessionId);
-        }
-      }
-
-      // If completing an order, mark conversion
-      if (['payment_succeeded', 'puzzle_created'].includes(eventType)) {
-        customer.converted = true;
-      }
-
-      await customer.save();
-      customerId = customer._id;
-
-      // Link session and update previous events matching this anonymous ID
-      session.customerId = customerId;
-      await session.save();
-
-      await JourneyEvent.updateMany(
-        { anonymousId, customerId: null },
-        { $set: { customerId } }
-      );
-    }
 
     // 3. Sanitize BEFORE persistence — the backend never trusts the client.
     // puzzleRef is derived first (one-way keyed hash), then every capability
     // identifier, token, URL, phone number and personal detail is removed.
-    // The email/phone/name consumed by the Customer mapping above are never
-    // written to the event log itself.
+    // Personal metadata is never written to the event log itself.
     const safePageUrl = sanitizePageUrl(pageUrl);
     const safePuzzleRef = derivePuzzleRef(metadata, pageUrl);
     const safeMetadata = scrubMetadata(metadata);
