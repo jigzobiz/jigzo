@@ -10,11 +10,13 @@ export default function SiteFooter() {
   return (
     <footer className="footer">
       <div className="footer__inner">
-        <div className="footer__brand">
-          <img className="footer__logo" src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" />
-          <span className="footer__by">{t('landing.footer.by')}</span>
+        <div className="footer__brand-block">
+          <div className="footer__brand">
+            <img className="footer__logo" src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" />
+            <span className="footer__by">{t('landing.footer.by')}</span>
+          </div>
+          <div className="footer__tag">{t('landing.footer.tag')}</div>
         </div>
-        <div className="footer__tag">{t('landing.footer.tag')}</div>
         <div className="footer__links">
           <Link className="footer__link footer__link--about" to="/about">{t('landing.footer.about')}</Link>
           <Link className="footer__link footer__link--terms" to="/terms">{t('landing.footer.terms')}</Link>
