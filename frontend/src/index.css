@@ -207,10 +207,10 @@ a { color:inherit; text-decoration:none; }
 }
 /* align-items:flex-start stops the column stretching the logo to the width of
    the disclaimer text below it — the logo keeps its natural aspect ratio. */
-.footer__brand { display:flex; flex-direction:column; align-items:flex-start; gap:5px; }
+.footer__brand { display:flex; flex-direction:column; align-items:flex-start; gap:5px; min-width:0; }
 .footer__logo { height:20px; width:auto; flex:none; opacity:0.9; }
 .footer__by { font-weight:400; font-size:8px; letter-spacing:0.04em; color:var(--ink-30); opacity:0.4; }
-.footer__tag { font-weight:500; font-size:13px; color:var(--ink-50); }
+.footer__tag { font-weight:500; font-size:13px; color:var(--ink-50); min-width:0; }
 
 /* =========================================================
    HERO MOCK CARD  (hero section, light shell) — STANDALONE.
@@ -1183,6 +1183,7 @@ a { color:inherit; text-decoration:none; }
   font-size: 13px;
   color: var(--ink-50);
   margin-top: 8px;
+  min-width: 0;
 }
 .footer__link {
   color: var(--ink);
@@ -1376,8 +1377,8 @@ a { color:inherit; text-decoration:none; }
   }
 }
 
-/* Mobile-only footer layout. Desktop (>=761px) keeps the original flex row and
-   markup untouched. Here `.footer__links` is flattened with display:contents so
+/* Mobile-only footer layout. Desktop (>=1024px) switches .footer__inner to a
+   grid layout instead. Here `.footer__links` is flattened with display:contents so
    its two links become direct grid items of `.footer__inner`, letting us place
    Terms top-right next to the logo and About Us on its own row underneath. */
 @media (max-width: 760px) {
