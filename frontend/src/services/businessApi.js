@@ -19,4 +19,8 @@ export const businessApi = {
   ,persistPuzzle: async (campaignId, cropData) => (await client.post(`/campaigns/${encodeURIComponent(campaignId)}/puzzle`, { cropData }, { headers: { 'X-JIGZO-CSRF': csrfToken } })).data.puzzle
   ,issueRecipientLink: async (campaignId, recipientId) => (await client.post(`/campaigns/${encodeURIComponent(campaignId)}/recipients/${encodeURIComponent(recipientId)}/access-link`, {}, { headers: { 'X-JIGZO-CSRF': csrfToken } })).data
   ,getResults: async (campaignId) => (await client.get(`/campaigns/${encodeURIComponent(campaignId)}/results`)).data
+  ,getDeliveryValidation: async (campaignId) => (await client.get(`/campaigns/${encodeURIComponent(campaignId)}/delivery-validation`)).data
+  ,getDeliveryProgress: async (campaignId) => (await client.get(`/campaigns/${encodeURIComponent(campaignId)}/delivery-progress`)).data
+  ,sendDeliveryTest: async (campaignId, value, idempotencyKey) => (await client.post(`/campaigns/${encodeURIComponent(campaignId)}/test-send`, value, { headers: { 'X-JIGZO-CSRF': csrfToken, 'Idempotency-Key': idempotencyKey } })).data
+  ,launchCampaign: async (campaignId) => (await client.post(`/campaigns/${encodeURIComponent(campaignId)}/launch`, {}, { headers: { 'X-JIGZO-CSRF': csrfToken } })).data
 };

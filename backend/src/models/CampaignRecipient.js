@@ -17,6 +17,7 @@ const schema = new mongoose.Schema({
   invitationMessageOverride: { type: String, default: '', maxlength: 3000 },
   state: { type: String, enum: ['ready', 'needs_fixing'], default: 'ready' },
   accessTokenHash: { type: String, default: null, select: false, index: true },
+  accessTokenMode: { type: String, enum: ['random', 'derived'], default: 'random', select: false },
   accessIssuedAt: { type: Date, default: null },
   accessRevokedAt: { type: Date, default: null },
   lastAccessAt: { type: Date, default: null },

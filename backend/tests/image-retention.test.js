@@ -640,9 +640,9 @@ test('late-payment log never contains the full publicId, phone number or Tap pay
 
 test('vercel.json: hourly cleanup cron at minute 15 (Pro plan)', () => {
   const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'vercel.json'), 'utf8'));
-  assert.deepStrictEqual(config.crons, [
-    { path: '/api/internal/images/cleanup', schedule: '15 * * * *' }
-  ]);
+  assert.ok(config.crons.some((cron) => (
+    cron.path === '/api/internal/images/cleanup' && cron.schedule === '15 * * * *'
+  )));
 });
 
 test('vercel.json: recipient routes get no-referrer + noindex + no-store; landing pages do not', () => {

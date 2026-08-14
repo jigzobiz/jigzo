@@ -4,6 +4,10 @@
     {
       "path": "/api/internal/images/cleanup",
       "schedule": "15 * * * *"
+    },
+    {
+      "path": "/api/internal/business-delivery",
+      "schedule": "*/5 * * * *"
     }
   ],
   "builds": [

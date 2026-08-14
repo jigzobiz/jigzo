@@ -26,6 +26,9 @@ const businessCampaignsRouter = require('./routes/businessCampaigns');
 const businessRecipientsRouter = require('./routes/businessRecipients');
 const businessInvitationsRouter = require('./routes/businessInvitations');
 const publicInvitationsRouter = require('./routes/publicInvitations');
+const businessDeliveriesRouter = require('./routes/businessDeliveries');
+const resendWebhookRouter = require('./routes/webhooks/resend');
+const businessDeliveryWorkerRouter = require('./routes/internal/businessDelivery');
 const { isTestModeAllowed } = require('./utils/testModeGuard');
 
 
@@ -65,6 +68,10 @@ app.use(
   },
   whatsappWebhookRouter
 );
+
+app.use('/api/webhooks/resend', express.raw({ type: () => true, limit: '256kb' }), async (req, res, next) => {
+  try { await connectDB(); return next(); } catch { return res.status(500).json({ error: 'Database connection failed' }); }
+}, resendWebhookRouter);
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -135,6 +142,8 @@ app.use('/api/business/campaigns', businessCampaignsRouter);
 app.use('/api/business/campaigns', businessRecipientsRouter);
 app.use('/api/business/campaigns', businessInvitationsRouter);
 app.use('/api/public/invitations', publicInvitationsRouter);
+app.use('/api/business/campaigns', businessDeliveriesRouter);
+app.use('/api/internal/business-delivery', businessDeliveryWorkerRouter);
 
 
 
