@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CampaignStudioProvider, useCampaignStudio } from '../../business/studio/CampaignStudioContext';
 import { studioCopy } from '../../business/studio/studio-copy';
 import BusinessPuzzle from '../../business/landing/BusinessPuzzle';
 import { PIECE_OPTIONS } from '../../config/difficulties';
+import { businessApi } from '../../services/businessApi';
 import '../../business/studio/business-studio.css';
 
 const EXPERIENCE_KEYS = ['invitation', 'reveal', 'challenge', 'reward'];
@@ -20,9 +21,9 @@ function Field({ label, children, wide = false }) {
 function PhonePreview({ copy, isArabic }) {
   const { state } = useCampaignStudio();
   const recipient = state.recipients.entitiesById[state.studio.selectedRecipientId];
-  const recipientName = recipient ? (isArabic ? recipient.nameAr : recipient.name) : copy.preview.select;
-  const message = recipient?.[isArabic ? 'messageAr' : 'message'] || state.experience.message;
-  const plusOne = recipient?.plusOne === 'allow' || (recipient?.plusOne === 'inherit' && state.experience.allowPlusOneDefault);
+  const recipientName = recipient?.displayName || copy.preview.select;
+  const message = recipient?.invitationMessageOverride || state.experience.message;
+  const plusOne = recipient?.plusOneOverride === 'allowed' || (recipient?.plusOneOverride === 'inherit' && state.experience.allowPlusOneDefault);
   return <aside className="jzs-preview" aria-label={copy.preview.label}>
     <div className="jzs-preview__heading"><span>{copy.preview.label}</span><small>{copy.preview.demo}</small></div>
     <div className="jzs-phone">
@@ -97,13 +98,19 @@ function ExperienceArea({ copy }) {
 }
 
 function RecipientsArea({ copy, isArabic }) {
-  const { state, dispatch } = useCampaignStudio();
-  return <><AreaIntro copy={copy} index={3} /><div className="jzs-recipient-actions"><button className="jzs-action" type="button">＋ {copy.recipients.add}</button><button className="jzs-action jzs-action--ghost" type="button">{copy.recipients.upload}</button><button className="jzs-text-action" type="button">{copy.recipients.template}</button><span>{copy.recipients.cap}</span></div>
-    <div className="jzs-recipient-list">{state.recipients.orderedIds.map((id) => { const item = state.recipients.entitiesById[id]; const valid = item.status === 'valid'; return <article key={id} className={`${state.studio.selectedRecipientId === id ? 'is-selected ' : ''}is-${item.status}`}>
-      <button className="jzs-recipient-main" type="button" disabled={!valid} onClick={() => dispatch({ type: 'SELECT_RECIPIENT', id })}><span className="jzs-avatar">{(isArabic ? item.nameAr : item.name).slice(0, 1)}</span><span><strong>{isArabic ? item.nameAr : item.name}</strong><small className="jzs-ltr">{item.email} · {item.phone}</small></span></button>
-      <div className="jzs-recipient-meta"><span className={`jzs-status is-${item.status}`}>{copy.recipients[item.status]}</span><small>{copy.recipients[item.source]}</small></div>
-      {valid && <div className="jzs-override"><label>{copy.recipients.plusOne}<select value={item.plusOne} onChange={(e) => dispatch({ type: 'SET_RECIPIENT_OVERRIDE', id, value: e.target.value })}><option value="inherit">{copy.recipients.inherit}</option><option value="allow">{copy.recipients.allow}</option><option value="block">{copy.recipients.block}</option></select></label><button type="button">{copy.recipients.edit}</button><button type="button" onClick={() => dispatch({ type: 'REMOVE_RECIPIENT', id })}>{copy.recipients.remove}</button></div>}
-    </article>; })}</div></>;
+  const { state, dispatch, recipientActions } = useCampaignStudio(); const fileRef = useRef(null); const [form, setForm] = useState(null); const [importReview, setImportReview] = useState(null); const [error, setError] = useState('');
+  const blank = { name: '', deliveryChannel: 'email', email: '', countryCode: '+973', phone: '', language: isArabic ? 'ar' : 'en', plusOneOverride: 'inherit', invitationMessageOverride: '', externalRef: '' };
+  const submit = async (event) => { event.preventDefault(); setError(''); try { if (form.recipientId) await recipientActions.update(form.recipientId, form); else await recipientActions.create(form); setForm(null); } catch (e) { setError(e.response?.data?.error || copy.recipients.failed); } };
+  const edit = async id => { try { const item = await businessApi.getRecipient(state.identity.campaignId, id); setForm({ ...blank, ...item, name: item.displayName, email: item.deliveryChannel === 'email' ? item.contact : '', phone: item.deliveryChannel === 'whatsapp' ? item.contact : '' }); } catch { setError(copy.recipients.failed); } };
+  const download = async () => { const blob = await businessApi.downloadRecipientTemplate(state.identity.campaignId); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'jigzo-recipient-template-v1.csv'; a.click(); URL.revokeObjectURL(url); };
+  const upload = async event => { const file = event.target.files?.[0]; if (!file) return; setError(''); try { setImportReview(await businessApi.validateRecipientImport(state.identity.campaignId, file)); } catch (e) { setError(e.response?.data?.error || copy.recipients.failed); } event.target.value = ''; };
+  const commit = async () => { try { await businessApi.commitRecipientImport(state.identity.campaignId, importReview.importId); await recipientActions.reload(); setImportReview(null); } catch (e) { setError(e.response?.data?.error || copy.recipients.failed); } };
+  return <><AreaIntro copy={copy} index={3} /><div className="jzs-recipient-actions"><button className="jzs-action" type="button" onClick={() => setForm(blank)}>＋ {copy.recipients.add}</button><button className="jzs-action jzs-action--ghost" type="button" onClick={() => fileRef.current?.click()}>{copy.recipients.upload}</button><input ref={fileRef} hidden type="file" accept=".csv,text/csv" onChange={upload} /><button className="jzs-text-action" type="button" onClick={download}>{copy.recipients.template}</button><span>{state.recipients.orderedIds.length} / 2,000</span></div>
+    {error && <div className="jzs-development-note"><strong>{error}</strong></div>}
+    {form && <form className="jzs-recipient-form" onSubmit={submit}><Field label={copy.recipients.name}><input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></Field><Field label={copy.recipients.channel}><select value={form.deliveryChannel} onChange={e=>setForm({...form,deliveryChannel:e.target.value})}><option value="email">Email</option><option value="whatsapp">WhatsApp</option></select></Field>{form.deliveryChannel==='email'?<Field label="Email"><input className="jzs-ltr" type="email" required value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></Field>:<><Field label={copy.recipients.country}><input className="jzs-ltr" value={form.countryCode} onChange={e=>setForm({...form,countryCode:e.target.value})}/></Field><Field label={copy.recipients.phone}><input className="jzs-ltr" required value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></Field></>}<Field label={copy.recipients.language}><select value={form.language} onChange={e=>setForm({...form,language:e.target.value})}><option value="en">EN</option><option value="ar">AR</option></select></Field><Field label={copy.recipients.plusOne}><select value={form.plusOneOverride} onChange={e=>setForm({...form,plusOneOverride:e.target.value})}><option value="inherit">{copy.recipients.inherit}</option><option value="allowed">{copy.recipients.allow}</option><option value="not_allowed">{copy.recipients.block}</option></select></Field><Field label={copy.recipients.reference}><input value={form.externalRef||''} onChange={e=>setForm({...form,externalRef:e.target.value})}/></Field><Field label={copy.recipients.message} wide><textarea value={form.invitationMessageOverride||''} onChange={e=>setForm({...form,invitationMessageOverride:e.target.value})}/></Field><div><button className="jzs-action" type="submit">{copy.recipients.save}</button><button className="jzs-text-action" type="button" onClick={()=>setForm(null)}>{copy.recipients.cancel}</button></div></form>}
+    {importReview && <section className="jzs-import-review"><header><strong>{copy.recipients.review}</strong><span>{importReview.validCount} {copy.recipients.ready} · {importReview.invalidCount} {copy.recipients.needsFixing} · {importReview.duplicateCount} {copy.recipients.duplicate}</span></header>{importReview.errorSummary?.map(row=><div key={row.rowNumber}><b>{row.rowNumber}</b><span>{row.displayName||'—'}</span><small>{row.maskedContact}</small><em className={`is-${row.classification}`}>{copy.recipients[row.classification==='needs_fixing'?'needsFixing':row.classification]}</em></div>)}<button className="jzs-action" disabled={!importReview.validCount} onClick={commit}>{copy.recipients.confirm}</button></section>}
+    {!state.recipients.loading && !state.recipients.orderedIds.length && !form && !importReview && <div className="jzs-empty"><span className="jzs-piece-mark"/><h2>{copy.recipients.emptyTitle}</h2><p>{copy.recipients.emptyBody}</p></div>}
+    <div className="jzs-recipient-list">{state.recipients.orderedIds.map((id) => { const item = state.recipients.entitiesById[id]; return <article key={id} className={state.studio.selectedRecipientId === id ? 'is-selected' : ''}><button className="jzs-recipient-main" type="button" onClick={() => dispatch({ type: 'SELECT_RECIPIENT', id })}><span className="jzs-avatar">{item.displayName.slice(0,1)}</span><span><strong>{item.displayName}</strong><small className="jzs-ltr">{item.maskedContact}</small></span></button><div className="jzs-recipient-meta"><span className="jzs-status">{copy.recipients.ready}</span><small>{copy.recipients[item.source]}</small></div><div className="jzs-override"><span>{copy.recipients.plusOne}: {copy.recipients[item.plusOneOverride]||item.plusOneOverride}</span><button type="button" onClick={()=>edit(id)}>{copy.recipients.edit}</button><button type="button" onClick={()=>recipientActions.remove(id)}>{copy.recipients.remove}</button></div></article>; })}</div></>;
 }
 
 function DeliveryArea({ copy }) {

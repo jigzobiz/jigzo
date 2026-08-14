@@ -23,6 +23,12 @@ function encryptText(value) {
   const ciphertext = Buffer.concat([cipher.update(String(value), 'utf8'), cipher.final()]);
   return [iv, cipher.getAuthTag(), ciphertext].map(part => part.toString('base64url')).join('.');
 }
+function decryptText(value) {
+  const [iv, tag, ciphertext] = String(value || '').split('.').map(part => Buffer.from(part, 'base64url'));
+  if (!iv || !tag || !ciphertext) throw new Error('Invalid encrypted value.');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', encryptionKey(), iv); decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
 function cookieHeader(token, maxAgeSeconds) {
   const secure = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
   return `${SESSION_COOKIE}=${token}; Path=/api/business; HttpOnly; ${secure ? 'Secure; ' : ''}SameSite=Strict; Max-Age=${maxAgeSeconds}`;
@@ -34,4 +40,4 @@ function readCookie(header, name = SESSION_COOKIE) {
   }
   return '';
 }
-module.exports = { SESSION_COOKIE, normalizeEmail, randomToken, sha256, keyedHash, timingSafeEqualText, encryptText, cookieHeader, clearCookieHeader, readCookie };
+module.exports = { SESSION_COOKIE, normalizeEmail, randomToken, sha256, keyedHash, timingSafeEqualText, encryptText, decryptText, cookieHeader, clearCookieHeader, readCookie };
