@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
@@ -39,6 +39,7 @@ import Growth from './pages/admin/Growth';
 import SystemSettings from './pages/admin/SystemSettings';
 import ScrollConceptPage from './pages/ScrollConceptPage';
 import PaymentResult from './pages/PaymentResult';
+const BusinessLandingPage = lazy(() => import('./pages/business/BusinessLandingPage'));
 import './i18n';
 import './index.css';
 
@@ -89,6 +90,10 @@ const router = createBrowserRouter([
       {
         path: '/about',
         element: <AboutPage />
+      },
+      {
+        path: '/business',
+        element: <Suspense fallback={null}><BusinessLandingPage /></Suspense>
       },
       {
         path: '/admin',

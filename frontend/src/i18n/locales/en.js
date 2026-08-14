@@ -803,6 +803,85 @@ const en = {
     unresolvedTitle: 'We’re still confirming your payment',
     unresolvedMessage: 'Your payment may already be complete. Please do not pay again. We’ll continue checking it.'
   },
+  business: {
+    meta: {
+      title: 'JIGZO Business | Make Them Solve It',
+      description: 'Turn company communication into interactive experiences people solve, reveal and respond to.'
+    },
+    nav: {
+      home: 'JIGZO home',
+      business: 'Business',
+      language: 'Switch language',
+      switchLanguage: 'العربية',
+      earlyAccess: 'Early access'
+    },
+    cta: { earlyAccess: 'Request early access', seeHow: 'See how it works' },
+    hero: {
+      eyebrow: 'Communication, transformed',
+      lineOne: 'Don’t announce it.',
+      lineTwo: 'Make them solve it.',
+      lede: 'JIGZO Business turns ordinary company communication into interactive experiences recipients solve, reveal and respond to.',
+      company: 'JIGZO Business demo',
+      solved: 'Puzzle complete',
+      phoneLabel: 'A JIGZO recipient experience showing a solved puzzle and its outcome'
+    },
+    experiences: {
+      label: 'Choose an experience',
+      eyebrow: 'One puzzle. Four outcomes.',
+      title: 'The solve is only the beginning.',
+      body: 'Choose what happens when the final piece falls into place.',
+      reveal: { name: 'Reveal', short: 'A message worth earning.', kicker: 'Message revealed', result: 'You made this happen.', detail: 'A personal company message, uncovered piece by piece.' },
+      invitation: { name: 'Invitation', short: 'Turn the reveal into a response.', kicker: 'Invitation revealed', result: 'You’re invited.', detail: 'Leadership gathering · 12 September', going: 'Going', plusOne: '+1 guest' },
+      challenge: { name: 'Challenge', short: 'Make participation feel alive.', kicker: 'Challenge complete', result: 'Fourth fastest.', detail: 'Solved in 21 seconds. Your name is on the board.' },
+      reward: { name: 'Reward', short: 'Put something valuable behind the solve.', kicker: 'Reward unlocked', result: 'A reward, earned.', detail: 'Use your personal code before 30 September.' }
+    },
+    studio: {
+      eyebrow: 'The creator side',
+      title: 'Built like a campaign. Felt like a moment.',
+      body: 'Shape the experience, personalize the audience and choose how it arrives—all without losing the magic.',
+      campaign: 'New recognition campaign',
+      draft: 'Studio preview',
+      previewLabel: 'Recipient preview',
+      previewTitle: 'A reveal made for one person',
+      personalized: 'Personalized',
+      steps: { experience: 'Experience', puzzle: 'Puzzle', audience: 'Audience', delivery: 'Delivery' }
+    },
+    personal: {
+      eyebrow: 'Personal at scale',
+      title: 'One campaign. Never the same message twice.',
+      for: 'Created for',
+      people: {
+        sara: { name: 'Sara', message: 'Your calm leadership changed the room.', result: 'Recognition revealed' },
+        omar: { name: 'Omar', message: 'There is a seat at the table with your name on it.', result: 'Invitation revealed' },
+        noor: { name: 'Noor', message: 'You found it. This reward is entirely yours.', result: 'Reward unlocked' }
+      }
+    },
+    activity: {
+      eyebrow: 'After send',
+      title: 'You know when the moment lands.',
+      demoLabel: 'Illustrative campaign activity—not live customer data.',
+      complete: 'demo recipients completed',
+      items: {
+        sara: { name: 'Sara', action: 'solved it', meta: '21s' },
+        omar: { name: 'Omar', action: 'RSVP’d · Going +1', meta: 'now' },
+        noor: { name: 'Noor', action: 'unlocked her reward', meta: '1m' }
+      }
+    },
+    closing: { eyebrow: 'Make communication memorable', title: 'Give them something worth discovering.' },
+    form: {
+      eyebrow: 'JIGZO Business',
+      title: 'Be first to make them solve it.',
+      intro: 'Tell us where to reach you when early access opens.',
+      email: 'Work email',
+      company: 'Company',
+      close: 'Close early access form',
+      previewTitle: 'The interaction is ready.',
+      previewBody: 'This preview does not submit or store your information yet.',
+      previewNote: 'Preview only—submission is intentionally disabled until the production lead flow passes privacy review.',
+      done: 'Done'
+    },
+    footer: 'JIGZO Business · Preview'
+  },
   meta: {
     title: 'JIGZO | Turn Any Photo Into a Puzzle Surprise',
     description: 'Turn a photo and personal message into an interactive puzzle surprise, delivered instantly through WhatsApp. No app needed—create yours in minutes.',
