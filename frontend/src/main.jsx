@@ -41,6 +41,7 @@ import ScrollConceptPage from './pages/ScrollConceptPage';
 import PaymentResult from './pages/PaymentResult';
 const BusinessLandingPage = lazy(() => import('./pages/business/BusinessLandingPage'));
 const BusinessCampaignStudioPage = lazy(() => import('./pages/business/BusinessCampaignStudioPage'));
+const BusinessAuthVerifyPage = lazy(() => import('./pages/business/BusinessAuthVerifyPage'));
 import './i18n';
 import './index.css';
 
@@ -99,6 +100,14 @@ const router = createBrowserRouter([
       {
         path: '/business/campaigns/new',
         element: <Suspense fallback={null}><BusinessCampaignStudioPage /></Suspense>
+      },
+      {
+        path: '/business/campaigns/:campaignId',
+        element: <Suspense fallback={null}><BusinessCampaignStudioPage /></Suspense>
+      },
+      {
+        path: '/business/auth/verify',
+        element: <Suspense fallback={null}><BusinessAuthVerifyPage /></Suspense>
       },
       {
         path: '/admin',

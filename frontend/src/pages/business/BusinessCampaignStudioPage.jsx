@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CampaignStudioProvider, useCampaignStudio } from '../../business/studio/CampaignStudioContext';
 import { studioCopy } from '../../business/studio/studio-copy';
@@ -124,7 +124,7 @@ function Studio() {
   const isArabic = i18n.language.startsWith('ar'); const copy = studioCopy[isArabic ? 'ar' : 'en']; const ActiveArea = [CampaignArea, PuzzleArea, ExperienceArea, RecipientsArea, DeliveryArea, ReviewArea][state.studio.activeArea];
   useEffect(() => { document.documentElement.dir = isArabic ? 'rtl' : 'ltr'; document.documentElement.lang = isArabic ? 'ar' : 'en'; document.title = isArabic ? 'استوديو حملات JIGZO' : 'JIGZO Campaign Studio'; }, [isArabic]);
   return <div className="jzs-page" dir={isArabic ? 'rtl' : 'ltr'}>
-    <header className="jzs-header"><Link to="/business" className="jzs-brand"><img src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" /><span>{copy.brand}</span></Link><div><span className="jzs-draft">{copy.draft}</span><button type="button" className="jzs-lang" onClick={() => i18n.changeLanguage(isArabic ? 'en' : 'ar')}>{copy.language}</button></div></header>
+    <header className="jzs-header"><Link to="/business" className="jzs-brand"><img src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" /><span>{copy.brand}</span></Link><div><span className={`jzs-draft is-${state.studio.saveState}`} title={state.studio.saveError}>{copy.draft} · {state.studio.saveState === 'saving' || state.studio.saveState === 'loading' ? copy.saving : state.studio.saveState === 'saved' ? copy.saved : copy.saveError}</span><button type="button" className="jzs-lang" onClick={() => i18n.changeLanguage(isArabic ? 'en' : 'ar')}>{copy.language}</button></div></header>
     <div className="jzs-mobile-context"><b className="jzs-ltr">{String(state.studio.activeArea + 1).padStart(2, '0')} / 06</b><span>·</span><strong>{copy.areas[state.studio.activeArea]}</strong></div>
     <main className="jzs-workspace">
       <nav className="jzs-rail" aria-label={copy.brand}><Link to="/business">← <span>{copy.back}</span></Link><ol>{copy.areas.map((area, index) => <li key={area}><button type="button" className={state.studio.activeArea === index ? 'is-active' : ''} onClick={() => dispatch({ type: 'SET_AREA', area: index })}><i>{String(index + 1).padStart(2, '0')}</i><span><strong>{area}</strong><small>{copy.areaNotes[index]}</small></span><b aria-hidden="true">{state.studio.visitedAreas.includes(index) ? '•' : ''}</b></button></li>)}</ol></nav>
@@ -134,4 +134,4 @@ function Studio() {
   </div>;
 }
 
-export default function BusinessCampaignStudioPage() { return <CampaignStudioProvider><Studio /></CampaignStudioProvider>; }
+export default function BusinessCampaignStudioPage() { const { campaignId } = useParams(); const navigate = useNavigate(); const onCreated = useCallback((id) => navigate(`/business/campaigns/${id}`, { replace: true }), [navigate]); return <CampaignStudioProvider campaignId={campaignId} onCreated={onCreated}><Studio /></CampaignStudioProvider>; }

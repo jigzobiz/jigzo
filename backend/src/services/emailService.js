@@ -125,4 +125,18 @@ async function sendRevealEmail({ to, recipientName, senderName, revealLink, idem
   }
 }
 
-module.exports = { sendRevealEmail, isConfigured, EMAIL_FROM };
+async function sendBusinessMagicLinkEmail({ to, magicLink, idempotencyKey }) {
+  if (process.env.NODE_ENV === 'test') return { success: true, providerMessageId: 'test-not-sent', error: null };
+  if (!resend) return { success: false, providerMessageId: '', error: 'Email delivery is not configured on this environment.' };
+  const subject = 'Your JIGZO Business sign-in link';
+  const delivery = resolveEmailDelivery({ to, subject });
+  if (!delivery.ok) return { success: false, providerMessageId: '', error: delivery.error };
+  const safeLink = escapeHtml(magicLink);
+  try {
+    const result = await resend.emails.send({ from: EMAIL_FROM, to: [delivery.to], subject: delivery.subject, text: `Sign in to JIGZO Business:\n${magicLink}\n\nThis single-use link expires in 15 minutes.`, html: `<div style="font-family:Arial,sans-serif;padding:32px;color:#17140f"><h1>JIGZO Business</h1><p>Use this single-use link to sign in. It expires in 15 minutes.</p><p><a href="${safeLink}" style="display:inline-block;padding:13px 22px;background:#17140f;color:#f4eddf;text-decoration:none;border-radius:999px">Sign in securely</a></p></div>` }, idempotencyKey ? { idempotencyKey } : undefined);
+    if (result.error) return { success: false, providerMessageId: '', error: result.error.message || 'Email provider rejected the message.' };
+    return { success: true, providerMessageId: result.data?.id || '', error: null };
+  } catch (error) { return { success: false, providerMessageId: '', error: String(error.message || 'Email send failed').slice(0, 500) }; }
+}
+
+module.exports = { sendRevealEmail, sendBusinessMagicLinkEmail, isConfigured, EMAIL_FROM };

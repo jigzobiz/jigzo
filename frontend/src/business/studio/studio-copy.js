@@ -1,6 +1,6 @@
 export const studioCopy = {
   en: {
-    brand: 'Business Studio', draft: 'Invitation · Local draft', language: 'العربية', back: 'Back to Business',
+    brand: 'Business Studio', draft: 'Invitation draft', saving: 'Saving…', saved: 'Saved', saveError: 'Not saved', language: 'العربية', back: 'Back to Business',
     areas: ['Campaign', 'Puzzle', 'Experience', 'Recipients', 'Delivery', 'Review'],
     areaNotes: ['Name & format', 'The creative', 'Invitation details', 'Personal versions', 'How it arrives', 'Final check'],
     eyebrow: ['Set the intention', 'Build the reveal', 'Shape the moment', 'One campaign, made personal', 'Choose the arrival', 'Ready when you are'],
@@ -14,7 +14,7 @@ export const studioCopy = {
     common: { on: 'On', off: 'Off', next: 'Next area', previous: 'Previous', complete: 'Complete', incomplete: 'In progress' }
   },
   ar: {
-    brand: 'استوديو الأعمال', draft: 'دعوة · مسودة محلية', language: 'English', back: 'العودة إلى الأعمال',
+    brand: 'استوديو الأعمال', draft: 'مسودة دعوة', saving: 'جارٍ الحفظ…', saved: 'تم الحفظ', saveError: 'لم يتم الحفظ', language: 'English', back: 'العودة إلى الأعمال',
     areas: ['الحملة', 'الأحجية', 'التجربة', 'المستلمون', 'التوصيل', 'المراجعة'],
     areaNotes: ['الاسم والنوع', 'المشهد الإبداعي', 'تفاصيل الدعوة', 'نسخ شخصية', 'طريقة الوصول', 'النظرة الأخيرة'],
     eyebrow: ['حدّد الفكرة', 'ابنِ لحظة الكشف', 'صمّم اللحظة', 'حملة واحدة، بطابع شخصي', 'اختر طريقة الوصول', 'كل شيء في مكانه'],
