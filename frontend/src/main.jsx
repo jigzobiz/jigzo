@@ -40,6 +40,7 @@ import SystemSettings from './pages/admin/SystemSettings';
 import ScrollConceptPage from './pages/ScrollConceptPage';
 import PaymentResult from './pages/PaymentResult';
 const BusinessLandingPage = lazy(() => import('./pages/business/BusinessLandingPage'));
+const BusinessCampaignStudioPage = lazy(() => import('./pages/business/BusinessCampaignStudioPage'));
 import './i18n';
 import './index.css';
 
@@ -94,6 +95,10 @@ const router = createBrowserRouter([
       {
         path: '/business',
         element: <Suspense fallback={null}><BusinessLandingPage /></Suspense>
+      },
+      {
+        path: '/business/campaigns/new',
+        element: <Suspense fallback={null}><BusinessCampaignStudioPage /></Suspense>
       },
       {
         path: '/admin',
