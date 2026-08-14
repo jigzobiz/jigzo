@@ -17,7 +17,7 @@ function fromServer(state, campaign) {
     identity: { campaignId: campaign.campaignId, organizationId: null, revision: campaign.revision, status: campaign.status },
     studio: { ...state.studio, saveState: 'saved', saveError: '' },
     campaign: { name: campaign.name, experienceType: campaign.experienceType },
-    puzzle: { ...state.puzzle, difficultyId: campaign.puzzle?.difficultyId || 'classic', mysteryMode: Boolean(campaign.puzzle?.mysteryMode) },
+    puzzle: { ...state.puzzle, imagePreviewUrl: campaign.puzzle?.puzzleId ? `/api/business/campaigns/${encodeURIComponent(campaign.campaignId)}/puzzle/image` : null, difficultyId: campaign.puzzle?.difficultyId || 'classic', mysteryMode: Boolean(campaign.puzzle?.mysteryMode) },
     experience: { eventTitle: campaign.invitation?.eventTitle || '', dateTime: campaign.invitation?.eventDateTime ? String(campaign.invitation.eventDateTime).slice(0, 16) : '', timezone: campaign.invitation?.timezone || 'Asia/Bahrain', location: campaign.invitation?.location || '', rsvpDeadline: campaign.invitation?.rsvpDeadline ? String(campaign.invitation.rsvpDeadline).slice(0, 10) : '', message: campaign.invitation?.message || '', rsvpEnabled: campaign.invitation?.rsvpEnabled !== false, allowPlusOneDefault: Boolean(campaign.invitation?.allowPlusOneDefault) },
     delivery: { channel: campaign.deliveryDefault || 'whatsapp' }, sync: { hydrated: true, dirty: false, changeSequence: state.sync.changeSequence }
   };

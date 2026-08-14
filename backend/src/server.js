@@ -24,6 +24,8 @@ const imageCleanupRouter = require('./routes/internal/imageCleanup');
 const businessAuthRouter = require('./routes/businessAuth');
 const businessCampaignsRouter = require('./routes/businessCampaigns');
 const businessRecipientsRouter = require('./routes/businessRecipients');
+const businessInvitationsRouter = require('./routes/businessInvitations');
+const publicInvitationsRouter = require('./routes/publicInvitations');
 const { isTestModeAllowed } = require('./utils/testModeGuard');
 
 
@@ -131,6 +133,8 @@ app.use('/api/internal/images/cleanup', imageCleanupRouter);
 app.use('/api/business/auth', businessAuthRouter);
 app.use('/api/business/campaigns', businessCampaignsRouter);
 app.use('/api/business/campaigns', businessRecipientsRouter);
+app.use('/api/business/campaigns', businessInvitationsRouter);
+app.use('/api/public/invitations', publicInvitationsRouter);
 
 
 

@@ -645,16 +645,21 @@ test('vercel.json: hourly cleanup cron at minute 15 (Pro plan)', () => {
   ]);
 });
 
-test('vercel.json: /p/* gets no-referrer + noindex + no-store; landing pages do not', () => {
+test('vercel.json: recipient routes get no-referrer + noindex + no-store; landing pages do not', () => {
   const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'vercel.json'), 'utf8'));
   const pRoute = config.routes.find((r) => r.src === '/p/(.*)');
   assert.ok(pRoute, 'recipient route present');
   assert.strictEqual(pRoute.headers['Referrer-Policy'], 'no-referrer');
   assert.strictEqual(pRoute.headers['X-Robots-Tag'], 'noindex, nofollow, noarchive');
   assert.strictEqual(pRoute.headers['Cache-Control'], 'no-store');
+  const invitationRoute = config.routes.find((r) => r.src === '/i');
+  assert.ok(invitationRoute, 'Business invitation recipient route present');
+  assert.strictEqual(invitationRoute.headers['Referrer-Policy'], 'no-referrer');
+  assert.strictEqual(invitationRoute.headers['X-Robots-Tag'], 'noindex, nofollow, noarchive');
+  assert.strictEqual(invitationRoute.headers['Cache-Control'], 'no-store');
   // No other route (and nothing global) applies noindex — SEO stays intact.
   for (const route of config.routes) {
-    if (route === pRoute) continue;
+    if (route === pRoute || route === invitationRoute) continue;
     assert.ok(!route.headers || !route.headers['X-Robots-Tag'], `unexpected X-Robots-Tag on ${route.src}`);
   }
 });

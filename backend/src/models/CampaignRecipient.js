@@ -15,7 +15,17 @@ const schema = new mongoose.Schema({
   maskedContact: { type: String, required: true },
   plusOneOverride: { type: String, enum: ['inherit', 'allowed', 'not_allowed'], default: 'inherit' },
   invitationMessageOverride: { type: String, default: '', maxlength: 3000 },
-  state: { type: String, enum: ['ready', 'needs_fixing'], default: 'ready' }
+  state: { type: String, enum: ['ready', 'needs_fixing'], default: 'ready' },
+  accessTokenHash: { type: String, default: null, select: false, index: true },
+  accessIssuedAt: { type: Date, default: null },
+  accessRevokedAt: { type: Date, default: null },
+  lastAccessAt: { type: Date, default: null },
+  firstOpenedAt: { type: Date, default: null },
+  firstSolvedAt: { type: Date, default: null },
+  completionSeconds: { type: Number, default: null, min: 0 },
+  rsvpStatus: { type: String, enum: ['pending', 'going', 'not_going'], default: 'pending' },
+  guestCount: { type: Number, enum: [0, 1, 2], default: 0 },
+  respondedAt: { type: Date, default: null }
 }, { timestamps: true, collection: 'campaignrecipients' });
 schema.index({ organizationId: 1, campaignId: 1, contactHash: 1 }, { unique: true });
 schema.index({ organizationId: 1, campaignId: 1, externalRef: 1 }, { unique: true, partialFilterExpression: { externalRef: { $type: 'string' } } });

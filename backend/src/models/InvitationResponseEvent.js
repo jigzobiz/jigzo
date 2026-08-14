@@ -1,0 +1,4 @@
+const mongoose=require('mongoose');
+const schema=new mongoose.Schema({organizationId:{type:mongoose.Schema.Types.ObjectId,ref:'Organization',required:true,index:true},campaignId:{type:mongoose.Schema.Types.ObjectId,ref:'Campaign',required:true,index:true},recipientId:{type:mongoose.Schema.Types.ObjectId,ref:'CampaignRecipient',required:true,index:true},idempotencyKeyHash:{type:String,required:true},fromStatus:{type:String,enum:['pending','going','not_going'],required:true},toStatus:{type:String,enum:['going','not_going'],required:true},guestCount:{type:Number,enum:[0,1,2],required:true},respondedAt:{type:Date,required:true}},{timestamps:true,collection:'invitationresponseevents'});
+schema.index({recipientId:1,idempotencyKeyHash:1},{unique:true});
+module.exports=mongoose.models.InvitationResponseEvent||mongoose.model('InvitationResponseEvent',schema);

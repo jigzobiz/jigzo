@@ -21,6 +21,7 @@ const schema = new mongoose.Schema({
   revision: { type: Number, default: 1, min: 1 },
   puzzle: {
     imageAssetId: { type: String, default: null },
+    puzzleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Puzzle', default: null },
     difficultyId: { type: String, enum: ['extra_easy', 'easy', 'classic', 'challenging'], default: 'classic' },
     mysteryMode: { type: Boolean, default: false }
   },

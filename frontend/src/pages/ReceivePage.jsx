@@ -26,7 +26,7 @@ const SETTLE = "transform 0.28s cubic-bezier(0.25, 1, 0.2, 1), filter 0.24s ease
 export default function ReceivePage() {
   const { publicId } = useParams();
   const [searchParams] = useSearchParams();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const languageInitializedRef = useRef(false);
 
   const rQueryValue = searchParams.get("r");
@@ -235,10 +235,10 @@ export default function ReceivePage() {
     );
   }
 
-  return <Receiver data={puzzleData} setData={setPuzzleData} publicId={publicId} rIndex={resolvedRIndex} startTimeRef={startTimeRef} />;
+  return <PuzzlePlayer data={puzzleData} setData={setPuzzleData} publicId={publicId} rIndex={resolvedRIndex} startTimeRef={startTimeRef} />;
 }
 
-function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
+export function PuzzlePlayer({ data, setData, publicId, rIndex, startTimeRef, onSolved }) {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
   const g = GRID_FOR[data.pieceCount] || { cols: 3, rows: 6 };
@@ -301,11 +301,11 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
           
           const runRecordComplete = async (attempt = 1) => {
             try {
-              const res = await api.recordComplete(publicId, rIndex, elapsed);
+              const res = onSolved ? await onSolved(elapsed) : await api.recordComplete(publicId, rIndex, elapsed);
               if (res && res.success) {
                 setData(prev => ({
                   ...prev,
-                  message: res.message,
+                  message: res.message || prev.message,
                   completedAt: res.completedAt,
                   completionRecorded: res.completionRecorded,
                   recipient: prev.recipient ? {
@@ -329,7 +329,7 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
           };
 
           runRecordComplete();
-          analytics.track('puzzle_completed', { puzzleId: publicId, recipientIndex: rIndex, durationSeconds: elapsed });
+          if (!onSolved) analytics.track('puzzle_completed', { puzzleId: publicId, recipientIndex: rIndex, durationSeconds: elapsed });
           startTimeRef.current = null;
         }
       } else {
@@ -339,7 +339,7 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
       setRevealState('idle');
       setLoaderRunning(false);
     }
-  }, [showReveal, publicId, rIndex, startTimeRef]);
+  }, [showReveal, publicId, rIndex, startTimeRef, onSolved]);
 
   const cachedBlobRef = useRef(null);
   const generationPromiseRef = useRef(null);
@@ -993,7 +993,7 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
                       <g clipPath={`url(#rp-${i})`}>
                         <image href={data.cropImageUrl} x={-h.c * pieceW} y={-h.r * pieceH} width={BW} height={BH} preserveAspectRatio="xMidYMid slice" />
                       </g>
-                      <path d={d} fill="none" stroke="rgba(5,5,5,0.32)" strokeWidth="1.1" />
+                      <path d={d} fill={data.cropImageUrl ? "none" : "#1C1913"} stroke="rgba(5,5,5,0.32)" strokeWidth="1.1" />
                     </svg>
                   </div>
                 );

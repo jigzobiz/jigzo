@@ -38,6 +38,15 @@
       }
     },
     {
+      "src": "/i",
+      "dest": "frontend/index.html",
+      "headers": {
+        "Referrer-Policy": "no-referrer",
+        "X-Robots-Tag": "noindex, nofollow, noarchive",
+        "Cache-Control": "no-store"
+      }
+    },
+    {
       "src": "/assets/(.*)",
       "dest": "frontend/assets/$1"
     },

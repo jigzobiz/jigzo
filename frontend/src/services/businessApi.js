@@ -16,4 +16,7 @@ export const businessApi = {
   ,downloadRecipientTemplate: async (campaignId) => (await client.get(`/campaigns/${encodeURIComponent(campaignId)}/recipients/template`, { responseType: 'blob' })).data
   ,validateRecipientImport: async (campaignId, file) => (await client.post(`/campaigns/${encodeURIComponent(campaignId)}/imports`, await file.text(), { headers: { 'X-JIGZO-CSRF': csrfToken, 'Content-Type': 'text/csv', 'X-JIGZO-Filename': file.name } })).data.import
   ,commitRecipientImport: async (campaignId, importId) => (await client.post(`/campaigns/${encodeURIComponent(campaignId)}/imports/${encodeURIComponent(importId)}/commit`, {}, { headers: { 'X-JIGZO-CSRF': csrfToken } })).data.import
+  ,persistPuzzle: async (campaignId, cropData) => (await client.post(`/campaigns/${encodeURIComponent(campaignId)}/puzzle`, { cropData }, { headers: { 'X-JIGZO-CSRF': csrfToken } })).data.puzzle
+  ,issueRecipientLink: async (campaignId, recipientId) => (await client.post(`/campaigns/${encodeURIComponent(campaignId)}/recipients/${encodeURIComponent(recipientId)}/access-link`, {}, { headers: { 'X-JIGZO-CSRF': csrfToken } })).data
+  ,getResults: async (campaignId) => (await client.get(`/campaigns/${encodeURIComponent(campaignId)}/results`)).data
 };
