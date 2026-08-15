@@ -1,4 +1,6 @@
 require('dotenv').config();
+const { assertStagingSafety } = require('./utils/stagingSafety');
+assertStagingSafety();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
