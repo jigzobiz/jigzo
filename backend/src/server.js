@@ -32,9 +32,6 @@ const businessDeliveriesRouter = require('./routes/businessDeliveries');
 const resendWebhookRouter = require('./routes/webhooks/resend');
 const businessDeliveryWorkerRouter = require('./routes/internal/businessDelivery');
 const { isTestModeAllowed } = require('./utils/testModeGuard');
-const stagingBootstrapBusinessRouter = process.env.VERCEL_TARGET_ENV === 'staging'
-  ? require('./routes/internal/stagingBootstrapBusiness')
-  : null;
 
 
 const app = express();
@@ -149,9 +146,6 @@ app.use('/api/business/campaigns', businessInvitationsRouter);
 app.use('/api/public/invitations', publicInvitationsRouter);
 app.use('/api/business/campaigns', businessDeliveriesRouter);
 app.use('/api/internal/business-delivery', businessDeliveryWorkerRouter);
-if (stagingBootstrapBusinessRouter) {
-  app.use('/api/internal/staging/bootstrap-business', stagingBootstrapBusinessRouter);
-}
 
 
 
