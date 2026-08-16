@@ -4,7 +4,7 @@ const BusinessSession = require('../models/BusinessSession');
 const { issueMagicLink, consumeMagicLink } = require('../services/businessAuthService');
 const { revokeSession } = require('../services/businessAuthService');
 const { sendBusinessMagicLinkEmail } = require('../services/emailService');
-const { cookieHeader, clearCookieHeader, sha256, randomToken } = require('../utils/businessSecurity');
+const { cookieHeader, clearCookieHeader, readCookie, sha256, randomToken } = require('../utils/businessSecurity');
 const { getFrontendOrigin } = require('../utils/runtimeConfig');
 const { requireBusinessAuth, requireBusinessCsrf } = require('../middleware/businessAuth');
 
@@ -32,7 +32,19 @@ router.post('/verify', async (req, res, next) => {
 });
 
 router.get('/session', requireBusinessAuth, async (req, res, next) => {
-  try { const csrfToken = randomToken(); await BusinessSession.updateOne({ _id: req.business.session._id, revokedAt: null }, { $set: { csrfHash: sha256(csrfToken) } }); return res.json({ success: true, csrfToken, organization: { organizationId: req.business.organization.organizationId, name: req.business.organization.name, defaultLanguage: req.business.organization.defaultLanguage, timezone: req.business.organization.timezone } }); } catch (error) { return next(error); }
+  try {
+    const csrfToken = randomToken();
+    await BusinessSession.updateOne({ _id: req.business.session._id, revokedAt: null }, { $set: { csrfHash: sha256(csrfToken) } });
+    // Upgrade an existing staging owner cookie from the historical
+    // /api/business scope to /api so the same session can protect /api/test.
+    // This branch is inert in every other environment.
+    if (process.env.VERCEL_TARGET_ENV === 'staging') {
+      const rawSession = readCookie(req.headers.cookie);
+      const remainingSeconds = Math.max(1, Math.floor((req.business.session.expiresAt.getTime() - Date.now()) / 1000));
+      res.setHeader('Set-Cookie', cookieHeader(rawSession, remainingSeconds));
+    }
+    return res.json({ success: true, csrfToken, organization: { organizationId: req.business.organization.organizationId, name: req.business.organization.name, defaultLanguage: req.business.organization.defaultLanguage, timezone: req.business.organization.timezone } });
+  } catch (error) { return next(error); }
 });
 router.post('/logout', requireBusinessAuth, requireBusinessCsrf, async (req, res, next) => {
   try { await revokeSession(req.business.session._id); res.setHeader('Set-Cookie', clearCookieHeader()); return res.json({ success: true }); } catch (error) { return next(error); }

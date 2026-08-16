@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { isTestModeAllowed } = require('../src/utils/testModeGuard');
+const { businessCookiePath } = require('../src/utils/businessSecurity');
 
 function syntheticMongoUri({ database = 'jigzo_staging', validHost = true } = {}) {
   const host = validHost
@@ -34,11 +35,13 @@ const request = (host = 'staging.jigzo.biz') => ({ headers: { host } });
 
 test('consumer test creation is available only on the safe custom staging target', () => {
   assert.equal(isTestModeAllowed(request(), validStaging()), true);
+  assert.equal(businessCookiePath({ VERCEL_TARGET_ENV: 'staging' }), '/api');
 });
 
 test('consumer test creation fails closed outside staging', () => {
   for (const target of ['production', 'preview', 'development', undefined]) {
     assert.equal(isTestModeAllowed(request(), validStaging({ VERCEL_TARGET_ENV: target })), false);
+    assert.equal(businessCookiePath({ VERCEL_TARGET_ENV: target }), '/api/business');
   }
 });
 
@@ -60,4 +63,13 @@ test('staging route requires Business owner authentication and CSRF without paym
   assert.match(source, /router\.post\('\/reveals',\s*requireBusinessAuth,\s*requireBusinessCsrf/);
   assert.match(source, /testMode:\s*true/);
   assert.doesNotMatch(source, /Order|createCheckout|markOrderAndPuzzlePaid|whatsappService/);
+});
+
+test('staging session refresh upgrades the cookie scope without changing Production', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '../src/routes/businessAuth.js'), 'utf8');
+  assert.match(source, /VERCEL_TARGET_ENV === 'staging'/);
+  assert.match(source, /Set-Cookie/);
+  assert.match(source, /cookieHeader\(rawSession, remainingSeconds\)/);
 });
