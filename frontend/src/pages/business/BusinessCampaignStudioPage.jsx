@@ -6,6 +6,7 @@ import { studioCopy } from '../../business/studio/studio-copy';
 import BusinessPuzzle from '../../business/landing/BusinessPuzzle';
 import { PIECE_OPTIONS } from '../../config/difficulties';
 import { businessApi } from '../../services/businessApi';
+import { prepareBusinessImage } from '../../business/studio/business-image-upload';
 import '../../business/studio/business-studio.css';
 
 const EXPERIENCE_KEYS = ['invitation', 'reveal', 'challenge', 'reward'];
@@ -60,7 +61,21 @@ function PuzzleArea({ copy }) {
   const { state, dispatch } = useCampaignStudio();
   const fileInput = useRef(null);
   const [uploadState,setUploadState]=useState('');
-  const selectImage = (event) => { const file=event.target.files?.[0];if(!file)return;dispatch({type:'SET_FIELD',section:'puzzle',field:'imagePreviewUrl',value:URL.createObjectURL(file)});const reader=new FileReader();reader.onload=async()=>{try{setUploadState('Saving…');await businessApi.persistPuzzle(state.identity.campaignId,reader.result);setUploadState('Saved');}catch(e){setUploadState(e.response?.data?.error||'Could not save image.');}};reader.readAsDataURL(file); };
+  const selectImage = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      setUploadState('Saving…');
+      const cropData = await prepareBusinessImage(file);
+      await businessApi.persistPuzzle(state.identity.campaignId, cropData);
+      dispatch({ type: 'SET_FIELD', section: 'puzzle', field: 'imagePreviewUrl', value: cropData });
+      setUploadState('Saved');
+    } catch (error) {
+      const responseError = error.response?.data?.error;
+      setUploadState(responseError?.message || responseError || error.message || 'Could not save image.');
+    }
+  };
   return <>
     <AreaIntro copy={copy} index={1} />
     <div className="jzs-puzzle-stage">
