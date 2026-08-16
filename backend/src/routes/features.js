@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { isTestModeAllowed } = require('../utils/testModeGuard');
 
 /**
  * GET /api/features/status
@@ -9,8 +10,9 @@ router.get('/status', (req, res) => {
   res.json({
     checkoutEnabled: process.env.CHECKOUT_ENABLED === 'true',
     whatsappEnabled: process.env.WHATSAPP_ENABLED === 'true',
-    // Authenticated staging owners discover test creation through /api/test/status.
-    testRevealEnabled: false
+    // Visibility is safe to expose; creation remains owner-authenticated and
+    // CSRF-protected on /api/test/reveals.
+    testRevealEnabled: isTestModeAllowed(req)
   });
 });
 

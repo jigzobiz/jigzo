@@ -234,13 +234,12 @@ export default function CreatePage() {
       try {
         const res = await api.getFeaturesStatus();
         setCheckoutEnabled(res.checkoutEnabled);
-        if (!res.checkoutEnabled) {
-          try {
-            const testStatus = await businessApi.getConsumerTestStatus();
-            setIsTestModeEnabled(testStatus.enabled === true);
-          } catch {
-            setIsTestModeEnabled(false);
-          }
+        setIsTestModeEnabled(res.testRevealEnabled === true);
+        if (!res.checkoutEnabled && res.testRevealEnabled === true) {
+          // Refresh CSRF and migrate an existing staging owner cookie to the
+          // /api scope. Failure leaves the action visible but creation remains
+          // fail-closed at the authenticated endpoint.
+          businessApi.establishSession().catch(() => {});
         }
       } catch (err) {
         console.error('Error fetching features status:', err);

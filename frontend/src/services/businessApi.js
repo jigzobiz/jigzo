@@ -24,6 +24,5 @@ export const businessApi = {
   ,getDeliveryProgress: async (campaignId) => (await client.get(`/campaigns/${encodeURIComponent(campaignId)}/delivery-progress`)).data
   ,sendDeliveryTest: async (campaignId, value, idempotencyKey) => (await client.post(`/campaigns/${encodeURIComponent(campaignId)}/test-send`, value, { headers: { 'X-JIGZO-CSRF': csrfToken, 'Idempotency-Key': idempotencyKey } })).data
   ,launchCampaign: async (campaignId) => (await client.post(`/campaigns/${encodeURIComponent(campaignId)}/launch`, {}, { headers: { 'X-JIGZO-CSRF': csrfToken } })).data
-  ,getConsumerTestStatus: async () => { await businessApi.establishSession(); return (await stagingTestClient.get('/status')).data; }
   ,createConsumerTestPuzzle: async (value) => (await stagingTestClient.post('/reveals', value, { headers: { 'X-JIGZO-CSRF': csrfToken } })).data
 };
