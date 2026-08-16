@@ -61,10 +61,15 @@ function PuzzleArea({ copy }) {
   const { state, dispatch } = useCampaignStudio();
   const fileInput = useRef(null);
   const [uploadState,setUploadState]=useState('');
+  const uploadReady = Boolean(state.sync.hydrated && state.identity.campaignId);
   const selectImage = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
+    if (!uploadReady) {
+      setUploadState('Wait for this campaign to finish saving.');
+      return;
+    }
     try {
       setUploadState('Saving…');
       const cropData = await prepareBusinessImage(file);
@@ -80,7 +85,7 @@ function PuzzleArea({ copy }) {
     <AreaIntro copy={copy} index={1} />
     <div className="jzs-puzzle-stage">
       <div className="jzs-puzzle-art" style={state.puzzle.imagePreviewUrl ? { backgroundImage: `url(${state.puzzle.imagePreviewUrl})` } : undefined}><BusinessPuzzle finalPiece={7} /></div>
-      <div><span className="jzs-label">{copy.puzzle.image}</span><button type="button" className="jzs-action" onClick={() => fileInput.current?.click()}>{copy.puzzle.upload}</button><input ref={fileInput} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={selectImage} /><small className="jzs-help">{uploadState||copy.puzzle.mocked}</small></div>
+      <div><span className="jzs-label">{copy.puzzle.image}</span><button type="button" className="jzs-action" disabled={!uploadReady} onClick={() => fileInput.current?.click()}>{copy.puzzle.upload}</button><input ref={fileInput} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={selectImage} /><small className="jzs-help">{uploadState||copy.puzzle.mocked}</small></div>
     </div>
     <div className="jzs-label">{copy.puzzle.difficulty}</div>
     <div className="jzs-difficulty">{PIECE_OPTIONS.map((option) => <button type="button" key={option.id} className={state.puzzle.difficultyId === option.id ? 'is-active' : ''} onClick={() => dispatch({ type: 'SET_FIELD', section: 'puzzle', field: 'difficultyId', value: option.id })}><strong>{option.count}</strong><span>{copy.puzzle.pieces}</span></button>)}</div>
