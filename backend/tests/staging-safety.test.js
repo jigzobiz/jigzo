@@ -1,6 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { REQUIRED_SECRETS, assertStagingSafety } = require('../src/utils/stagingSafety');
+const root = path.resolve(__dirname, '../..');
 
 function stagingEnv(overrides = {}) {
   const env = {
@@ -55,4 +58,10 @@ test('Production does not execute the staging guard', () => {
   const result = assertStagingSafety({ VERCEL_TARGET_ENV: 'production' }, { log() { logged = true; }, error() { logged = true; } });
   assert.deepEqual(result, { executed: false });
   assert.equal(logged, false);
+});
+
+test('database cache reuses only a connected Mongoose connection', () => {
+  const source = fs.readFileSync(path.join(root, 'backend/src/config/database.js'), 'utf8');
+  assert.match(source, /cached\.connection && mongoose\.connection\.readyState === 1/);
+  assert.match(source, /cached\.connection = null;[\s\S]*cached\.promise = null;/);
 });

@@ -21,3 +21,8 @@ test('Studio cannot upload before a persisted campaign identity exists', () => {
   assert.match(source, /disabled=\{!uploadReady\}/);
   assert.match(source, /if \(!uploadReady\)[\s\S]+?return;[\s\S]+?persistPuzzle\(state\.identity\.campaignId/);
 });
+
+test('durable campaign hydration and navigation do not wait for recipient loading', () => {
+  const source = fs.readFileSync(path.resolve('src/business/studio/CampaignStudioContext.jsx'), 'utf8');
+  assert.match(source, /dispatch\(\{ type: 'HYDRATE', campaign \}\); if \(!campaignId\) onCreated\(campaign\.campaignId\); try \{ const recipientRows/);
+});
