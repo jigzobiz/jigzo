@@ -20,6 +20,8 @@ const OrderSchema = new mongoose.Schema({
   total: { type: Number, required: true },
   currency: { type: String, default: 'USD' },
   paymentStatus: { type: String, enum: ['pending', 'paid', 'failed', 'refunded'], default: 'pending' },
+  testMode: { type: Boolean, default: false, index: true },
+  orderKind: { type: String, enum: ['consumer_purchase', 'staging_test'], default: 'consumer_purchase', index: true },
   paymentReference: { type: String, default: '' },
   paymentProvider: { type: String, default: 'tap' },
   providerChargeId: { type: String, index: true },

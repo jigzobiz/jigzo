@@ -1746,7 +1746,7 @@ export default function CreatePage() {
               </div>
             </div>
 
-            {!checkoutEnabled && (
+            {!checkoutEnabled && !isTestModeEnabled && (
               <div style={{ textAlign: 'center', padding: '20px', background: T.card, borderRadius: 16, border: '1.5px solid ' + T.ink15, margin: "20px 0" }}>
                 <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 6, color: T.ink }}>{t('create.review.launchingSoon')}</h2>
                 {interestRegistered ? (
@@ -1898,15 +1898,14 @@ export default function CreatePage() {
                   >
                     {isProcessing ? t('create.review.payment.submitting') : t('create.review.payAndSend')}
                   </PrimaryButton>
+                ) : isTestModeEnabled ? (
+                  <PrimaryButton onClick={handleCreateTestReveal} style={{ flex: 1, background: T.goldWarm, color: T.ink }}>
+                    {t('create.review.createTestReveal')}
+                  </PrimaryButton>
                 ) : (
                   <PrimaryButton disabled style={{ flex: 1 }}>{t('create.review.payAndSend')}</PrimaryButton>
                 )}
               </div>
-              {isTestModeEnabled && (
-                <PrimaryButton onClick={handleCreateTestReveal} style={{ width: '100%', background: T.goldWarm, color: T.ink }}>
-                  {t('create.review.createTestReveal')}
-                </PrimaryButton>
-              )}
             </div>
           </div>
         )}

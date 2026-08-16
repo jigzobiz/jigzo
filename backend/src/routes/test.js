@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const { isTestModeAllowed } = require('../utils/testModeGuard');
 const { saveImage, deleteImage } = require('../services/storageService');
 const Puzzle = require('../models/Puzzle');
+const Order = require('../models/Order');
 const { validatePhone, validateEmail } = require('../utils/contactValidation');
 const { getFrontendOrigin } = require('../utils/runtimeConfig');
 
@@ -50,6 +51,7 @@ router.get('/status', (req, res) => {
  */
 router.post('/reveals', async (req, res, next) => {
   let createdStorageId = null;
+  let createdPuzzleId = null;
   try {
     // 1. Authoritative Guard check
     if (!isTestModeAllowed(req)) {
@@ -196,6 +198,7 @@ router.post('/reveals', async (req, res, next) => {
 
     // We set status directly to 'ready' to accurately represent staging state.
     const puzzle = new Puzzle({
+      scope: 'consumer',
       publicId,
       status: 'ready',
       cropImageUrl: `/api/puzzles/${publicId}/image`,
@@ -220,6 +223,26 @@ router.post('/reveals', async (req, res, next) => {
     });
 
     await puzzle.save();
+    createdPuzzleId = puzzle._id;
+
+    // Persist an unmistakably unpaid staging-test order. This is not routed
+    // through checkout, cannot become a paid sale, and has no provider charge.
+    const order = await Order.create({
+      orderId: `test_${uuidv4().replace(/-/g, '').substring(0, 12)}`,
+      puzzleId: puzzle.publicId,
+      packageId: 'staging_test',
+      recipientCount: puzzle.recipients.length,
+      basePrice: 0,
+      addOns: 0,
+      total: 0,
+      currency: 'BHD',
+      paymentStatus: 'pending',
+      paymentProvider: 'none',
+      providerStatus: 'not_applicable',
+      testMode: true,
+      orderKind: 'staging_test',
+      lastPaymentError: 'Staging test creation; no payment attempted.'
+    });
 
     const origin = getFrontendOrigin();
     const recipientLinks = puzzle.recipients.map((r, index) => ({
@@ -230,6 +253,7 @@ router.post('/reveals', async (req, res, next) => {
 
     res.status(201).json({
       success: true,
+      orderId: order.orderId,
       publicId: puzzle.publicId,
       revealUrl: recipientLinks[0]?.revealUrl || `${origin}/p/${puzzle.publicId}?r=0`,
       testMode: true,
@@ -237,6 +261,15 @@ router.post('/reveals', async (req, res, next) => {
       recipientLinks
     });
   } catch (error) {
+    // Keep the staging data pair atomic if the order write fails after the
+    // puzzle write. The GridFS cleanup below then removes its binary as well.
+    if (createdPuzzleId) {
+      try {
+        await Puzzle.deleteOne({ _id: createdPuzzleId, testMode: true });
+      } catch (puzzleDeleteError) {
+        console.error('[TestRoute] Failed to clean up incomplete test puzzle:', puzzleDeleteError);
+      }
+    }
     // If GridFS write succeeded but database save failed, delete GridFS file to avoid orphans
     if (createdStorageId) {
       try {
