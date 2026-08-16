@@ -1,13 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { v4: uuidv4 } = require('uuid');
-const mongoose = require('mongoose');
 const { isTestModeAllowed } = require('../utils/testModeGuard');
 const { saveImage, deleteImage } = require('../services/storageService');
 const Puzzle = require('../models/Puzzle');
-const Order = require('../models/Order');
 const { validatePhone, validateEmail } = require('../utils/contactValidation');
 const { getFrontendOrigin } = require('../utils/runtimeConfig');
+const { requireBusinessAuth, requireBusinessCsrf } = require('../middleware/businessAuth');
 
 // Conservative limits
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -38,7 +36,7 @@ function detectMimeType(buffer) {
  * GET /api/test/status
  * Returns if test reveal mode is available.
  */
-router.get('/status', (req, res) => {
+router.get('/status', requireBusinessAuth, (req, res) => {
   if (isTestModeAllowed(req)) {
     return res.json({ enabled: true });
   }
@@ -49,7 +47,7 @@ router.get('/status', (req, res) => {
  * POST /api/test/reveals
  * Creates an active, unpaid, direct test puzzle.
  */
-router.post('/reveals', async (req, res, next) => {
+router.post('/reveals', requireBusinessAuth, requireBusinessCsrf, async (req, res, next) => {
   let createdStorageId = null;
   let createdPuzzleId = null;
   try {
@@ -225,25 +223,6 @@ router.post('/reveals', async (req, res, next) => {
     await puzzle.save();
     createdPuzzleId = puzzle._id;
 
-    // Persist an unmistakably unpaid staging-test order. This is not routed
-    // through checkout, cannot become a paid sale, and has no provider charge.
-    const order = await Order.create({
-      orderId: `test_${uuidv4().replace(/-/g, '').substring(0, 12)}`,
-      puzzleId: puzzle.publicId,
-      packageId: 'staging_test',
-      recipientCount: puzzle.recipients.length,
-      basePrice: 0,
-      addOns: 0,
-      total: 0,
-      currency: 'BHD',
-      paymentStatus: 'pending',
-      paymentProvider: 'none',
-      providerStatus: 'not_applicable',
-      testMode: true,
-      orderKind: 'staging_test',
-      lastPaymentError: 'Staging test creation; no payment attempted.'
-    });
-
     const origin = getFrontendOrigin();
     const recipientLinks = puzzle.recipients.map((r, index) => ({
       recipientIndex: index,
@@ -253,7 +232,6 @@ router.post('/reveals', async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      orderId: order.orderId,
       publicId: puzzle.publicId,
       revealUrl: recipientLinks[0]?.revealUrl || `${origin}/p/${puzzle.publicId}?r=0`,
       testMode: true,

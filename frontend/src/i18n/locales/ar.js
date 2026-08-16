@@ -248,7 +248,7 @@ const ar = {
       emailPlaceholder: 'your@email.com',
       notifyMe: 'أبلِغني',
       noPayment: 'لا يتطلب أي دفع.',
-      createTestReveal: 'إنشاء JIGZO تجريبية',
+      createTestReveal: 'إنشاء أحجية اختبار مجانية',
       paymentErrorPrefix: 'لم يتمكن Tap من بدء عملية الدفع.',
       paymentErrorFallback: 'يرجى المحاولة مرة أخرى أو الاتصال بالدعم.',
       pricingUnavailable: 'تفاصيل التسعير غير متوفرة حالياً. يرجى إعادة تحميل الصفحة أو المحاولة لاحقاً.',

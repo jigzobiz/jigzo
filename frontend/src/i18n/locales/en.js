@@ -240,7 +240,7 @@ const en = {
       emailPlaceholder: 'your@email.com',
       notifyMe: 'Notify me',
       noPayment: 'No payment required.',
-      createTestReveal: 'Create test JIGZO',
+      createTestReveal: 'Create Free Test Puzzle',
       paymentErrorPrefix: 'Tap could not start the payment.',
       paymentErrorFallback: 'Please try again or contact support.',
       pricingUnavailable: 'Pricing details are currently unavailable. Please refresh or try again.',

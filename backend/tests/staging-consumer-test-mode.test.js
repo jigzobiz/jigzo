@@ -52,13 +52,12 @@ test('consumer test creation rejects non-staging hosts and databases', () => {
   assert.equal(isTestModeAllowed(request(), validStaging({ MONGODB_URI: syntheticMongoUri({ database: 'production', validHost: false }) })), false);
 });
 
-test('staging route records an unpaid, providerless test order', () => {
+test('staging route requires Business owner authentication and CSRF without payment or delivery', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const source = fs.readFileSync(path.join(__dirname, '../src/routes/test.js'), 'utf8');
-  assert.match(source, /paymentStatus:\s*'pending'/);
-  assert.match(source, /paymentProvider:\s*'none'/);
+  assert.match(source, /router\.get\('\/status',\s*requireBusinessAuth/);
+  assert.match(source, /router\.post\('\/reveals',\s*requireBusinessAuth,\s*requireBusinessCsrf/);
   assert.match(source, /testMode:\s*true/);
-  assert.match(source, /orderKind:\s*'staging_test'/);
-  assert.doesNotMatch(source, /createCheckout|markOrderAndPuzzlePaid|whatsappService/);
+  assert.doesNotMatch(source, /Order|createCheckout|markOrderAndPuzzlePaid|whatsappService/);
 });

@@ -15,6 +15,7 @@ import { buildEdgeMap, piecePath, mulberry32 } from '../puzzle/puzzle-shape';
 import { analytics } from '../services/analytics';
 import { isValidPhoneNumber } from 'libphonenumber-js';
 import { normalizePhoneInput } from '../utils/phone';
+import { businessApi } from '../services/businessApi';
 import SiteFooter from '../components/SiteFooter';
 import SiteHeader from '../components/SiteHeader';
 
@@ -233,7 +234,14 @@ export default function CreatePage() {
       try {
         const res = await api.getFeaturesStatus();
         setCheckoutEnabled(res.checkoutEnabled);
-        setIsTestModeEnabled(res.testRevealEnabled);
+        if (!res.checkoutEnabled) {
+          try {
+            const testStatus = await businessApi.getConsumerTestStatus();
+            setIsTestModeEnabled(testStatus.enabled === true);
+          } catch {
+            setIsTestModeEnabled(false);
+          }
+        }
       } catch (err) {
         console.error('Error fetching features status:', err);
       }
@@ -816,7 +824,7 @@ export default function CreatePage() {
       });
 
 
-      const res = await api.createTestReveal({
+      const res = await businessApi.createConsumerTestPuzzle({
         cropData,
         message,
         senderName,
