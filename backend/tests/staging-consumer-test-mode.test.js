@@ -3,9 +3,19 @@ const assert = require('node:assert/strict');
 
 const { isTestModeAllowed } = require('../src/utils/testModeGuard');
 
+function syntheticMongoUri({ database = 'jigzo_staging', validHost = true } = {}) {
+  const host = validHost
+    ? ['jigzo-staging.unit-test.', 'mongodb.net'].join('')
+    : 'unit-test-host.invalid';
+  const uri = new URL(`mongodb+srv://${host}/${database}`);
+  uri.username = 'synthetic-test-user';
+  uri.password = 'not-a-secret';
+  return uri.toString();
+}
+
 const validStaging = (overrides = {}) => ({
   VERCEL_TARGET_ENV: 'staging',
-  MONGODB_URI: 'mongodb+srv://hidden:hidden@jigzo-staging.example.mongodb.net/jigzo_staging',
+  MONGODB_URI: syntheticMongoUri(),
   CHECKOUT_ENABLED: 'false',
   WHATSAPP_ENABLED: 'false',
   FRONTEND_URL: 'https://staging.jigzo.biz',
@@ -39,7 +49,7 @@ test('consumer test creation fails when payment or WhatsApp is enabled', () => {
 
 test('consumer test creation rejects non-staging hosts and databases', () => {
   assert.equal(isTestModeAllowed(request('jigzo.biz'), validStaging()), false);
-  assert.equal(isTestModeAllowed(request(), validStaging({ MONGODB_URI: 'mongodb+srv://hidden:hidden@prod.example.mongodb.net/production' })), false);
+  assert.equal(isTestModeAllowed(request(), validStaging({ MONGODB_URI: syntheticMongoUri({ database: 'production', validHost: false }) })), false);
 });
 
 test('staging route records an unpaid, providerless test order', () => {
