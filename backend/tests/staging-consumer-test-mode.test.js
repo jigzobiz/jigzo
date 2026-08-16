@@ -72,4 +72,5 @@ test('staging session refresh upgrades the cookie scope without changing Product
   assert.match(source, /VERCEL_TARGET_ENV === 'staging'/);
   assert.match(source, /Set-Cookie/);
   assert.match(source, /cookieHeader\(rawSession, remainingSeconds\)/);
+  assert.match(source, /clearCookieAtPath\('\/api\/business'\)/);
 });

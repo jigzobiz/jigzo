@@ -38,11 +38,12 @@ function cookieHeader(token, maxAgeSeconds) {
   const secure = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
   return `${SESSION_COOKIE}=${token}; Path=${businessCookiePath()}; HttpOnly; ${secure ? 'Secure; ' : ''}SameSite=Strict; Max-Age=${maxAgeSeconds}`;
 }
-function clearCookieHeader() { return `${SESSION_COOKIE}=; Path=${businessCookiePath()}; HttpOnly; SameSite=Strict; Max-Age=0`; }
+function clearCookieAtPath(path) { return `${SESSION_COOKIE}=; Path=${path}; HttpOnly; SameSite=Strict; Max-Age=0`; }
+function clearCookieHeader() { return clearCookieAtPath(businessCookiePath()); }
 function readCookie(header, name = SESSION_COOKIE) {
   for (const part of String(header || '').split(';')) {
     const [key, ...rest] = part.trim().split('='); if (key === name) return rest.join('=');
   }
   return '';
 }
-module.exports = { SESSION_COOKIE, normalizeEmail, randomToken, sha256, keyedHash, timingSafeEqualText, encryptText, decryptText, businessCookiePath, cookieHeader, clearCookieHeader, readCookie };
+module.exports = { SESSION_COOKIE, normalizeEmail, randomToken, sha256, keyedHash, timingSafeEqualText, encryptText, decryptText, businessCookiePath, cookieHeader, clearCookieAtPath, clearCookieHeader, readCookie };

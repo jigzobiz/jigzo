@@ -4,7 +4,7 @@ const BusinessSession = require('../models/BusinessSession');
 const { issueMagicLink, consumeMagicLink } = require('../services/businessAuthService');
 const { revokeSession } = require('../services/businessAuthService');
 const { sendBusinessMagicLinkEmail } = require('../services/emailService');
-const { cookieHeader, clearCookieHeader, readCookie, sha256, randomToken } = require('../utils/businessSecurity');
+const { cookieHeader, clearCookieAtPath, clearCookieHeader, readCookie, sha256, randomToken } = require('../utils/businessSecurity');
 const { getFrontendOrigin } = require('../utils/runtimeConfig');
 const { requireBusinessAuth, requireBusinessCsrf } = require('../middleware/businessAuth');
 
@@ -41,7 +41,10 @@ router.get('/session', requireBusinessAuth, async (req, res, next) => {
     if (process.env.VERCEL_TARGET_ENV === 'staging') {
       const rawSession = readCookie(req.headers.cookie);
       const remainingSeconds = Math.max(1, Math.floor((req.business.session.expiresAt.getTime() - Date.now()) / 1000));
-      res.setHeader('Set-Cookie', cookieHeader(rawSession, remainingSeconds));
+      res.setHeader('Set-Cookie', [
+        cookieHeader(rawSession, remainingSeconds),
+        clearCookieAtPath('/api/business')
+      ]);
     }
     return res.json({ success: true, csrfToken, organization: { organizationId: req.business.organization.organizationId, name: req.business.organization.name, defaultLanguage: req.business.organization.defaultLanguage, timezone: req.business.organization.timezone } });
   } catch (error) { return next(error); }
