@@ -26,3 +26,14 @@ test('durable campaign hydration and navigation do not wait for recipient loadin
   const source = fs.readFileSync(path.resolve('src/business/studio/CampaignStudioContext.jsx'), 'utf8');
   assert.match(source, /dispatch\(\{ type: 'HYDRATE', campaign \}\); if \(!campaignId\) onCreated\(campaign\.campaignId\); try \{ const recipientRows/);
 });
+
+test('desktop area navigation has localized next and previous actions without a Review next action', () => {
+  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
+  const copy = fs.readFileSync(path.resolve('src/business/studio/studio-copy.js'), 'utf8');
+  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
+  assert.match(page, /className="jzs-desktop-nav"/);
+  assert.match(page, /state\.studio\.activeArea < 5/);
+  assert.match(copy, /nextTo: 'Next: \{\{area\}\}'/);
+  assert.match(copy, /nextTo: 'التالي: \{\{area\}\}'/);
+  assert.match(css, /@media\(max-width:820px\)\{\.jzs-desktop-nav\{display:none\}\}/);
+});

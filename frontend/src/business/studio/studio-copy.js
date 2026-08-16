@@ -11,7 +11,7 @@ export const studioCopy = {
     delivery: { title: 'Choose how the puzzle arrives.', body: 'Delivery is intentionally quiet in this phase. Nothing will be sent from this preview.', whatsapp: 'WhatsApp', whatsappBody: 'A direct puzzle link in a personal message.', email: 'Email', emailBody: 'A considered invitation with the puzzle as the focal action.', preview: 'Development preview', noSend: 'Sending is not connected yet.', launch: 'Launch Now only in V1' },
     review: { title: 'One last look, without the admin noise.', body: 'Everything the recipient will experience, distilled into a single campaign portrait.', campaign: 'Campaign', puzzle: 'Puzzle', event: 'Event', recipients: 'Recipients', delivery: 'Delivery', policy: 'RSVP policy', expiry: 'Deadline', ready: 'Frontend preview ready', launch: 'Launch unavailable in this phase', launchNow: 'Launch Now', validCount: '2 ready · 2 need attention', policyValue: 'Responses editable until deadline · +1 off' },
     preview: { label: 'Live recipient preview', solved: 'Puzzle solved', invitation: 'You’re invited', eventMeta: '24 OCT · 7:30 PM', going: 'Going', notGoing: 'Not going', guest: 'Bring a +1', personal: 'Personalized for', select: 'Select recipient', demo: 'Interactive frontend preview' },
-    common: { on: 'On', off: 'Off', next: 'Next area', previous: 'Previous', complete: 'Complete', incomplete: 'In progress' }
+    common: { on: 'On', off: 'Off', next: 'Next area', nextTo: 'Next: {{area}}', previous: 'Previous', previousTo: 'Previous: {{area}}', complete: 'Complete', incomplete: 'In progress' }
   },
   ar: {
     brand: 'استوديو الأعمال', draft: 'مسودة دعوة', saving: 'جارٍ الحفظ…', saved: 'تم الحفظ', saveError: 'لم يتم الحفظ', language: 'English', back: 'العودة إلى الأعمال',
@@ -25,6 +25,6 @@ export const studioCopy = {
     delivery: { title: 'اختر كيف تصل الأحجية.', body: 'التوصيل معروض بوضوح في هذه المرحلة، ولن تُرسل أي رسالة من هذه المعاينة.', whatsapp: 'واتساب', whatsappBody: 'رابط مباشر للأحجية ضمن رسالة شخصية.', email: 'البريد الإلكتروني', emailBody: 'دعوة أنيقة تكون الأحجية فيها هي الفعل الرئيسي.', preview: 'معاينة تطويرية', noSend: 'الإرسال غير متصل بعد.', launch: 'الإطلاق الفوري فقط في V1' },
     review: { title: 'نظرة أخيرة، بلا ضوضاء إدارية.', body: 'كل ما سيختبره المستلم، مختصر في صورة واحدة واضحة للحملة.', campaign: 'الحملة', puzzle: 'الأحجية', event: 'المناسبة', recipients: 'المستلمون', delivery: 'التوصيل', policy: 'سياسة الرد', expiry: 'الموعد النهائي', ready: 'معاينة الواجهة جاهزة', launch: 'الإطلاق غير متاح في هذه المرحلة', launchNow: 'إطلاق الآن', validCount: '2 جاهزان · 2 يحتاجان للمراجعة', policyValue: 'يمكن تعديل الرد حتى الموعد · المرافق غير مفعّل' },
     preview: { label: 'معاينة المستلم المباشرة', solved: 'تم حل الأحجية', invitation: 'أنت مدعو', eventMeta: '24 أكتوبر · 7:30 م', going: 'سأحضر', notGoing: 'لن أحضر', guest: 'سأحضر مع مرافق', personal: 'نسخة شخصية لـ', select: 'اختر مستلماً', demo: 'معاينة تفاعلية للواجهة' },
-    common: { on: 'مفعّل', off: 'متوقف', next: 'المنطقة التالية', previous: 'السابق', complete: 'مكتمل', incomplete: 'قيد الإعداد' }
+    common: { on: 'مفعّل', off: 'متوقف', next: 'المنطقة التالية', nextTo: 'التالي: {{area}}', previous: 'السابق', previousTo: 'السابق: {{area}}', complete: 'مكتمل', incomplete: 'قيد الإعداد' }
   }
 };

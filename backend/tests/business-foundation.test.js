@@ -1,5 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const read = file => fs.readFileSync(path.resolve(__dirname, '../', file), 'utf8');
 process.env.NODE_ENV = 'test';
 process.env.BUSINESS_IDENTITY_HASH_SECRET = 'test-business-hash-secret-000000000000';
 process.env.BUSINESS_DATA_ENCRYPTION_SECRET = 'test-business-encryption-secret-000000';
@@ -62,4 +65,12 @@ test('logout revokes the server session and is retry safe', async () => {
   let filter; let update; const Model = { updateOne: async (f, u) => { filter = f; update = u; return { modifiedCount: 1 }; } };
   await revokeSession('session-a', { Model, now: new Date('2026-01-01T00:00:00Z') });
   assert.deepEqual(filter, { _id: 'session-a', revokedAt: null }); assert.ok(update.$set.revokedAt instanceof Date);
+});
+
+test('Business session resolution avoids sequential tenant reads and duplicate session touches', () => {
+  const auth = read('src/middleware/businessAuth.js');
+  const routes = read('src/routes/businessAuth.js');
+  assert.match(auth, /Promise\.all\(\[/);
+  assert.match(auth, /req\.path !== '\/session'/);
+  assert.match(routes, /csrfHash: sha256\(csrfToken\), lastSeenAt: new Date\(\)/);
 });

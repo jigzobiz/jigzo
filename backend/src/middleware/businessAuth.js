@@ -10,11 +10,13 @@ async function requireBusinessAuth(req, res, next) {
     const now = new Date();
     const session = await BusinessSession.findOne({ tokenHash: sha256(raw), revokedAt: null, expiresAt: { $gt: now } }).select('+csrfHash');
     if (!session) return res.status(401).json({ error: 'Authentication required.' });
-    const identity = await BusinessIdentity.findOne({ _id: session.identity, status: 'active', sessionVersion: session.sessionVersion });
-    const organization = identity && await Organization.findOne({ _id: session.organization, ownerIdentity: identity._id, status: 'active' });
+    const [identity, organization] = await Promise.all([
+      BusinessIdentity.findOne({ _id: session.identity, status: 'active', sessionVersion: session.sessionVersion }),
+      Organization.findOne({ _id: session.organization, ownerIdentity: session.identity, status: 'active' })
+    ]);
     if (!identity || !organization) return res.status(401).json({ error: 'Authentication required.' });
     req.business = { session, identity, organization, organizationId: organization._id };
-    BusinessSession.updateOne({ _id: session._id }, { $set: { lastSeenAt: now } }).catch(() => {});
+    if (req.path !== '/session') BusinessSession.updateOne({ _id: session._id }, { $set: { lastSeenAt: now } }).catch(() => {});
     return next();
   } catch (error) { return next(error); }
 }

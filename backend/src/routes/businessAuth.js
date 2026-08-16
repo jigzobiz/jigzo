@@ -34,7 +34,7 @@ router.post('/verify', async (req, res, next) => {
 router.get('/session', requireBusinessAuth, async (req, res, next) => {
   try {
     const csrfToken = randomToken();
-    await BusinessSession.updateOne({ _id: req.business.session._id, revokedAt: null }, { $set: { csrfHash: sha256(csrfToken) } });
+    await BusinessSession.updateOne({ _id: req.business.session._id, revokedAt: null }, { $set: { csrfHash: sha256(csrfToken), lastSeenAt: new Date() } });
     // Upgrade an existing staging owner cookie from the historical
     // /api/business scope to /api so the same session can protect /api/test.
     // This branch is inert in every other environment.
