@@ -93,8 +93,22 @@ test('all four persisted difficulty choices drive real editor and phone geometry
 
 test('manual recipient entry uses only name contact method contact and +1 override', () => {
   const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
-  assert.match(page, /blank = \{ name: '', contactMethod: 'email', contact: '', plusOneOverride: 'inherit' \}/);
+  assert.match(page, /blank = \(\) => \(\{ localId: crypto\.randomUUID\(\), name: '', contactMethod: 'email', contact: '', plusOneOverride: 'inherit' \}\)/);
   assert.doesNotMatch(page, /form\.countryCode|form\.language|form\.externalRef|form\.invitationMessageOverride/);
+});
+
+test('manual and imported recipients share one dense inline-editable grid', () => {
+  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
+  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
+  assert.match(page, /className="jzs-recipient-grid" role="table"/);
+  assert.match(page, /setDrafts\(value=>\[\.\.\.value,blank\(\)\]\)/);
+  assert.match(page, /editableRows\|\|\[\]/);
+  assert.match(page, /commitRecipientImport/);
+  assert.doesNotMatch(page, /jzs-recipient-form|jzs-import-review|Confirm ready rows/);
+  assert.match(page, /Invalid email format/);
+  assert.match(page, /Phone number doesn’t look right/);
+  assert.match(page, /Duplicate recipient/);
+  assert.match(css, /\.jzs-recipient-grid__head,.jzs-recipient-row/);
 });
 
 test('Studio cannot upload before a persisted campaign identity exists', () => {
