@@ -32,7 +32,7 @@ function PhonePreview({ copy, isArabic }) {
       <div className="jzs-phone__screen">
         <span className="jzs-phone__island" />
         <div className="jzs-phone__top"><span>JIGZO</span><span className="jzs-ltr">9:41</span></div>
-        <div className="jzs-phone__puzzle"><BusinessPuzzle finalPiece={4} /></div>
+        <div className="jzs-phone__puzzle"><BusinessPuzzle finalPiece={4} imageUrl={state.puzzle.imagePreviewUrl} mysteryMode={state.puzzle.mysteryMode} /></div>
         <div className="jzs-phone__solved"><span aria-hidden="true">✓</span>{copy.preview.solved}</div>
         <div className="jzs-invitation">
           <p>{copy.preview.invitation}</p>
@@ -85,7 +85,7 @@ function PuzzleArea({ copy }) {
   return <>
     <AreaIntro copy={copy} index={1} />
     <div className="jzs-puzzle-stage">
-      <div className="jzs-puzzle-art" style={state.puzzle.imagePreviewUrl ? { backgroundImage: `url(${state.puzzle.imagePreviewUrl})` } : undefined}><BusinessPuzzle finalPiece={7} /></div>
+      <div className="jzs-puzzle-art"><BusinessPuzzle finalPiece={7} imageUrl={state.puzzle.imagePreviewUrl} /></div>
       <div><span className="jzs-label">{copy.puzzle.image}</span><button type="button" className="jzs-action" disabled={!uploadReady} onClick={() => fileInput.current?.click()}>{copy.puzzle.upload}</button><input ref={fileInput} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={selectImage} /><small className="jzs-help">{uploadState||copy.puzzle.mocked}</small></div>
     </div>
     <div className="jzs-label">{copy.puzzle.difficulty}</div>

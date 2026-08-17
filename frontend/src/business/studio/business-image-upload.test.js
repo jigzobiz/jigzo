@@ -72,6 +72,15 @@ test('invalid image is rejected before processing', async () => {
   await assert.rejects(() => prepareBusinessImage({ type: 'image/gif', size: 100 }), /JPEG, PNG or WebP/);
 });
 
+test('persisted image drives editor and live recipient puzzle while Mystery Mode hides only the recipient image', () => {
+  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
+  const puzzle = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
+  assert.match(page, /BusinessPuzzle finalPiece=\{4\} imageUrl=\{state\.puzzle\.imagePreviewUrl\} mysteryMode=\{state\.puzzle\.mysteryMode\}/);
+  assert.match(page, /BusinessPuzzle finalPiece=\{7\} imageUrl=\{state\.puzzle\.imagePreviewUrl\}/);
+  assert.match(puzzle, /showImage = Boolean\(imageUrl && !mysteryMode\)/);
+  assert.match(puzzle, /preserveAspectRatio="xMidYMid slice"/);
+});
+
 test('Studio cannot upload before a persisted campaign identity exists', () => {
   const source = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
   assert.match(source, /uploadReady = Boolean\(state\.sync\.hydrated && state\.identity\.campaignId\)/);

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useId, useMemo } from 'react';
 import { buildEdgeMap, piecePath } from '../../puzzle/puzzle-shape';
 
 const COLS = 3;
@@ -6,7 +6,9 @@ const ROWS = 3;
 const CELL = 92;
 const GAP = 2;
 
-export default function BusinessPuzzle({ className = '', finalPiece = 4, label }) {
+export default function BusinessPuzzle({ className = '', finalPiece = 4, label, imageUrl = null, mysteryMode = false }) {
+  const clipId = `jzb-puzzle-image-${useId().replace(/:/g, '')}`;
+  const showImage = Boolean(imageUrl && !mysteryMode);
   const pieces = useMemo(() => {
     const edges = buildEdgeMap(COLS, ROWS, 407);
     return Array.from({ length: COLS * ROWS }, (_, index) => {
@@ -22,13 +24,15 @@ export default function BusinessPuzzle({ className = '', finalPiece = 4, label }
   }, []);
 
   return (
-    <svg className={`jzb-puzzle ${className}`} viewBox="-24 -24 330 330" role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+    <svg className={`jzb-puzzle${showImage ? ' jzb-puzzle--image' : ''} ${className}`} viewBox="-24 -24 330 330" role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
       <defs>
         <linearGradient id="jzbPuzzleInk" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#17140f" />
           <stop offset="1" stopColor="#4b3d2a" />
         </linearGradient>
+        {showImage && <clipPath id={clipId}>{pieces.map((piece) => <path key={piece.index} transform={`translate(${piece.x} ${piece.y})`} d={piece.path} />)}</clipPath>}
       </defs>
+      {showImage && <image href={imageUrl} x="0" y="0" width="280" height="280" preserveAspectRatio="xMidYMid slice" clipPath={`url(#${clipId})`} />}
       {pieces.map((piece) => (
         <g key={piece.index} transform={`translate(${piece.x} ${piece.y})`}>
           <path
