@@ -8,15 +8,15 @@ const stripUnsafe = value => String(value ?? '').normalize('NFKC').replace(/[\u0
 const safeExternalRef = value => { const clean = stripUnsafe(value); return clean || null; };
 function maskContact(channel, value) { if (channel === 'email') { const [name, domain] = value.split('@'); return `${name.slice(0, 2)}***@${domain}`; } return `${value.slice(0, 4)} •••• ${value.slice(-3)}`; }
 function normalizeRecipient(input, defaultLanguage = 'en') {
-  const displayName = stripUnsafe(input.name ?? input.displayName); const deliveryChannel = stripUnsafe(input.delivery_channel ?? input.deliveryChannel).toLowerCase();
+  const displayName = stripUnsafe(input.name ?? input.displayName); const deliveryChannel = stripUnsafe(input.contact_method ?? input.delivery_channel ?? input.contactMethod ?? input.deliveryChannel).toLowerCase();
   const language = (stripUnsafe(input.language) || defaultLanguage).toLowerCase(); const externalRef = safeExternalRef(input.recipient_ref ?? input.externalRef);
   const errors = []; if (!displayName || displayName.length > 160) errors.push('invalid_name'); if (!['email', 'whatsapp'].includes(deliveryChannel)) errors.push('invalid_delivery_channel'); if (!['en', 'ar'].includes(language)) errors.push('invalid_language'); if (externalRef?.length > 120) errors.push('invalid_recipient_ref');
   let normalizedContact = null;
-  if (deliveryChannel === 'email') { const result = validateEmail(input.email); if (!result.valid) errors.push('invalid_email'); else normalizedContact = result.email; }
-  if (deliveryChannel === 'whatsapp') { const result = validatePhone(input.phone, input.country_code ?? input.countryCode); if (!result.valid) errors.push('invalid_phone'); else normalizedContact = result.e164; }
-  const rawPlusOne = stripUnsafe(input.allow_plus_one ?? input.plusOneOverride).toLowerCase(); let plusOneOverride = 'inherit';
-  if (['true', 'yes', '1', 'allowed', 'allow'].includes(rawPlusOne)) plusOneOverride = 'allowed'; else if (['false', 'no', '0', 'not_allowed', 'disallow'].includes(rawPlusOne)) plusOneOverride = 'not_allowed'; else if (rawPlusOne && rawPlusOne !== 'inherit') errors.push('invalid_plus_one');
-  const invitationMessageOverride = stripUnsafe(input.invitation_message ?? input.invitationMessageOverride); if (invitationMessageOverride.length > MAX_CELL) errors.push('invitation_message_too_long');
+  if (deliveryChannel === 'email') { const result = validateEmail(input.contact ?? input.email); if (!result.valid) errors.push('invalid_email'); else normalizedContact = result.email; }
+  if (deliveryChannel === 'whatsapp') { const result = validatePhone(input.contact ?? input.phone, input.contact == null ? input.country_code ?? input.countryCode : undefined); if (!result.valid) errors.push('invalid_phone'); else normalizedContact = result.e164; }
+  const rawPlusOne = stripUnsafe(input.plus_one_override ?? input.allow_plus_one ?? input.plusOneOverride).toLowerCase(); let plusOneOverride = 'inherit';
+  if (['on', 'true', 'yes', '1', 'allowed', 'allow'].includes(rawPlusOne)) plusOneOverride = 'allowed'; else if (['off', 'false', 'no', '0', 'not_allowed', 'disallow'].includes(rawPlusOne)) plusOneOverride = 'not_allowed'; else if (rawPlusOne && rawPlusOne !== 'inherit') errors.push('invalid_plus_one');
+  const invitationMessageOverride = '';
   if (Object.values(input).some(value => String(value ?? '').length > MAX_CELL)) errors.push('cell_too_long');
   const contactHash = normalizedContact ? keyedHash(`recipient:${deliveryChannel}:${normalizedContact}`) : null;
   return { displayName, deliveryChannel, language, externalRef, plusOneOverride, invitationMessageOverride, normalizedContact, contactHash, maskedContact: normalizedContact ? maskContact(deliveryChannel, normalizedContact) : '', errors: [...new Set(errors)] };

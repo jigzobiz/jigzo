@@ -1,27 +1,35 @@
 import React, { useId, useMemo } from 'react';
 import { buildEdgeMap, piecePath } from '../../puzzle/puzzle-shape';
 
-const COLS = 3;
-const ROWS = 3;
-const CELL = 92;
+export const BUSINESS_PUZZLE_LAYOUTS = {
+  6: { columns: 3, rows: 2 },
+  15: { columns: 5, rows: 3 },
+  18: { columns: 6, rows: 3 },
+  28: { columns: 7, rows: 4 }
+};
+const BOARD = 280;
 const GAP = 2;
 
-export default function BusinessPuzzle({ className = '', finalPiece = 4, label, imageUrl = null, mysteryMode = false }) {
+export default function BusinessPuzzle({ className = '', finalPiece = 4, label, imageUrl = null, mysteryMode = false, pieceCount = 18 }) {
   const clipId = `jzb-puzzle-image-${useId().replace(/:/g, '')}`;
   const showImage = Boolean(imageUrl && !mysteryMode);
   const pieces = useMemo(() => {
-    const edges = buildEdgeMap(COLS, ROWS, 407);
-    return Array.from({ length: COLS * ROWS }, (_, index) => {
-      const row = Math.floor(index / COLS);
-      const column = index % COLS;
+    const layout = BUSINESS_PUZZLE_LAYOUTS[pieceCount] || BUSINESS_PUZZLE_LAYOUTS[18];
+    const cell = (BOARD - GAP * (layout.columns - 1)) / layout.columns;
+    const height = layout.rows * cell + GAP * (layout.rows - 1);
+    const offsetY = (BOARD - height) / 2;
+    const edges = buildEdgeMap(layout.columns, layout.rows, 407 + pieceCount);
+    return Array.from({ length: layout.columns * layout.rows }, (_, index) => {
+      const row = Math.floor(index / layout.columns);
+      const column = index % layout.columns;
       return {
         index,
-        path: piecePath(row, column, COLS, ROWS, CELL, CELL, edges),
-        x: column * (CELL + GAP),
-        y: row * (CELL + GAP)
+        path: piecePath(row, column, layout.columns, layout.rows, cell, cell, edges),
+        x: column * (cell + GAP),
+        y: offsetY + row * (cell + GAP)
       };
     });
-  }, []);
+  }, [pieceCount]);
 
   return (
     <svg className={`jzb-puzzle${showImage ? ' jzb-puzzle--image' : ''} ${className}`} viewBox="-24 -24 330 330" role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
@@ -36,7 +44,7 @@ export default function BusinessPuzzle({ className = '', finalPiece = 4, label, 
       {pieces.map((piece) => (
         <g key={piece.index} transform={`translate(${piece.x} ${piece.y})`}>
           <path
-            className={piece.index === finalPiece ? 'jzb-puzzle__piece jzb-puzzle__piece--final' : 'jzb-puzzle__piece'}
+            className={piece.index === finalPiece % pieces.length ? 'jzb-puzzle__piece jzb-puzzle__piece--final' : 'jzb-puzzle__piece'}
             d={piece.path}
           />
         </g>

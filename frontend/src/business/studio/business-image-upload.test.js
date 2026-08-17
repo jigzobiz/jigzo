@@ -75,10 +75,26 @@ test('invalid image is rejected before processing', async () => {
 test('persisted image drives editor and live recipient puzzle while Mystery Mode hides only the recipient image', () => {
   const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
   const puzzle = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
-  assert.match(page, /BusinessPuzzle finalPiece=\{4\} imageUrl=\{state\.puzzle\.imagePreviewUrl\} mysteryMode=\{state\.puzzle\.mysteryMode\}/);
-  assert.match(page, /BusinessPuzzle finalPiece=\{7\} imageUrl=\{state\.puzzle\.imagePreviewUrl\}/);
+  assert.match(page, /BusinessPuzzle finalPiece=\{4\} pieceCount=\{pieceCount\} imageUrl=\{state\.puzzle\.imagePreviewUrl\} mysteryMode=\{state\.puzzle\.mysteryMode\}/);
+  assert.match(page, /BusinessPuzzle finalPiece=\{7\} pieceCount=\{pieceCount\} imageUrl=\{state\.puzzle\.imagePreviewUrl\}/);
   assert.match(puzzle, /showImage = Boolean\(imageUrl && !mysteryMode\)/);
   assert.match(puzzle, /preserveAspectRatio="xMidYMid slice"/);
+});
+
+test('all four persisted difficulty choices drive real editor and phone geometry', () => {
+  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
+  const puzzle = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
+  const context = fs.readFileSync(path.resolve('src/business/studio/CampaignStudioContext.jsx'), 'utf8');
+  for (const count of [6, 15, 18, 28]) assert.match(puzzle, new RegExp(`${count}: \\{ columns:`));
+  assert.equal((page.match(/pieceCount=\{pieceCount\}/g) || []).length, 2);
+  assert.match(context, /difficultyId: campaign\.puzzle\?\.difficultyId/);
+  assert.match(context, /puzzle: \{ difficultyId: state\.puzzle\.difficultyId/);
+});
+
+test('manual recipient entry uses only name contact method contact and +1 override', () => {
+  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
+  assert.match(page, /blank = \{ name: '', contactMethod: 'email', contact: '', plusOneOverride: 'inherit' \}/);
+  assert.doesNotMatch(page, /form\.countryCode|form\.language|form\.externalRef|form\.invitationMessageOverride/);
 });
 
 test('Studio cannot upload before a persisted campaign identity exists', () => {
