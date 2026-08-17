@@ -37,7 +37,7 @@ function canvasBlob(canvas, quality) {
 
 export async function prepareBusinessImage(file) {
   if (!SUPPORTED_TYPES.has(file?.type)) throw new Error('Choose a JPEG, PNG or WebP image.');
-  if (file.size <= BUSINESS_IMAGE_MAX_BYTES) return readDataUrl(file);
+  if (file.size <= BUSINESS_IMAGE_MAX_BYTES) return { blob: file, previewUrl: await readDataUrl(file) };
 
   const image = await loadImage(file);
   let scale = businessImageScale(image.naturalWidth, image.naturalHeight);
@@ -53,7 +53,7 @@ export async function prepareBusinessImage(file) {
     context.imageSmoothingQuality = 'high';
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
     const blob = await canvasBlob(canvas, quality);
-    if (blob.size <= BUSINESS_IMAGE_MAX_BYTES) return readDataUrl(blob);
+    if (blob.size <= BUSINESS_IMAGE_MAX_BYTES) return { blob, previewUrl: await readDataUrl(blob) };
     scale *= 0.82;
     quality = Math.max(0.68, quality - 0.06);
   }

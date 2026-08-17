@@ -73,9 +73,9 @@ function PuzzleArea({ copy }) {
     }
     try {
       setUploadState('Saving…');
-      const cropData = await prepareBusinessImage(file);
-      await businessApi.persistPuzzle(state.identity.campaignId, cropData);
-      dispatch({ type: 'SET_FIELD', section: 'puzzle', field: 'imagePreviewUrl', value: cropData });
+      const prepared = await prepareBusinessImage(file);
+      await businessApi.persistPuzzle(state.identity.campaignId, prepared.blob);
+      dispatch({ type: 'SET_FIELD', section: 'puzzle', field: 'imagePreviewUrl', value: prepared.previewUrl });
       setUploadState('Saved');
     } catch (error) {
       const responseError = error.response?.data?.error;

@@ -4,9 +4,12 @@ import { BUSINESS_IMAGE_MAX_BYTES, businessImageScale } from './business-image-u
 import fs from 'node:fs';
 import path from 'node:path';
 
-test('Business image payload stays below the Vercel request ceiling before base64 encoding', () => {
+test('Business image payload stays below the Vercel request ceiling without base64 expansion', () => {
   assert.equal(BUSINESS_IMAGE_MAX_BYTES, 3 * 1024 * 1024);
-  assert.ok(Math.ceil(BUSINESS_IMAGE_MAX_BYTES * 4 / 3) < 4.5 * 1024 * 1024);
+  assert.ok(BUSINESS_IMAGE_MAX_BYTES < 4.5 * 1024 * 1024);
+  const api = fs.readFileSync(path.resolve('src/services/businessApi.js'), 'utf8');
+  assert.match(api, /persistPuzzle: async \(campaignId, image\)[\s\S]+?'Content-Type': image\.type/);
+  assert.doesNotMatch(api, /persistPuzzle[\s\S]+?\{ cropData \}/);
 });
 
 test('Business image dimensions are bounded without upscaling', () => {
