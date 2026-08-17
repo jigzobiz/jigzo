@@ -823,7 +823,7 @@ const ar = {
       switchLanguage: 'English',
       earlyAccess: 'وصول مبكر'
     },
-    cta: { earlyAccess: 'اطلب الوصول المبكر', seeHow: 'شاهد كيف تعمل' },
+    cta: { earlyAccess: 'اطلب الوصول المبكر', signIn: 'تسجيل الدخول للأعمال', seeHow: 'شاهد كيف تعمل' },
     hero: {
       eyebrow: 'تواصل بشكل مختلف',
       lineOne: 'لا تعلنها وبس.',

@@ -1,10 +1,11 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import BusinessRecipientJourney from './BusinessRecipientJourney';
 
 const EXPERIENCE_IDS = ['reveal', 'invitation', 'challenge', 'reward'];
 
-export default function BusinessHero({ experience, onExperienceChange, onEarlyAccess }) {
+export default function BusinessHero({ experience, onExperienceChange, onEarlyAccess, accessHref }) {
   const { t } = useTranslation();
 
   return (
@@ -19,7 +20,7 @@ export default function BusinessHero({ experience, onExperienceChange, onEarlyAc
           </h1>
           <p className="jzb-hero__lede">{t('business.hero.lede')}</p>
           <div className="jzb-hero__actions">
-            <button className="jzb-button jzb-button--gold" type="button" onClick={onEarlyAccess}>{t('business.cta.earlyAccess')}</button>
+            {accessHref ? <Link className="jzb-button jzb-button--gold" to={accessHref}>{t('business.cta.signIn')}</Link> : <button className="jzb-button jzb-button--gold" type="button" onClick={onEarlyAccess}>{t('business.cta.earlyAccess')}</button>}
             <a className="jzb-button jzb-button--ghost-dark" href="#business-experiences">{t('business.cta.seeHow')}</a>
           </div>
         </div>

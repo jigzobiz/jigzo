@@ -4,6 +4,7 @@ const client = axios.create({ baseURL: '/api/business', timeout: 15000, withCred
 const stagingTestClient = axios.create({ baseURL: '/api/test', timeout: 45000, withCredentials: true });
 let csrfToken = '';
 export const businessApi = {
+  requestMagicLink: async (email) => (await client.post('/auth/request-link', { email })).data,
   verifyMagicLink: async (token) => { const { data } = await client.post('/auth/verify', { token }); csrfToken = data.csrfToken; return data; },
   establishSession: async () => { const { data } = await client.get('/auth/session'); csrfToken = data.csrfToken; return data; },
   createCampaign: async ({ revision, ...draft }) => (await client.post('/campaigns', draft, { headers: { 'X-JIGZO-CSRF': csrfToken } })).data.campaign,

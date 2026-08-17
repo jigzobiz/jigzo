@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { analytics } from '../../services/analytics';
 
-export default function BusinessHeader({ onEarlyAccess }) {
+export default function BusinessHeader({ onEarlyAccess, accessHref }) {
   const { t, i18n } = useTranslation();
   const nextLanguage = i18n.language === 'ar' ? 'en' : 'ar';
 
@@ -23,9 +23,7 @@ export default function BusinessHeader({ onEarlyAccess }) {
           <button className="jzb-language" type="button" onClick={switchLanguage} lang={nextLanguage} aria-label={t('business.nav.language')}>
             {t('business.nav.switchLanguage')}
           </button>
-          <button className="jzb-button jzb-button--small" type="button" onClick={onEarlyAccess}>
-            {t('business.nav.earlyAccess')}
-          </button>
+          {accessHref ? <Link className="jzb-button jzb-button--small" to={accessHref}>{t('business.cta.signIn')}</Link> : <button className="jzb-button jzb-button--small" type="button" onClick={onEarlyAccess}>{t('business.nav.earlyAccess')}</button>}
         </div>
       </div>
     </header>

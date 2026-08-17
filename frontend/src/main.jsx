@@ -43,6 +43,7 @@ import PaymentResult from './pages/PaymentResult';
 const BusinessLandingPage = lazy(() => import('./pages/business/BusinessLandingPage'));
 const BusinessCampaignStudioPage = lazy(() => import('./pages/business/BusinessCampaignStudioPage'));
 const BusinessAuthVerifyPage = lazy(() => import('./pages/business/BusinessAuthVerifyPage'));
+const BusinessLoginPage = lazy(() => import('./pages/business/BusinessLoginPage'));
 const InvitationRecipientPage = lazy(() => import('./pages/InvitationRecipientPage'));
 import './i18n';
 import './index.css';
@@ -110,6 +111,10 @@ const router = createBrowserRouter([
       {
         path: '/business/campaigns/:campaignId',
         element: <Suspense fallback={null}><BusinessCampaignStudioPage /></Suspense>
+      },
+      {
+        path: '/business/login',
+        element: <Suspense fallback={null}><BusinessLoginPage /></Suspense>
       },
       {
         path: '/business/auth/verify',

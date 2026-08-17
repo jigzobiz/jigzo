@@ -7,6 +7,7 @@ import BusinessPuzzle from '../../business/landing/BusinessPuzzle';
 import { PIECE_OPTIONS } from '../../config/difficulties';
 import { businessApi } from '../../services/businessApi';
 import { prepareBusinessImage } from '../../business/studio/business-image-upload';
+import { rememberBusinessReturnTo } from '../../business/auth/businessAccess';
 import '../../business/studio/business-studio.css';
 
 const EXPERIENCE_KEYS = ['invitation', 'reveal', 'challenge', 'reward'];
@@ -167,4 +168,4 @@ function Studio() {
   </div>;
 }
 
-export default function BusinessCampaignStudioPage() { const { campaignId } = useParams(); const navigate = useNavigate(); const onCreated = useCallback((id) => navigate(`/business/campaigns/${id}`, { replace: true }), [navigate]); return <CampaignStudioProvider campaignId={campaignId} onCreated={onCreated}><Studio /></CampaignStudioProvider>; }
+export default function BusinessCampaignStudioPage() { const { campaignId } = useParams(); const navigate = useNavigate(); const onCreated = useCallback((id) => navigate(`/business/campaigns/${id}`, { replace: true }), [navigate]); const onSessionExpired = useCallback(() => { const returnTo = rememberBusinessReturnTo(window.location.pathname); navigate(`/business/login?returnTo=${encodeURIComponent(returnTo)}`, { replace: true, state: { reason: 'session-expired' } }); }, [navigate]); return <CampaignStudioProvider campaignId={campaignId} onCreated={onCreated} onSessionExpired={onSessionExpired}><Studio /></CampaignStudioProvider>; }

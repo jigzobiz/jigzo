@@ -5,6 +5,8 @@ import BusinessHero from '../../business/landing/BusinessHero';
 import BusinessDemoModal from '../../business/landing/BusinessDemoModal';
 import BusinessPuzzle from '../../business/landing/BusinessPuzzle';
 import { analytics } from '../../services/analytics';
+import { isStagingBusinessHost } from '../../business/auth/businessAccess';
+import { Link } from 'react-router-dom';
 import '../../business/landing/business-landing.css';
 
 const EXPERIENCE_IDS = ['reveal', 'invitation', 'challenge', 'reward'];
@@ -16,6 +18,7 @@ export default function BusinessLandingPage() {
   const [experience, setExperience] = useState(EXPERIENCE_IDS[0]);
   const [modalOpen, setModalOpen] = useState(false);
   const manualSelection = useRef(false);
+  const accessHref = isStagingBusinessHost() ? '/business/login' : null;
 
   const changeExperience = useCallback((id, manual = false) => {
     if (manual) {
@@ -60,9 +63,9 @@ export default function BusinessLandingPage() {
 
   return (
     <div className="jzb-page">
-      <BusinessHeader onEarlyAccess={openEarlyAccess} />
+      <BusinessHeader onEarlyAccess={openEarlyAccess} accessHref={accessHref} />
       <main>
-        <BusinessHero experience={experience} onExperienceChange={changeExperience} onEarlyAccess={openEarlyAccess} />
+        <BusinessHero experience={experience} onExperienceChange={changeExperience} onEarlyAccess={openEarlyAccess} accessHref={accessHref} />
 
         <section className="jzb-experiences" id="business-experiences">
           <div className="jzb-shell jzb-experiences__inner">
@@ -158,12 +161,12 @@ export default function BusinessLandingPage() {
           <div className="jzb-shell jzb-closing__inner">
             <p className="jzb-eyebrow">{t('business.closing.eyebrow')}</p>
             <h2>{t('business.closing.title')}</h2>
-            <button className="jzb-button jzb-button--gold" type="button" onClick={openEarlyAccess}>{t('business.cta.earlyAccess')}</button>
+            {accessHref ? <Link className="jzb-button jzb-button--gold" to={accessHref}>{t('business.cta.signIn')}</Link> : <button className="jzb-button jzb-button--gold" type="button" onClick={openEarlyAccess}>{t('business.cta.earlyAccess')}</button>}
           </div>
         </section>
       </main>
       <footer className="jzb-footer"><div className="jzb-shell"><img src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" /><span>{t('business.footer')}</span></div></footer>
-      <BusinessDemoModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      {!accessHref && <BusinessDemoModal open={modalOpen} onClose={() => setModalOpen(false)} />}
     </div>
   );
 }

@@ -815,7 +815,7 @@ const en = {
       switchLanguage: 'العربية',
       earlyAccess: 'Early access'
     },
-    cta: { earlyAccess: 'Request early access', seeHow: 'See how it works' },
+    cta: { earlyAccess: 'Request early access', signIn: 'Sign in to Business', seeHow: 'See how it works' },
     hero: {
       eyebrow: 'Communication, transformed',
       lineOne: 'Don’t announce it.',
