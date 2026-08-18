@@ -108,7 +108,14 @@ test('manual and imported recipients share one dense inline-editable grid', () =
   assert.match(page, /Invalid email format/);
   assert.match(page, /Phone number doesn’t look right/);
   assert.match(page, /Duplicate recipient/);
+  assert.doesNotMatch(page, />\{copy\.recipients\.save\}<\/button>/);
+  assert.match(page, /window\.setTimeout\(\(\)=>persistRow\(row,isDraft,id\),650\)/);
+  assert.match(page, /\[\['inherit',isArabic\?'الحملة':'Campaign'\],\['allowed',isArabic\?'نعم':'Yes'\],\['not_allowed',isArabic\?'لا':'No'\]\]/);
+  assert.match(page, /type:'PREVIEW_RECIPIENT'/);
+  assert.match(page, /aria-label=\{isArabic\?'إزالة المستلم':'Remove recipient'\}/);
   assert.match(css, /\.jzs-recipient-grid__head,.jzs-recipient-row/);
+  assert.match(css, /\.jzs-recipient-row\{height:56px/);
+  assert.match(css, /\.jzs-recipient-grid__head\{height:34px[^}]+font-size:11px/);
 });
 
 test('Studio cannot upload before a persisted campaign identity exists', () => {

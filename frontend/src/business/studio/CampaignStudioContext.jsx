@@ -3,7 +3,7 @@ import { businessApi } from '../../services/businessApi';
 
 const initialState = {
   identity: { campaignId: null, organizationId: null, revision: null, status: 'local-draft' },
-  studio: { activeArea: 0, visitedAreas: [0], selectedRecipientId: null, saveState: 'loading', saveError: '' },
+  studio: { activeArea: 0, visitedAreas: [0], selectedRecipientId: null, previewRecipient: null, saveState: 'loading', saveError: '' },
   campaign: { name: 'The Atelier Opening', experienceType: 'invitation' },
   puzzle: { imagePreviewUrl: null, difficultyId: 'classic', mysteryMode: false },
   experience: { eventTitle: 'An evening at The Atelier', dateTime: '2026-10-24T19:30', timezone: 'Asia/Bahrain', location: 'The Atelier, Manama', rsvpDeadline: '2026-10-18', message: 'Sara, we would love you to join us for an intimate evening of art, conversation and a little surprise.', rsvpEnabled: true, allowPlusOneDefault: false },
@@ -32,7 +32,8 @@ function reducer(state, action) {
     case 'SAVE_SUCCESS': return { ...state, identity: { ...state.identity, revision: action.campaign.revision, status: action.campaign.status }, studio: { ...state.studio, saveState: state.sync.changeSequence === action.sequence ? 'saved' : 'saving', saveError: '' }, sync: { ...state.sync, dirty: state.sync.changeSequence !== action.sequence } };
     case 'SAVE_ERROR': return { ...state, studio: { ...state.studio, saveState: 'error', saveError: action.message } };
     case 'SELECT_RECIPIENT': return { ...state, studio: { ...state.studio, selectedRecipientId: action.id } };
-    case 'LOAD_RECIPIENTS': { const entitiesById = Object.fromEntries(action.recipients.map(item => [item.recipientId, item])); const orderedIds = action.recipients.map(item => item.recipientId); return { ...state, recipients: { entitiesById, orderedIds, loading: false }, studio: { ...state.studio, selectedRecipientId: orderedIds.includes(state.studio.selectedRecipientId) ? state.studio.selectedRecipientId : orderedIds[0] || null } }; }
+    case 'PREVIEW_RECIPIENT': return { ...state, studio: { ...state.studio, previewRecipient: action.recipient } };
+    case 'LOAD_RECIPIENTS': { const entitiesById = Object.fromEntries(action.recipients.map(item => [item.recipientId, item])); const orderedIds = action.recipients.map(item => item.recipientId); return { ...state, recipients: { entitiesById, orderedIds, loading: false }, studio: { ...state.studio, previewRecipient: null, selectedRecipientId: orderedIds.includes(state.studio.selectedRecipientId) ? state.studio.selectedRecipientId : orderedIds[0] || null } }; }
     case 'SET_RECIPIENT_OVERRIDE': return { ...state, recipients: { ...state.recipients, entitiesById: { ...state.recipients.entitiesById, [action.id]: { ...state.recipients.entitiesById[action.id], plusOne: action.value } } } };
     case 'REMOVE_RECIPIENT': {
       const entitiesById = { ...state.recipients.entitiesById }; delete entitiesById[action.id];
