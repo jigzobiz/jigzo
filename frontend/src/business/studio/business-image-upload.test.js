@@ -101,21 +101,26 @@ test('manual and imported recipients share one dense inline-editable grid', () =
   const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
   const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
   assert.match(page, /className="jzs-recipient-grid" role="table"/);
-  assert.match(page, /setDrafts\(value=>\[\.\.\.value,blank\(\)\]\)/);
-  assert.match(page, /editableRows\|\|\[\]/);
+  assert.match(page, /setDrafts\(value\s*=>\s*\[\.\.\.value,\s*blank\(\)\]\)/);
+  assert.match(page, /editableRows\s*\|\|\s*\[\]/);
   assert.match(page, /commitRecipientImport/);
   assert.doesNotMatch(page, /jzs-recipient-form|jzs-import-review|Confirm ready rows/);
   assert.match(page, /Invalid email format/);
   assert.match(page, /Phone number doesn’t look right/);
   assert.match(page, /Duplicate recipient/);
   assert.doesNotMatch(page, />\{copy\.recipients\.save\}<\/button>/);
-  assert.match(page, /window\.setTimeout\(\(\)=>persistRow\(row,isDraft,id\),650\)/);
-  assert.match(page, /\[\['inherit',isArabic\?'الحملة':'Campaign'\],\['allowed',isArabic\?'نعم':'Yes'\],\['not_allowed',isArabic\?'لا':'No'\]\]/);
-  assert.match(page, /type:'PREVIEW_RECIPIENT'/);
-  assert.match(page, /aria-label=\{isArabic\?'إزالة المستلم':'Remove recipient'\}/);
-  assert.match(css, /\.jzs-recipient-grid__head,.jzs-recipient-row/);
-  assert.match(css, /\.jzs-recipient-row\{height:56px/);
-  assert.match(css, /\.jzs-recipient-grid__head\{height:34px[^}]+font-size:11px/);
+  assert.match(page, /window\.setTimeout\(\(\)\s*=>\s*persistRow\(row,\s*isDraft,\s*id\),\s*650\)/);
+  assert.match(page, /type:\s*'PREVIEW_RECIPIENT'/);
+  assert.match(page, /aria-label=\{isArabic\s*\?\s*'إزالة المستلم'\s*:\s*'Remove recipient'\}/);
+  assert.match(css, /\.jzs-recipient-grid__head,\.jzs-recipient-row/);
+  assert.match(css, /\.jzs-recipient-row__grid\{height:56px/);
+  assert.match(css, /\.jzs-recipient-grid__head\{height:46px[^}]+font-size:12\.5px/);
+  // The +1 control is a genuine two-state ON/OFF toggle now (locked design decision): it must
+  // never surface a third "Campaign default"/inherit label, and clicking must write allowed/not_allowed
+  // directly, only reading the campaign default to decide the toggle's initial rendered position.
+  assert.doesNotMatch(page, /'الحملة':'Campaign'|Campaign default/);
+  assert.match(page, /plusOneOverride === 'allowed' \|\| \(row\.plusOneOverride === 'inherit' && state\.experience\.allowPlusOneDefault\)/);
+  assert.match(page, /'plusOneOverride', on \? 'not_allowed' : 'allowed'/);
 });
 
 test('Studio cannot upload before a persisted campaign identity exists', () => {
@@ -130,13 +135,14 @@ test('durable campaign hydration and navigation do not wait for recipient loadin
   assert.match(source, /dispatch\(\{ type: 'HYDRATE', campaign \}\); if \(!campaignId\) onCreated\(campaign\.campaignId\); try \{ const recipientRows/);
 });
 
-test('desktop area navigation has localized next and previous actions without a Review next action', () => {
+test('area navigation has localized next and previous actions without a Review next action', () => {
   const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
   const copy = fs.readFileSync(path.resolve('src/business/studio/studio-copy.js'), 'utf8');
   const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
-  assert.match(page, /className="jzs-desktop-nav"/);
+  assert.match(page, /className="jzs-canvas-nav"/);
   assert.match(page, /state\.studio\.activeArea < 5/);
   assert.match(copy, /nextTo: 'Next: \{\{area\}\}'/);
   assert.match(copy, /nextTo: 'التالي: \{\{area\}\}'/);
-  assert.match(css, /@media\(max-width:820px\)\{\.jzs-desktop-nav\{display:none\}\}/);
+  assert.match(css, /\.jzs-canvas-nav\{/);
+  assert.match(css, /@media\(max-width:900px\)/);
 });

@@ -4,11 +4,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { safeBusinessReturnTo } from './businessAccess.js';
 
-test('Business return destinations are limited to Studio routes', () => {
+test('Business return destinations are limited to Home, Studio and Results routes', () => {
+  assert.equal(safeBusinessReturnTo('/business/campaigns'), '/business/campaigns');
   assert.equal(safeBusinessReturnTo('/business/campaigns/new'), '/business/campaigns/new');
   assert.equal(safeBusinessReturnTo('/business/campaigns/abc-123'), '/business/campaigns/abc-123');
-  assert.equal(safeBusinessReturnTo('https://evil.example'), '/business/campaigns/new');
-  assert.equal(safeBusinessReturnTo('/create'), '/business/campaigns/new');
+  assert.equal(safeBusinessReturnTo('/business/campaigns/abc-123/results'), '/business/campaigns/abc-123/results');
+  assert.equal(safeBusinessReturnTo('https://evil.example'), '/business/campaigns');
+  assert.equal(safeBusinessReturnTo('/create'), '/business/campaigns');
+});
+
+test('A plain login with no prior destination lands on Business Home, never auto-creating a campaign', () => {
+  assert.equal(safeBusinessReturnTo(undefined), '/business/campaigns');
+  assert.equal(safeBusinessReturnTo(null), '/business/campaigns');
+  assert.equal(safeBusinessReturnTo(''), '/business/campaigns');
 });
 
 test('Studio 401 handling redirects through the Business login boundary', () => {

@@ -41,7 +41,9 @@ import SystemSettings from './pages/admin/SystemSettings';
 import ScrollConceptPage from './pages/ScrollConceptPage';
 import PaymentResult from './pages/PaymentResult';
 const BusinessLandingPage = lazy(() => import('./pages/business/BusinessLandingPage'));
+const BusinessHomePage = lazy(() => import('./pages/business/BusinessHomePage'));
 const BusinessCampaignStudioPage = lazy(() => import('./pages/business/BusinessCampaignStudioPage'));
+const BusinessCampaignResultsPage = lazy(() => import('./pages/business/BusinessCampaignResultsPage'));
 const BusinessAuthVerifyPage = lazy(() => import('./pages/business/BusinessAuthVerifyPage'));
 const BusinessLoginPage = lazy(() => import('./pages/business/BusinessLoginPage'));
 const InvitationRecipientPage = lazy(() => import('./pages/InvitationRecipientPage'));
@@ -105,12 +107,20 @@ const router = createBrowserRouter([
         element: <Suspense fallback={null}><BusinessLandingPage /></Suspense>
       },
       {
+        path: '/business/campaigns',
+        element: <Suspense fallback={null}><BusinessHomePage /></Suspense>
+      },
+      {
         path: '/business/campaigns/new',
         element: <Suspense fallback={null}><BusinessCampaignStudioPage /></Suspense>
       },
       {
         path: '/business/campaigns/:campaignId',
         element: <Suspense fallback={null}><BusinessCampaignStudioPage /></Suspense>
+      },
+      {
+        path: '/business/campaigns/:campaignId/results',
+        element: <Suspense fallback={null}><BusinessCampaignResultsPage /></Suspense>
       },
       {
         path: '/business/login',

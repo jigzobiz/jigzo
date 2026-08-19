@@ -2,7 +2,10 @@ const RETURN_KEY = 'jigzo_business_return_to';
 
 export function safeBusinessReturnTo(value) {
   const path = String(value || '');
-  return /^\/business\/campaigns\/(?:new|[A-Za-z0-9-]+)$/.test(path) ? path : '/business/campaigns/new';
+  if (path === '/business/campaigns') return path;
+  if (/^\/business\/campaigns\/(?:new|[A-Za-z0-9-]+)$/.test(path)) return path;
+  if (/^\/business\/campaigns\/[A-Za-z0-9-]+\/results$/.test(path)) return path;
+  return '/business/campaigns';
 }
 
 export function rememberBusinessReturnTo(value) {

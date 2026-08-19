@@ -1,5 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const Campaign = require('../models/Campaign');
+const CampaignRecipient = require('../models/CampaignRecipient');
+const CampaignDelivery = require('../models/CampaignDelivery');
 
 const DIFFICULTIES = new Set(['extra_easy', 'easy', 'classic', 'challenging']);
 const editablePaths = new Set(['name', 'puzzle.imageAssetId', 'puzzle.difficultyId', 'puzzle.mysteryMode', 'invitation.eventTitle', 'invitation.eventDateTime', 'invitation.timezone', 'invitation.location', 'invitation.rsvpDeadline', 'invitation.message', 'invitation.rsvpEnabled', 'invitation.allowPlusOneDefault', 'deliveryDefault', 'expiresAt']);
@@ -38,4 +40,43 @@ async function createDraft({ organizationId, identityId, body = {}, Model = Camp
   if (Object.keys(patch).some(key => key.includes('.'))) { for (const [path, value] of Object.entries(patch)) if (path.includes('.')) campaign.set(path, value); await campaign.save(); }
   return campaign;
 }
-module.exports = { editablePaths, flattenPatch, sanitizePatch, validateCampaign, serializeCampaign, createDraft, tenantCampaignFilter, classifyCampaignMiss };
+const ZERO_RECIPIENT_STATS = { total: 0, opened: 0, solved: 0, going: 0, notGoing: 0, rsvpPending: 0 };
+const ZERO_DELIVERY_STATS = { total: 0, sent: 0, failed: 0 };
+const SENT_STATUSES = ['accepted', 'sent', 'delivered', 'opened', 'read'];
+const FAILED_STATUSES = ['failed', 'bounced', 'complained'];
+
+function mergeCampaignSummaries(campaigns, recipientStats, deliveryStats) {
+  const recipientById = Object.fromEntries((recipientStats || []).map(row => [String(row._id), row]));
+  const deliveryById = Object.fromEntries((deliveryStats || []).map(row => [String(row._id), row]));
+  return campaigns.map(c => {
+    const recipients = recipientById[String(c._id)] || ZERO_RECIPIENT_STATS;
+    const delivery = deliveryById[String(c._id)] || ZERO_DELIVERY_STATS;
+    return {
+      campaignId: c.campaignId, name: c.name, status: c.status, revision: c.revision,
+      createdAt: c.createdAt, updatedAt: c.updatedAt,
+      invitation: { eventTitle: c.invitation?.eventTitle || '', eventDateTime: c.invitation?.eventDateTime || null, location: c.invitation?.location || '', timezone: c.invitation?.timezone || '' },
+      puzzle: { difficultyId: c.puzzle?.difficultyId || 'classic', hasImage: Boolean(c.puzzle?.puzzleId) },
+      recipients: { total: recipients.total, opened: recipients.opened, solved: recipients.solved, going: recipients.going, notGoing: recipients.notGoing, rsvpPending: recipients.rsvpPending },
+      delivery: { total: delivery.total, sent: delivery.sent, failed: delivery.failed }
+    };
+  });
+}
+
+async function listCampaigns({ organizationId, CampaignModel = Campaign, RecipientModel = CampaignRecipient, DeliveryModel = CampaignDelivery }) {
+  const campaigns = await CampaignModel.find({ organizationId }).sort({ updatedAt: -1 }).lean();
+  if (!campaigns.length) return [];
+  const campaignObjectIds = campaigns.map(c => c._id);
+  const [recipientStats, deliveryStats] = await Promise.all([
+    RecipientModel.aggregate([
+      { $match: { organizationId, campaignId: { $in: campaignObjectIds } } },
+      { $group: { _id: '$campaignId', total: { $sum: 1 }, opened: { $sum: { $cond: [{ $ne: ['$firstOpenedAt', null] }, 1, 0] } }, solved: { $sum: { $cond: [{ $ne: ['$firstSolvedAt', null] }, 1, 0] } }, going: { $sum: { $cond: [{ $eq: ['$rsvpStatus', 'going'] }, 1, 0] } }, notGoing: { $sum: { $cond: [{ $eq: ['$rsvpStatus', 'not_going'] }, 1, 0] } }, rsvpPending: { $sum: { $cond: [{ $eq: ['$rsvpStatus', 'pending'] }, 1, 0] } } } }
+    ]),
+    DeliveryModel.aggregate([
+      { $match: { organizationId, campaignId: { $in: campaignObjectIds }, purpose: 'launch' } },
+      { $group: { _id: '$campaignId', total: { $sum: 1 }, sent: { $sum: { $cond: [{ $in: ['$status', SENT_STATUSES] }, 1, 0] } }, failed: { $sum: { $cond: [{ $in: ['$status', FAILED_STATUSES] }, 1, 0] } } } }
+    ])
+  ]);
+  return mergeCampaignSummaries(campaigns, recipientStats, deliveryStats);
+}
+
+module.exports = { editablePaths, flattenPatch, sanitizePatch, validateCampaign, serializeCampaign, createDraft, tenantCampaignFilter, classifyCampaignMiss, listCampaigns, mergeCampaignSummaries };
