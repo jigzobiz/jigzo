@@ -10,8 +10,8 @@ router.get('/status', (req, res) => {
   res.json({
     checkoutEnabled: process.env.CHECKOUT_ENABLED === 'true',
     whatsappEnabled: process.env.WHATSAPP_ENABLED === 'true',
-    // Visibility is safe to expose; creation remains owner-authenticated and
-    // CSRF-protected on /api/test/reveals.
+    // Visibility is safe to expose; creation remains restricted by the exact
+    // custom-staging environment/host guard on /api/test/reveals.
     testRevealEnabled: isTestModeAllowed(req)
   });
 });

@@ -83,6 +83,14 @@ const limiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' }
 });
 
+const testRevealLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many test puzzles, please try again later.' }
+});
+
 app.use('/api/', limiter);
 
 // Increase body parser limit to support base64 image strings (15MB cap)
@@ -101,6 +109,7 @@ app.use(
     }
     return next();
   },
+  testRevealLimiter,
   async (req, res, next) => {
     try {
       await connectDB();

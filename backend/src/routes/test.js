@@ -5,7 +5,6 @@ const { saveImage, deleteImage } = require('../services/storageService');
 const Puzzle = require('../models/Puzzle');
 const { validatePhone, validateEmail } = require('../utils/contactValidation');
 const { getFrontendOrigin } = require('../utils/runtimeConfig');
-const { requireBusinessAuth, requireBusinessCsrf } = require('../middleware/businessAuth');
 
 // Conservative limits
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -36,7 +35,7 @@ function detectMimeType(buffer) {
  * GET /api/test/status
  * Returns if test reveal mode is available.
  */
-router.get('/status', requireBusinessAuth, (req, res) => {
+router.get('/status', (req, res) => {
   if (isTestModeAllowed(req)) {
     return res.json({ enabled: true });
   }
@@ -47,7 +46,7 @@ router.get('/status', requireBusinessAuth, (req, res) => {
  * POST /api/test/reveals
  * Creates an active, unpaid, direct test puzzle.
  */
-router.post('/reveals', requireBusinessAuth, requireBusinessCsrf, async (req, res, next) => {
+router.post('/reveals', async (req, res, next) => {
   let createdStorageId = null;
   let createdPuzzleId = null;
   try {

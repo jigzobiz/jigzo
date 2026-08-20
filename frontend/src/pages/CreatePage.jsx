@@ -15,7 +15,6 @@ import { buildEdgeMap, piecePath, mulberry32 } from '../puzzle/puzzle-shape';
 import { analytics } from '../services/analytics';
 import { isValidPhoneNumber } from 'libphonenumber-js';
 import { normalizePhoneInput } from '../utils/phone';
-import { businessApi } from '../services/businessApi';
 import SiteFooter from '../components/SiteFooter';
 import SiteHeader from '../components/SiteHeader';
 
@@ -235,12 +234,6 @@ export default function CreatePage() {
         const res = await api.getFeaturesStatus();
         setCheckoutEnabled(res.checkoutEnabled);
         setIsTestModeEnabled(res.testRevealEnabled === true);
-        if (!res.checkoutEnabled && res.testRevealEnabled === true) {
-          // Refresh CSRF and migrate an existing staging owner cookie to the
-          // /api scope. Failure leaves the action visible but creation remains
-          // fail-closed at the authenticated endpoint.
-          businessApi.establishSession().catch(() => {});
-        }
       } catch (err) {
         console.error('Error fetching features status:', err);
       }
@@ -823,7 +816,7 @@ export default function CreatePage() {
       });
 
 
-      const res = await businessApi.createConsumerTestPuzzle({
+      const res = await api.createTestReveal({
         cropData,
         message,
         senderName,
