@@ -17,7 +17,8 @@ const schema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'BusinessIdentity', required: true },
   name: { type: String, default: 'Untitled invitation', trim: true, maxlength: 160 },
   experienceType: { type: String, enum: ['invitation'], default: 'invitation', immutable: true },
-  status: { type: String, enum: ['draft', 'ready', 'active', 'completed', 'cancelled'], default: 'draft', index: true },
+  status: { type: String, enum: ['draft', 'ready', 'scheduled', 'sending', 'active', 'completed', 'cancelled'], default: 'draft', index: true },
+  scheduledSendAt: { type: Date, default: null, index: true },
   revision: { type: Number, default: 1, min: 1 },
   puzzle: {
     imageAssetId: { type: String, default: null },

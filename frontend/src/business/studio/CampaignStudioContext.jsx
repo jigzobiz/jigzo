@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
 import { businessApi } from '../../services/businessApi';
+import { utcIsoToZonedParts } from './timezone-utils';
 
 const initialState = {
   identity: { campaignId: null, organizationId: null, revision: null, status: 'local-draft' },
@@ -9,6 +10,7 @@ const initialState = {
   experience: { eventTitle: 'An evening at The Atelier', dateTime: '2026-10-24T19:30', timezone: 'Asia/Bahrain', location: 'The Atelier, Manama', rsvpDeadline: '2026-10-18', message: 'Sara, we would love you to join us for an intimate evening of art, conversation and a little surprise.', rsvpEnabled: true, allowPlusOneDefault: false },
   recipients: { entitiesById: {}, orderedIds: [], loading: true },
   delivery: { channel: 'whatsapp' },
+  schedule: { mode: 'now', date: '', time: '', scheduledSendAt: null },
   sync: { hydrated: false, dirty: false, changeSequence: 0 }
 };
 
@@ -19,7 +21,13 @@ function fromServer(state, campaign) {
     campaign: { name: campaign.name, experienceType: campaign.experienceType },
     puzzle: { ...state.puzzle, imagePreviewUrl: campaign.puzzle?.puzzleId ? `/api/business/campaigns/${encodeURIComponent(campaign.campaignId)}/puzzle/image` : null, difficultyId: campaign.puzzle?.difficultyId || 'classic', mysteryMode: Boolean(campaign.puzzle?.mysteryMode) },
     experience: { eventTitle: campaign.invitation?.eventTitle || '', dateTime: campaign.invitation?.eventDateTime ? String(campaign.invitation.eventDateTime).slice(0, 16) : '', timezone: campaign.invitation?.timezone || 'Asia/Bahrain', location: campaign.invitation?.location || '', rsvpDeadline: campaign.invitation?.rsvpDeadline ? String(campaign.invitation.rsvpDeadline).slice(0, 10) : '', message: campaign.invitation?.message || '', rsvpEnabled: campaign.invitation?.rsvpEnabled !== false, allowPlusOneDefault: Boolean(campaign.invitation?.allowPlusOneDefault) },
-    delivery: { channel: campaign.deliveryDefault || 'whatsapp' }, sync: { hydrated: true, dirty: false, changeSequence: state.sync.changeSequence }
+    delivery: { channel: campaign.deliveryDefault || 'whatsapp' },
+    schedule: (() => {
+      const timezone = campaign.invitation?.timezone || 'Asia/Bahrain';
+      const parts = campaign.scheduledSendAt ? utcIsoToZonedParts(campaign.scheduledSendAt, timezone) : { date: '', time: '' };
+      return { mode: campaign.status === 'scheduled' ? 'later' : 'now', date: parts.date, time: parts.time, scheduledSendAt: campaign.scheduledSendAt || null };
+    })(),
+    sync: { hydrated: true, dirty: false, changeSequence: state.sync.changeSequence }
   };
 }
 function toServer(state) { return { revision: state.identity.revision, name: state.campaign.name, puzzle: { difficultyId: state.puzzle.difficultyId, mysteryMode: state.puzzle.mysteryMode }, invitation: { eventTitle: state.experience.eventTitle, eventDateTime: state.experience.dateTime || null, timezone: state.experience.timezone, location: state.experience.location, rsvpDeadline: state.experience.rsvpDeadline || null, message: state.experience.message, rsvpEnabled: state.experience.rsvpEnabled, allowPlusOneDefault: state.experience.allowPlusOneDefault }, deliveryDefault: state.delivery.channel } }

@@ -31,7 +31,7 @@ function validateCampaign(campaign) {
 }
 function serializeCampaign(c) {
   const value = c.toObject ? c.toObject() : c;
-  return { campaignId: value.campaignId, name: value.name, experienceType: value.experienceType, status: value.status, revision: value.revision, puzzle: value.puzzle, invitation: value.invitation, deliveryDefault: value.deliveryDefault, expiresAt: value.expiresAt, createdAt: value.createdAt, updatedAt: value.updatedAt };
+  return { campaignId: value.campaignId, name: value.name, experienceType: value.experienceType, status: value.status, revision: value.revision, puzzle: value.puzzle, invitation: value.invitation, deliveryDefault: value.deliveryDefault, expiresAt: value.expiresAt, scheduledSendAt: value.scheduledSendAt || null, createdAt: value.createdAt, updatedAt: value.updatedAt };
 }
 const tenantCampaignFilter = (organizationId, campaignId, revision) => ({ campaignId, organizationId, ...(revision === undefined ? {} : { revision }) });
 const classifyCampaignMiss = existsInTenant => existsInTenant ? { status: 409, code: 'CAMPAIGN_REVISION_CONFLICT' } : { status: 404, code: 'CAMPAIGN_NOT_FOUND' };
@@ -52,7 +52,7 @@ function mergeCampaignSummaries(campaigns, recipientStats, deliveryStats) {
     const recipients = recipientById[String(c._id)] || ZERO_RECIPIENT_STATS;
     const delivery = deliveryById[String(c._id)] || ZERO_DELIVERY_STATS;
     return {
-      campaignId: c.campaignId, name: c.name, status: c.status, revision: c.revision,
+      campaignId: c.campaignId, name: c.name, status: c.status, revision: c.revision, scheduledSendAt: c.scheduledSendAt || null,
       createdAt: c.createdAt, updatedAt: c.updatedAt,
       invitation: { eventTitle: c.invitation?.eventTitle || '', eventDateTime: c.invitation?.eventDateTime || null, location: c.invitation?.location || '', timezone: c.invitation?.timezone || '' },
       puzzle: { difficultyId: c.puzzle?.difficultyId || 'classic', hasImage: Boolean(c.puzzle?.puzzleId) },

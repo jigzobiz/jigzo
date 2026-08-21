@@ -248,6 +248,8 @@ html[dir="rtl"] .jzb-hero::before { mask-image: linear-gradient(to left,#000,tra
 .jzb-puzzle { display: block; overflow: visible; }
 .jzb-puzzle__piece { fill: url(#jzbPuzzleInk); stroke: rgba(244,237,223,.22); stroke-width: 1.25; vector-effect: non-scaling-stroke; }
 .jzb-puzzle__piece--final { fill: var(--jzb-gold-light); transform-box: fill-box; transform-origin: center; animation: jzb-final-piece 1.05s cubic-bezier(.22,.82,.22,1) both; }
+.jzb-puzzle--image .jzb-puzzle__piece { fill: none; }
+.jzb-puzzle--image .jzb-puzzle__piece--final { fill: var(--jzb-gold-light); }
 @keyframes jzb-final-piece {
   0% { opacity: 0; transform: translate(46px,-64px) rotate(18deg); }
   72% { opacity: 1; transform: translate(-2px,3px) rotate(-1deg); }

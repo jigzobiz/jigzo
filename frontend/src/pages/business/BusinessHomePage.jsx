@@ -4,10 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { businessApi } from '../../services/businessApi';
 import { studioCopy } from '../../business/studio/studio-copy';
 import { rememberBusinessReturnTo } from '../../business/auth/businessAccess';
+import { formatZonedDisplay } from '../../business/studio/timezone-utils';
 import '../../business/studio/business-studio.css';
 
-const STATUS_TAB = { draft: 'Draft', ready: 'Draft', sending: 'Sending', active: 'Live', completed: 'Completed', cancelled: 'Completed' };
-const TAB_ORDER = ['All', 'Draft', 'Sending', 'Live', 'Completed'];
+const STATUS_TAB = { draft: 'Draft', ready: 'Draft', scheduled: 'Scheduled', sending: 'Sending', active: 'Live', completed: 'Completed', cancelled: 'Completed' };
+const TAB_ORDER = ['All', 'Draft', 'Scheduled', 'Sending', 'Live', 'Completed'];
 
 function relativeTime(date, isArabic) {
   const minutes = Math.max(1, Math.round((Date.now() - new Date(date).getTime()) / 60000));
@@ -32,6 +33,9 @@ function buildRow(campaign, copy, isArabic) {
   if (campaign.status === 'draft' || campaign.status === 'ready') {
     const bits = [campaign.invitation?.eventDateTime ? formatDate(campaign.invitation.eventDateTime, isArabic) : '', campaign.invitation?.location || ''].filter(Boolean).join(', ');
     context = fillTemplate(copy.home.context.draft, { event: bits, sep: bits ? ' · ' : '', puzzle: `${pieceCount} ${copy.home.pieceSuffix}` });
+  } else if (campaign.status === 'scheduled') {
+    const zoned = formatZonedDisplay(campaign.scheduledSendAt, campaign.invitation?.timezone || 'Asia/Bahrain', isArabic);
+    context = fillTemplate(copy.home.context.scheduled, { date: zoned.date, time: zoned.time });
   } else if (campaign.status === 'sending') {
     context = fillTemplate(copy.home.context.sending, { sent: campaign.delivery.sent, total: campaign.delivery.total });
   } else if (campaign.status === 'active') {
@@ -40,13 +44,13 @@ function buildRow(campaign, copy, isArabic) {
     context = fillTemplate(copy.home.context.completed, { solved: campaign.recipients.solved, going: campaign.recipients.going });
   }
   let updated = '';
-  if (campaign.status === 'draft' || campaign.status === 'ready') updated = fillTemplate(copy.home.updated.editedAgo, { time: relativeTime(campaign.updatedAt, isArabic) });
+  if (campaign.status === 'draft' || campaign.status === 'ready' || campaign.status === 'scheduled') updated = fillTemplate(copy.home.updated.editedAgo, { time: relativeTime(campaign.updatedAt, isArabic) });
   else if (campaign.status === 'sending') updated = fillTemplate(copy.home.updated.launchedAgo, { time: relativeTime(campaign.updatedAt, isArabic) });
   else if (campaign.status === 'active') updated = campaign.invitation?.eventDateTime ? fillTemplate(copy.home.updated.repliesClose, { date: formatDate(campaign.invitation.eventDateTime, isArabic) }) : '';
   else updated = fillTemplate(copy.home.updated.ended, { date: formatDate(campaign.updatedAt, isArabic) });
   const actionKey = campaign.status === 'ready' ? 'draft' : (campaign.status === 'cancelled' ? 'completed' : campaign.status);
   const isDraft = campaign.status === 'draft' || campaign.status === 'ready';
-  const isStudioTarget = isDraft || campaign.status === 'sending';
+  const isStudioTarget = isDraft || campaign.status === 'sending' || campaign.status === 'scheduled';
   return {
     campaign, tabStatus, statusLabel: copy.home.status[statusKey] || copy.home.status.draft, statusKey, context, updated, isDraft,
     action: copy.home.action[actionKey] || copy.home.action.draft,
@@ -113,7 +117,7 @@ export default function BusinessHomePage() {
             <div className="jzs-campaign-row__name-line"><span className="jzs-campaign-row__name">{row.campaign.name}</span><span className={`jzs-pill is-${row.statusKey}`}>{row.statusLabel}</span></div>
             <div className="jzs-campaign-row__context">{row.context}</div>
           </Link>
-          <div className="jzs-campaign-row__metric"><strong>{row.campaign.recipients.total} {copy.home.recipientsCount}</strong><span>{row.updated}</span></div>
+          <div className="jzs-campaign-row__metric"><strong>{row.campaign.recipients.total} {row.campaign.recipients.total === 1 ? copy.home.recipientSingular : copy.home.recipientsCount}</strong><span>{row.updated}</span></div>
           <div className="jzs-campaign-row__actions">
             {row.isDraft && <button type="button" className="jzs-campaign-row__delete" aria-label={copy.home.deleteDraft} onClick={() => deleteDraft(row.campaign.campaignId)}><svg viewBox="0 0 24 24"><path d="M8 9v9m4-9v9m4-9v9M5 6h14M9 6V4h6v2m3 0-1 15H7L6 6" /></svg></button>}
             <Link to={row.href} className="jzs-campaign-row__action">{row.action}</Link>

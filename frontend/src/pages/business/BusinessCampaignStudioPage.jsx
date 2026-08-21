@@ -8,6 +8,7 @@ import { PIECE_OPTIONS } from '../../config/difficulties';
 import { businessApi } from '../../services/businessApi';
 import { prepareBusinessImage } from '../../business/studio/business-image-upload';
 import { rememberBusinessReturnTo } from '../../business/auth/businessAccess';
+import { zonedTimeToUtcIso, formatZonedDisplay } from '../../business/studio/timezone-utils';
 import '../../business/studio/business-studio.css';
 
 const AREA_KEYS = ['campaign', 'puzzle', 'experience', 'recipients', 'delivery', 'review'];
@@ -37,6 +38,19 @@ function Field({ label, children, wide = false }) {
 function AreaIntro({ copy, index }) {
   const key = AREA_KEYS[index];
   return <header className="jzs-area-intro"><span className="jzs-eyebrow">{copy.eyebrow[index]}</span><h1>{copy[key].title}</h1><p>{copy[key].body}</p></header>;
+}
+function computeScheduleErrors(state, copy) {
+  const errors = [];
+  if (!state.schedule.date || !state.schedule.time) return errors;
+  const iso = zonedTimeToUtcIso(state.schedule.date, state.schedule.time, state.experience.timezone);
+  if (!iso) return errors;
+  const scheduled = new Date(iso);
+  if (scheduled <= new Date()) errors.push(copy.delivery.sendTiming.pastError);
+  if (state.experience.rsvpEnabled && state.experience.rsvpDeadline) {
+    const deadline = new Date(state.experience.rsvpDeadline);
+    if (!Number.isNaN(deadline.getTime()) && scheduled >= deadline) errors.push(copy.delivery.sendTiming.rsvpError);
+  }
+  return errors;
 }
 
 function PhonePreview({ copy, isArabic }) {
@@ -134,7 +148,7 @@ function PuzzleArea({ copy }) {
       <input ref={fileInput} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={selectImage} />
     </div>
     <div className="jzs-puzzle-hero">
-      <BusinessPuzzle finalPiece={7} pieceCount={pieceCount} imageUrl={state.puzzle.imagePreviewUrl} label={hasImage ? undefined : copy.puzzle.mocked} />
+      <BusinessPuzzle finalPiece={7} pieceCount={pieceCount} imageUrl={state.puzzle.imagePreviewUrl} mysteryMode={state.puzzle.mysteryMode} label={hasImage ? undefined : copy.puzzle.mocked} />
       <div className="jzs-puzzle-hero__badge">{pieceCount} {copy.puzzle.pieces}</div>
     </div>
     {uploadState && <small className="jzs-help" style={{ display: 'block', marginTop: 8, color: 'var(--ink-500)', fontSize: 13 }}>{uploadState}</small>}
@@ -229,7 +243,7 @@ function RecipientsArea({ copy, isArabic }) {
             <label><span>{fields.contact}</span><input className="jzs-ltr" aria-label={copy.recipients.contact} type={row.contactMethod === 'email' ? 'email' : 'tel'} value={row.contact} placeholder={row.contactMethod === 'whatsapp' ? '+973XXXXXXXX' : 'name@example.com'} onChange={e => change(row, id, 'contact', e.target.value, isDraft)} /></label>
             <button type="button" className={`jzs-plus-toggle${on ? ' is-on' : ''}`} aria-label={copy.recipients.plusOne} onClick={() => change(row, id, 'plusOneOverride', on ? 'not_allowed' : 'allowed', isDraft)}>{on ? copy.common.on : copy.common.off}</button>
             <div className="jzs-recipient-row__actions">
-              <small className={`is-${status || 'idle'}`}>{status === 'saving' ? (isArabic ? 'جارٍ الحفظ…' : 'Saving…') : status === 'saved' ? (isArabic ? 'تم الحفظ' : 'Saved') : ''}</small>
+              <span className={`jzs-save-dot is-${status || 'idle'}`} title={status === 'saving' ? (isArabic ? 'جارٍ الحفظ…' : 'Saving…') : status === 'saved' ? (isArabic ? 'تم الحفظ' : 'Saved') : undefined} />
               <button type="button" aria-label={isArabic ? 'إزالة المستلم' : 'Remove recipient'} onClick={() => isDraft ? setDrafts(value => value.filter(item => item.localId !== id)) : recipientActions.remove(id)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 9v9m4-9v9m4-9v9M5 6h14M9 6V4h6v2m3 0-1 15H7L6 6" /></svg></button>
             </div>
           </div>
@@ -244,9 +258,11 @@ function RecipientsArea({ copy, isArabic }) {
 }
 
 function DeliveryArea({ copy, isArabic, validation, refreshDelivery, emailReadyCount, waReadyCount, waBlocked, goToRecipients }) {
-  const { state } = useCampaignStudio();
+  const { state, dispatch } = useCampaignStudio();
   const [testEmail, setTestEmail] = useState(''); const [message, setMessage] = useState('');
   const readyTotal = emailReadyCount + waReadyCount;
+  const scheduleErrors = computeScheduleErrors(state, copy);
+  const setSchedule = (field) => (e) => dispatch({ type: 'SET_FIELD', section: 'schedule', field, value: e.target.value });
   const testSend = async () => {
     const recipientId = state.studio.selectedRecipientId || state.recipients.orderedIds[0];
     if (!recipientId) { setMessage(isArabic ? 'أضف مستلماً أولاً.' : 'Add a recipient first.'); return; }
@@ -256,19 +272,38 @@ function DeliveryArea({ copy, isArabic, validation, refreshDelivery, emailReadyC
   return <>
     <AreaIntro copy={copy} index={4} />
     <div className="jzs-delivery-summary">
-      <div className="jzs-delivery-summary__ready"><strong>{readyTotal}</strong><span>{copy.delivery.readyLabel}</span></div>
+      <div className="jzs-delivery-summary__ready"><strong>{readyTotal}</strong><span>{readyTotal === 1 ? copy.delivery.readyLabelSingular : copy.delivery.readyLabel}</span></div>
       <div className="jzs-channel-grid">
         <div className="jzs-channel-card">
-          <div className="jzs-channel-card__head"><strong>{copy.delivery.email}</strong><span className="jzs-pill is-active">{copy.delivery.emailStatus}</span></div>
+          <div className="jzs-channel-card__head"><strong>{copy.delivery.email}</strong><span className="jzs-pill is-active">{emailReadyCount > 0 ? copy.delivery.emailStatus : copy.delivery.emailIdleStatus}</span></div>
           <div className="jzs-channel-card__count">{emailReadyCount}</div>
-          <div className="jzs-channel-card__caption">{copy.delivery.emailCaption}</div>
+          <div className="jzs-channel-card__caption">{emailReadyCount === 1 ? copy.delivery.emailCaptionSingular : copy.delivery.emailCaption}</div>
         </div>
         <div className={`jzs-channel-card${waBlocked ? ' is-blocked' : ''}`}>
           <div className="jzs-channel-card__head"><strong>{copy.delivery.whatsapp}</strong><span className="jzs-pill is-draft">{waBlocked ? copy.delivery.whatsappPillBlocked : copy.delivery.whatsappPillMoved}</span></div>
           <div className="jzs-channel-card__count">{waReadyCount}</div>
-          <div className="jzs-channel-card__caption">{waBlocked ? copy.delivery.whatsappCaption : copy.delivery.whatsappCaptionMoved}</div>
+          <div className="jzs-channel-card__caption">{waBlocked ? (waReadyCount === 1 ? copy.delivery.whatsappCaptionSingular : copy.delivery.whatsappCaption) : copy.delivery.whatsappCaptionMoved}</div>
         </div>
       </div>
+    </div>
+    <div className="jzs-mystery-card" style={{ marginTop: 16, flexDirection: 'column', alignItems: 'stretch', gap: 14 }}>
+      <strong>{copy.delivery.sendTiming.title}</strong>
+      <div className="jzs-format-grid">
+        <button type="button" className={`jzs-format-card${state.schedule.mode === 'now' ? ' is-active' : ''}`} onClick={() => dispatch({ type: 'SET_FIELD', section: 'schedule', field: 'mode', value: 'now' })}>
+          <div className="jzs-format-card__head"><strong>{copy.delivery.sendTiming.sendNow}</strong></div>
+        </button>
+        <button type="button" className={`jzs-format-card${state.schedule.mode === 'later' ? ' is-active' : ''}`} onClick={() => dispatch({ type: 'SET_FIELD', section: 'schedule', field: 'mode', value: 'later' })}>
+          <div className="jzs-format-card__head"><strong>{copy.delivery.sendTiming.scheduleLater}</strong></div>
+        </button>
+      </div>
+      {state.schedule.mode === 'later' && <>
+        <div className="jzs-composer-row">
+          <Field label={copy.delivery.sendTiming.dateLabel}><input className="jzs-ltr" type="date" value={state.schedule.date} onChange={setSchedule('date')} /></Field>
+          <Field label={copy.delivery.sendTiming.timeLabel}><input className="jzs-ltr" type="time" value={state.schedule.time} onChange={setSchedule('time')} /></Field>
+        </div>
+        <small className="jzs-help">{copy.delivery.sendTiming.timezoneLabel}: {state.experience.timezone}</small>
+        {scheduleErrors.map(err => <small key={err} style={{ color: 'var(--danger)', display: 'block' }}>{err}</small>)}
+      </>}
     </div>
     {waBlocked && <div className="jzs-blocked-banner">
       <strong>{waReadyCount} {copy.delivery.blockedTitle}</strong>
@@ -293,10 +328,16 @@ function DeliveryArea({ copy, isArabic, validation, refreshDelivery, emailReadyC
 function ReviewArea({ copy, isArabic, validation, refreshDelivery, emailReadyCount, waReadyCount, waBlocked, goToRecipients, onLaunched }) {
   const { state, dispatch } = useCampaignStudio();
   const [message, setMessage] = useState('');
+  const [scheduling, setScheduling] = useState(false);
   const difficulty = PIECE_OPTIONS.find((item) => item.id === state.puzzle.difficultyId);
   const totalRecipients = state.recipients.orderedIds.length;
   const canLaunch = Boolean(validation?.valid);
   const launching = ['sending', 'active'].includes(state.identity.status);
+  const isLater = state.schedule.mode === 'later';
+  const scheduleErrors = computeScheduleErrors(state, copy);
+  const scheduledSendAtIso = isLater && state.schedule.date && state.schedule.time ? zonedTimeToUtcIso(state.schedule.date, state.schedule.time, state.experience.timezone) : null;
+  const canSchedule = canLaunch && Boolean(scheduledSendAtIso) && scheduleErrors.length === 0;
+  const scheduledDisplay = scheduledSendAtIso ? fillTemplate(copy.review.scheduleSummary, { ...formatZonedDisplay(scheduledSendAtIso, state.experience.timezone, isArabic), timezone: state.experience.timezone }) : '';
   const rows = [
     { label: copy.review.campaign, value: state.campaign.name, detail: copy.campaign.invitation, area: 0 },
     { label: copy.review.puzzle, value: `${difficulty.count} ${copy.puzzle.pieces}${state.puzzle.mysteryMode ? ` · ${copy.puzzle.mystery}` : ''}`, detail: copy.puzzle.title, area: 1 },
@@ -308,6 +349,13 @@ function ReviewArea({ copy, isArabic, validation, refreshDelivery, emailReadyCou
   const launch = async () => {
     try { await businessApi.launchCampaign(state.identity.campaignId); onLaunched(); }
     catch (e) { setMessage(e.response?.data?.error || 'Launch failed.'); await refreshDelivery(); }
+  };
+  const schedule = async () => {
+    if (!scheduledSendAtIso) return;
+    setScheduling(true); setMessage('');
+    try { const result = await businessApi.scheduleCampaign(state.identity.campaignId, scheduledSendAtIso); dispatch({ type: 'HYDRATE', campaign: result.campaign }); }
+    catch (e) { setMessage(e.response?.data?.error || 'Scheduling failed.'); }
+    finally { setScheduling(false); }
   };
   return <>
     <AreaIntro copy={copy} index={5} />
@@ -324,8 +372,13 @@ function ReviewArea({ copy, isArabic, validation, refreshDelivery, emailReadyCou
       <div className="jzs-blocked-banner__actions"><button type="button" className="jzs-action jzs-action--sm" onClick={goToRecipients}>{copy.delivery.fixInRecipients}</button></div>
     </div>}
     <div className="jzs-launch-panel">
-      <div><strong>{canLaunch ? copy.review.readyHeadline : copy.review.notReadyHeadline}</strong><small>{canLaunch ? `${totalRecipients} ${copy.review.readySub}` : copy.review.notReadySub}</small></div>
-      <button type="button" className="jzs-action jzs-action--cream" disabled={!canLaunch || launching} onClick={launch}>{copy.review.launchNow}</button>
+      {isLater ? <>
+        <div><strong>{copy.review.scheduledHeadline}</strong><small>{scheduledDisplay || `${totalRecipients} ${copy.review.scheduledSub}`}</small></div>
+        <button type="button" className="jzs-action jzs-action--cream" disabled={!canSchedule || launching || scheduling} onClick={schedule}>{copy.review.scheduleButton}</button>
+      </> : <>
+        <div><strong>{canLaunch ? copy.review.readyHeadline : copy.review.notReadyHeadline}</strong><small>{canLaunch ? `${totalRecipients} ${copy.review.readySub}` : copy.review.notReadySub}</small></div>
+        <button type="button" className="jzs-action jzs-action--cream" disabled={!canLaunch || launching} onClick={launch}>{copy.review.launchNow}</button>
+      </>}
     </div>
     {message && <div className="jzs-note"><strong>{message}</strong></div>}
   </>;
@@ -349,7 +402,7 @@ function SendingScreen({ copy, campaignId, onDone, ready }) {
   return <div className="jzs-sending"><div className="jzs-sending__card">
     <img src="/assets/jigzo-brand-icon-1080.png" alt="" />
     <h1>{copy.sending.headline}</h1>
-    <p>{sent} {fillTemplate(copy.sending.caption, { total })}</p>
+    <p>{sent} {fillTemplate(total === 1 ? copy.sending.captionSingular : copy.sending.caption, { total })}</p>
     <div className="jzs-sending__bar"><i style={{ width: `${pct}%` }} /></div>
     <div className="jzs-sending__note">{copy.sending.note}</div>
     <button type="button" className="jzs-action jzs-action--cream" onClick={onDone}>{copy.sending.continueLabel}</button>
@@ -387,8 +440,8 @@ function Studio() {
     { key: 'campaignNamed', ok: Boolean(state.campaign.name?.trim()), note: state.campaign.name || '' },
     { key: 'imageSet', ok: Boolean(state.puzzle.imagePreviewUrl), note: state.puzzle.imagePreviewUrl ? `${PIECE_OPTIONS.find(o => o.id === state.puzzle.difficultyId)?.count || 18} ${copy.puzzle.pieces}` : '' },
     { key: 'invitationWritten', ok: Boolean(state.experience.eventTitle && state.experience.dateTime && state.experience.location && state.experience.message), note: copy.checklist.invitationNote },
-    { key: 'guestsAdded', ok: state.recipients.orderedIds.length > 0, warn: false, note: `${state.recipients.orderedIds.length}` },
-    { key: 'deliveryClear', ok: !waBlocked, warn: waBlocked, note: waBlocked ? `${waReadyCount}` : '' },
+    { key: 'guestsAdded', ok: state.recipients.orderedIds.length > 0, warn: false, note: state.recipients.orderedIds.length > 0 ? fillTemplate(copy.checklist.guestsAddedNote, { count: state.recipients.orderedIds.length, word: state.recipients.orderedIds.length === 1 ? copy.home.recipientSingular : copy.home.recipientsCount }) : '' },
+    { key: 'deliveryClear', ok: !waBlocked, warn: waBlocked, note: waBlocked ? fillTemplate(copy.checklist.deliveryWaitingNote, { count: waReadyCount, word: waReadyCount === 1 ? copy.home.recipientSingular : copy.home.recipientsCount }) : '' },
     { key: 'readyToSend', ok: Boolean(validation?.valid), warn: validation ? !validation.valid : false, note: validation?.valid ? copy.checklist.readyNote : copy.checklist.notReadyNote }
   ];
   const dotClass = (item) => item.ok ? 'is-ok' : (item.warn ? 'is-warn' : '');
