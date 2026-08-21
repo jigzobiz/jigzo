@@ -81,12 +81,12 @@ function PhonePreview({ copy, isArabic }) {
           <div className="jzs-phone__puzzle"><BusinessPuzzle finalPiece={4} pieceCount={pieceCount} imageUrl={state.puzzle.imagePreviewUrl} mysteryMode={state.puzzle.mysteryMode} /></div>
           <div className="jzs-invitation">
             <p>{copy.preview.invitation}</p>
-            <h3>{state.experience.eventTitle || '—'}</h3>
+            <h3 dir="auto">{state.experience.eventTitle || '—'}</h3>
             <div className="jzs-invitation__meta">
               <div><span>{copy.preview.when}</span><b>{formatEventDateTime(state.experience.dateTime, isArabic) || '—'}</b></div>
-              <div><span>{copy.preview.where}</span><b>{state.experience.location || '—'}</b></div>
+              <div><span>{copy.preview.where}</span><b dir="auto">{state.experience.location || '—'}</b></div>
             </div>
-            <p className="jzs-invitation__message">{state.experience.message}</p>
+            <p className="jzs-invitation__message" dir="auto">{state.experience.message}</p>
             {state.experience.rsvpEnabled && <div className="jzs-rsvp"><div className="jzs-rsvp__options">
               <button type="button" className="is-primary">{copy.preview.going}</button>
               {plusOne && <button type="button">{copy.preview.guest}</button>}
@@ -103,7 +103,7 @@ function CampaignArea({ copy }) {
   const { state, dispatch } = useCampaignStudio();
   return <>
     <AreaIntro copy={copy} index={0} />
-    <Field label={copy.campaign.name} wide><input value={state.campaign.name} onChange={(e) => dispatch({ type: 'SET_FIELD', section: 'campaign', field: 'name', value: e.target.value })} /></Field>
+    <Field label={copy.campaign.name} wide><input dir="auto" value={state.campaign.name} onChange={(e) => dispatch({ type: 'SET_FIELD', section: 'campaign', field: 'name', value: e.target.value })} /></Field>
     <div className="jzs-label">{copy.campaign.experience}</div>
     <div className="jzs-format-grid">
       <div className="jzs-format-card is-active">
@@ -172,12 +172,12 @@ function ExperienceArea({ copy }) {
   return <><AreaIntro copy={copy} index={2} />
     <div className="jzs-experience-composer">
       <section className="jzs-composer-card jzs-composer-card--invitation">
-        <Field label={copy.experience.eventTitle} wide><input value={state.experience.eventTitle} onChange={set('eventTitle')} /></Field>
+        <Field label={copy.experience.eventTitle} wide><input dir="auto" value={state.experience.eventTitle} onChange={set('eventTitle')} /></Field>
         <div className="jzs-composer-row">
-          <Field label={copy.experience.location}><input value={state.experience.location} onChange={set('location')} /></Field>
-          <Field label={copy.experience.date}><input className="jzs-ltr" type="datetime-local" value={state.experience.dateTime} onChange={set('dateTime')} /></Field>
+          <Field label={copy.experience.location}><input dir="auto" value={state.experience.location} onChange={set('location')} /></Field>
+          <Field label={copy.experience.date}><input className="jzs-ltr" type="datetime-local" value={state.experience.dateTime} onChange={set('dateTime')} /><small className="jzs-help">{copy.experience.dateTimeHint}</small></Field>
         </div>
-        <Field label={copy.experience.message} wide><textarea rows="5" value={state.experience.message} onChange={set('message')} /></Field>
+        <Field label={copy.experience.message} wide><textarea dir="auto" rows="5" value={state.experience.message} onChange={set('message')} /></Field>
         <div className="jzs-composer-card__help">{copy.experience.messageHelp}</div>
       </section>
       <aside className="jzs-composer-support">
@@ -216,6 +216,7 @@ function RecipientsArea({ copy, isArabic }) {
     <div className="jzs-recipient-toolbar">
       <AreaIntro copy={copy} index={3} />
       <div className="jzs-recipient-toolbar__actions">
+        <button className="jzs-action jzs-action--ghost jzs-action--sm" type="button" onClick={download}>{copy.recipients.template}</button>
         <button className="jzs-action jzs-action--ghost jzs-action--sm" type="button" onClick={() => fileRef.current?.click()}>{copy.recipients.upload}</button>
         <input ref={fileRef} hidden type="file" accept=".csv,text/csv" onChange={upload} />
         <button className="jzs-action jzs-action--sm" type="button" onClick={() => setDrafts(value => [...value, blank()])} disabled={rows.length >= 2000}>{copy.recipients.add}</button>
@@ -226,7 +227,6 @@ function RecipientsArea({ copy, isArabic }) {
       <div className="jzs-dot" />
       <div><strong>{rows.length - attention}</strong> {copy.recipients.ready}</div>
       {attention > 0 && <><div className="jzs-dot" /><div className="is-warning">{attention} {copy.recipients.needAttention}</div></>}
-      <button type="button" className="jzs-text-action" onClick={download} style={{ marginInlineStart: 8 }}>{copy.recipients.template}</button>
       <div className="jzs-recipient-stats__saved"><i />{copy.recipients.savedAuto}</div>
     </div>
     {error && <div className="jzs-note"><strong>{error}</strong></div>}
@@ -301,6 +301,7 @@ function DeliveryArea({ copy, isArabic, validation, refreshDelivery, emailReadyC
           <Field label={copy.delivery.sendTiming.dateLabel}><input className="jzs-ltr" type="date" value={state.schedule.date} onChange={setSchedule('date')} /></Field>
           <Field label={copy.delivery.sendTiming.timeLabel}><input className="jzs-ltr" type="time" value={state.schedule.time} onChange={setSchedule('time')} /></Field>
         </div>
+        <small className="jzs-help">{copy.delivery.sendTiming.formatHint}</small>
         <small className="jzs-help">{copy.delivery.sendTiming.timezoneLabel}: {state.experience.timezone}</small>
         {scheduleErrors.map(err => <small key={err} style={{ color: 'var(--danger)', display: 'block' }}>{err}</small>)}
       </>}
@@ -338,6 +339,7 @@ function ReviewArea({ copy, isArabic, validation, refreshDelivery, emailReadyCou
   const scheduledSendAtIso = isLater && state.schedule.date && state.schedule.time ? zonedTimeToUtcIso(state.schedule.date, state.schedule.time, state.experience.timezone) : null;
   const canSchedule = canLaunch && Boolean(scheduledSendAtIso) && scheduleErrors.length === 0;
   const scheduledDisplay = scheduledSendAtIso ? fillTemplate(copy.review.scheduleSummary, { ...formatZonedDisplay(scheduledSendAtIso, state.experience.timezone, isArabic), timezone: state.experience.timezone }) : '';
+  const isScheduled = state.identity.status === 'scheduled';
   const rows = [
     { label: copy.review.campaign, value: state.campaign.name, detail: copy.campaign.invitation, area: 0 },
     { label: copy.review.puzzle, value: `${difficulty.count} ${copy.puzzle.pieces}${state.puzzle.mysteryMode ? ` · ${copy.puzzle.mystery}` : ''}`, detail: copy.puzzle.title, area: 1 },
@@ -362,7 +364,7 @@ function ReviewArea({ copy, isArabic, validation, refreshDelivery, emailReadyCou
     <div className="jzs-recap">
       {rows.map(row => <button type="button" className="jzs-recap-row" key={row.label} onClick={() => dispatch({ type: 'SET_AREA', area: row.area })}>
         <span className="jzs-eyebrow">{row.label}</span>
-        <span><span className="jzs-recap-row__value">{row.value}</span><span className="jzs-recap-row__detail">{row.detail}</span></span>
+        <span><span className="jzs-recap-row__value" dir="auto">{row.value}</span><span className="jzs-recap-row__detail" dir="auto">{row.detail}</span></span>
         <span className="jzs-recap-row__edit">{copy.review.edit}</span>
       </button>)}
     </div>
@@ -372,10 +374,13 @@ function ReviewArea({ copy, isArabic, validation, refreshDelivery, emailReadyCou
       <div className="jzs-blocked-banner__actions"><button type="button" className="jzs-action jzs-action--sm" onClick={goToRecipients}>{copy.delivery.fixInRecipients}</button></div>
     </div>}
     <div className="jzs-launch-panel">
-      {isLater ? <>
+      {isLater ? (isScheduled ? <>
         <div><strong>{copy.review.scheduledHeadline}</strong><small>{scheduledDisplay || `${totalRecipients} ${copy.review.scheduledSub}`}</small></div>
-        <button type="button" className="jzs-action jzs-action--cream" disabled={!canSchedule || launching || scheduling} onClick={schedule}>{copy.review.scheduleButton}</button>
+        <button type="button" className="jzs-action jzs-action--cream" disabled={!canSchedule || launching || scheduling} onClick={schedule}>{copy.review.changeSchedule}</button>
       </> : <>
+        <div><strong>{copy.review.notScheduledHeadline}</strong><small>{canSchedule ? copy.review.notScheduledReadySub : copy.review.notScheduledSub}</small></div>
+        <button type="button" className="jzs-action jzs-action--cream" disabled={!canSchedule || launching || scheduling} onClick={schedule}>{copy.review.scheduleButton}</button>
+      </>) : <>
         <div><strong>{canLaunch ? copy.review.readyHeadline : copy.review.notReadyHeadline}</strong><small>{canLaunch ? `${totalRecipients} ${copy.review.readySub}` : copy.review.notReadySub}</small></div>
         <button type="button" className="jzs-action jzs-action--cream" disabled={!canLaunch || launching} onClick={launch}>{copy.review.launchNow}</button>
       </>}
@@ -450,7 +455,7 @@ function Studio() {
     <header className="jzs-header">
       <div className="jzs-header__start">
         <Link to="/business/campaigns" className="jzs-header__back"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>{copy.back}</Link>
-        <span className="jzs-header__title">{state.campaign.name}</span>
+        <span className="jzs-header__title" dir="auto">{state.campaign.name}</span>
       </div>
       <div className="jzs-header__end">
         <span className={`jzs-draft is-${state.studio.saveState}`} title={state.studio.saveError}>{state.studio.saveState === 'saving' || state.studio.saveState === 'loading' ? copy.saving : state.studio.saveState === 'saved' ? copy.saved : copy.saveError}</span>

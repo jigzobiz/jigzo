@@ -81,6 +81,19 @@ test('persisted image drives editor and live recipient puzzle while Mystery Mode
   assert.match(puzzle, /preserveAspectRatio="xMidYMid slice"/);
 });
 
+test('BusinessPuzzle pieces get a real fill on the Studio page, not the SVG default black', () => {
+  // BusinessPuzzle.jsx is imported by BusinessCampaignStudioPage.jsx, but that page only loads
+  // business-studio.css (business-landing.css is landing-page-only). Regression: business-studio.css
+  // must carry its own .jzb-puzzle rules, or every piece falls back to an opaque black SVG fill and
+  // hides the uploaded image even when Mystery Mode is off.
+  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
+  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
+  assert.match(page, /import '\.\.\/\.\.\/business\/studio\/business-studio\.css'/);
+  assert.doesNotMatch(page, /import '\.\.\/\.\.\/business\/landing\/business-landing\.css'/);
+  assert.match(css, /\.jzb-puzzle__piece\{fill:url\(#jzbPuzzleInk\)/);
+  assert.match(css, /\.jzb-puzzle--image \.jzb-puzzle__piece\{fill:none\}/);
+});
+
 test('all four persisted difficulty choices drive real editor and phone geometry', () => {
   const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
   const puzzle = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
@@ -145,4 +158,38 @@ test('area navigation has localized next and previous actions without a Review n
   assert.match(copy, /nextTo: 'التالي: \{\{area\}\}'/);
   assert.match(css, /\.jzs-canvas-nav\{/);
   assert.match(css, /@media\(max-width:900px\)/);
+});
+
+test('Recipients toolbar reads Download template, Upload CSV, Add recipient, all as real buttons', () => {
+  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
+  const actions = page.match(/<div className="jzs-recipient-toolbar__actions">[\s\S]*?<\/div>\s*<\/div>/)[0];
+  const templateIndex = actions.indexOf('copy.recipients.template');
+  const uploadIndex = actions.indexOf('copy.recipients.upload');
+  const addIndex = actions.indexOf('copy.recipients.add');
+  assert.ok(templateIndex > -1 && uploadIndex > -1 && addIndex > -1, 'all three actions present');
+  assert.ok(templateIndex < uploadIndex && uploadIndex < addIndex, 'DOM order is Download template, Upload CSV, Add recipient');
+  assert.match(actions, /className="jzs-action jzs-action--ghost jzs-action--sm" type="button" onClick=\{download\}>\{copy\.recipients\.template\}/);
+  assert.doesNotMatch(page, /jzs-text-action" onClick=\{download\}/);
+});
+
+test('Review recap rows stack value and detail as separate blocks instead of concatenating them', () => {
+  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
+  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
+  assert.match(css, /\.jzs-recap-row__value\{display:block/);
+  assert.match(css, /\.jzs-recap-row__detail\{display:block/);
+  assert.match(page, /<span className="jzs-recap-row__value" dir="auto">\{row\.value\}<\/span><span className="jzs-recap-row__detail" dir="auto">\{row\.detail\}<\/span>/);
+});
+
+test('Review only claims Scheduled after the backend has actually persisted a schedule', () => {
+  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
+  const copy = fs.readFileSync(path.resolve('src/business/studio/studio-copy.js'), 'utf8');
+  assert.match(page, /const isScheduled = state\.identity\.status === 'scheduled';/);
+  assert.match(page, /\{isLater \? \(isScheduled \? <>/);
+  assert.match(page, /notScheduledHeadline/);
+  // canSchedule already folds in validation.valid (which the backend blocks on zero ready recipients)
+  // plus a parsed local date/time and no schedule errors — the CTA must stay wired to it either way.
+  assert.match(page, /disabled=\{!canSchedule \|\| launching \|\| scheduling\} onClick=\{schedule\}>\{copy\.review\.changeSchedule\}/);
+  assert.match(page, /disabled=\{!canSchedule \|\| launching \|\| scheduling\} onClick=\{schedule\}>\{copy\.review\.scheduleButton\}/);
+  assert.match(copy, /notScheduledHeadline: 'Not scheduled yet\.'/);
+  assert.match(copy, /notScheduledHeadline: 'لم تتم الجدولة بعد\.'/);
 });

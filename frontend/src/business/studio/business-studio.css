@@ -220,6 +220,14 @@
 .jzs-puzzle-hero{margin-top:22px;position:relative;width:100%;aspect-ratio:4/3;border-radius:var(--radius-lg);overflow:hidden;background:var(--cream-300);border:1px solid var(--border-hairline)}
 .jzs-puzzle-hero svg{position:absolute;inset:0;width:100%;height:100%}
 .jzs-puzzle-hero__badge{position:absolute;inset-inline-start:16px;bottom:16px;height:32px;padding:0 14px;border-radius:var(--radius-pill);background:rgba(5,5,5,.72);color:var(--cream-100);font-size:13px;display:flex;align-items:center;gap:8px}
+/* BusinessPuzzle (shared/landing/BusinessPuzzle.jsx) is rendered on this page too, but
+   business-landing.css is never loaded here — without these rules the piece <path>s fall
+   back to the SVG default black fill and opaquely cover the clipped preview image. */
+.jzb-puzzle{display:block;overflow:visible}
+.jzb-puzzle__piece{fill:url(#jzbPuzzleInk);stroke:rgba(5,5,5,.16);stroke-width:1.25;vector-effect:non-scaling-stroke}
+.jzb-puzzle__piece--final{fill:#e6c67f;transform-box:fill-box;transform-origin:center}
+.jzb-puzzle--image .jzb-puzzle__piece{fill:none}
+.jzb-puzzle--image .jzb-puzzle__piece--final{fill:#e6c67f}
 .jzs-difficulty-grid{margin-top:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .jzs-difficulty-card{text-align:start;padding:12px;border-radius:var(--radius-md);background:var(--surface-card);border:1px solid var(--border-hairline)}
 .jzs-difficulty-card.is-active{border:1.5px solid var(--ink-900);background:var(--cream-200)}
@@ -311,8 +319,8 @@
 .jzs-recap-row{display:grid;grid-template-columns:170px minmax(0,1fr) 60px;align-items:center;gap:20px;padding:20px 24px;border-bottom:1px solid var(--border-hairline);background:none;border-inline:none;border-top:none;width:100%;text-align:start}
 .jzs-recap-row:last-child{border-bottom:none}
 .jzs-recap-row:hover{background:var(--cream-200)}
-.jzs-recap-row__value{font-size:17px;color:var(--ink-900);font-weight:500}
-.jzs-recap-row__detail{margin-top:3px;font-size:14px;color:var(--ink-500)}
+.jzs-recap-row__value{display:block;font-size:17px;color:var(--ink-900);font-weight:500}
+.jzs-recap-row__detail{display:block;margin-top:3px;font-size:14px;color:var(--ink-500)}
 .jzs-recap-row__edit{text-align:end;font-size:14px;color:var(--ink-400)}
 .jzs-launch-panel{margin-top:16px;padding:28px;border-radius:var(--radius-lg);background:var(--ink-900);display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
 .jzs-launch-panel strong{font-size:22px;font-weight:600;letter-spacing:-.01em;color:var(--cream-100);display:block}
