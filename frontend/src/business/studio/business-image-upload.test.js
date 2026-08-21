@@ -351,3 +351,70 @@ test('crop UI copy exists and stays parity-complete across EN/AR', () => {
     assert.equal(matches.length, 2, `${key} should appear once in EN and once in AR`);
   }
 });
+
+test('BusinessPuzzle fills its board exactly, no letterboxing margin around the assembled puzzle', () => {
+  // Root cause of the oversized main puzzle frame / phone puzzle card / difficulty
+  // thumbnails: the viewBox added a tabPad margin (0.46 * cell size) equally to width
+  // and height. Boundary edges are always flat (piecePath: dir=0 on every outer edge),
+  // so an assembled puzzle's silhouette never extends past the board rectangle — that
+  // margin was unnecessary, and because it was an equal *absolute* px added to a 3:2
+  // (non-square) board, it also distorted the SVG's own aspect ratio away from 3:2,
+  // which is what actually caused every 3:2 CSS container around it to letterbox.
+  const puzzle = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
+  assert.match(puzzle, /const viewBox = `0 0 \$\{BOARD\.width\} \$\{BOARD\.height\}`;/);
+  assert.doesNotMatch(puzzle, /tabPad/);
+});
+
+test('puzzle-frame containers have small deliberate padding, not a giant presentation mat', () => {
+  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
+  assert.match(css, /\.jzs-puzzle-hero svg\{position:absolute;inset:12px\}/);
+  assert.match(css, /\.jzs-phone__puzzle svg\{position:absolute;inset:4px\}/);
+  assert.match(css, /\.jzs-difficulty-card__art svg\{position:absolute;inset:5px\}/);
+});
+
+test('phone shell derives its height from its own width instead of an ambiguous ancestor chain', () => {
+  // Regression: .jzs-phone used height:100% capped by max-height:640px, but
+  // .jzs-preview gets align-self:start + (previously) overflow-y:hidden at desktop
+  // width (see the min-width:901px block), which breaks percentage-height resolution
+  // down the chain (.jzs-phone -> .jzs-phone__screen -> .jzs-phone__body's flex:1
+  // scroll containment). aspect-ratio removes the ambiguity: height is always derived
+  // from the phone's own definite width, so overflow:hidden/auto inside it behaves
+  // predictably regardless of how the surrounding grid/sticky layout resolves.
+  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
+  assert.match(css, /\.jzs-phone\{width:100%;max-width:320px;aspect-ratio:9\/19\.5;/);
+  assert.doesNotMatch(css, /\.jzs-phone\{[^}]*height:100%/);
+  assert.doesNotMatch(css, /\.jzs-phone\{[^}]*max-height:640px/);
+  // The sticky preview column must scroll, not hard-clip, if its content ever exceeds
+  // the viewport — hidden here would silently cut content off with no way to reach it.
+  assert.match(css, /\.jzs-preview\{position:sticky;top:24px;align-self:start;max-height:calc\(100vh - 48px\);overflow-y:auto\}/);
+});
+
+test('phone preview body still structurally contains the full invitation, including RSVP, inside the device shell', () => {
+  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
+  const body = page.match(/<div className="jzs-phone__body">[\s\S]*?<\/div>\s*<\/div><\/div>\s*<\/div>\s*<\/aside>/);
+  assert.ok(body, 'jzs-phone__body block found');
+  const inner = body[0];
+  assert.match(inner, /jzs-phone__brand-row/);
+  assert.match(inner, /jzs-phone__eyebrow/);
+  assert.match(inner, /jzs-phone__puzzle/);
+  assert.match(inner, /jzs-invitation/);
+  assert.match(inner, /jzs-rsvp/);
+});
+
+test('+1 preview renders exactly the right RSVP choices for ON and OFF, using approved user-facing copy', () => {
+  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
+  const copy = fs.readFileSync(path.resolve('src/business/studio/studio-copy.js'), 'utf8');
+  // Always-present: Going, Not going. Conditionally present: Going (+1), only when plusOne.
+  assert.match(page, /<button type="button" className="is-primary">\{copy\.preview\.going\}<\/button>/);
+  assert.match(page, /\{plusOne && <button type="button">\{copy\.preview\.guest\}<\/button>\}/);
+  assert.match(page, /<button type="button">\{copy\.preview\.notGoing\}<\/button>/);
+  // No backend inherit/allowed/not_allowed terminology leaks into user-facing copy.
+  assert.doesNotMatch(copy, /'inherit'|'allowed'|'not_allowed'/);
+});
+
+test('PhonePreview is still the one shared component mounted once for every Studio step', () => {
+  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
+  const mounts = page.match(/<PhonePreview /g) || [];
+  assert.equal(mounts.length, 1, 'PhonePreview must be mounted exactly once, shared across all six areas');
+  assert.match(page, /<PhonePreview copy=\{copy\} isArabic=\{isArabic\} \/>/);
+});

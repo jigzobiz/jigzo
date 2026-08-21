@@ -13,13 +13,12 @@ const { board: BOARD, grid: GRID } = BUSINESS_PUZZLE_GEOMETRY;
 export default function BusinessPuzzle({ className = '', finalPiece = 4, label, imageUrl = null, mysteryMode = false, pieceCount = 18 }) {
   const clipId = `jzb-puzzle-image-${useId().replace(/:/g, '')}`;
   const showImage = Boolean(imageUrl && !mysteryMode);
-  const { pieces, tabPad } = useMemo(() => {
+  const pieces = useMemo(() => {
     const layout = GRID[pieceCount] || GRID[18];
     const pieceW = BOARD.width / layout.cols;
     const pieceH = BOARD.height / layout.rows;
-    const pad = 0.46 * Math.max(pieceW, pieceH);
     const edges = buildEdgeMap(layout.cols, layout.rows, 407 + pieceCount);
-    const list = Array.from({ length: layout.cols * layout.rows }, (_, index) => {
+    return Array.from({ length: layout.cols * layout.rows }, (_, index) => {
       const row = Math.floor(index / layout.cols);
       const column = index % layout.cols;
       return {
@@ -29,10 +28,15 @@ export default function BusinessPuzzle({ className = '', finalPiece = 4, label, 
         y: row * pieceH
       };
     });
-    return { pieces: list, tabPad: pad };
   }, [pieceCount]);
 
-  const viewBox = `${-tabPad} ${-tabPad} ${BOARD.width + tabPad * 2} ${BOARD.height + tabPad * 2}`;
+  // Boundary edges are always flat (see piecePath: dir=0 on every outer edge of the
+  // grid) — only shared internal edges between neighboring pieces carry tabs, and those
+  // tabs land entirely within a neighbor's own cell. So the assembled outline never
+  // extends past the board rectangle and needs no outer clearance margin — a viewBox
+  // exactly matching the board fills its container edge-to-edge with zero letterboxing,
+  // at the board's exact aspect ratio (3:2 for Business).
+  const viewBox = `0 0 ${BOARD.width} ${BOARD.height}`;
 
   return (
     <svg className={`jzb-puzzle${showImage ? ' jzb-puzzle--image' : ''} ${className}`} viewBox={viewBox} role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
