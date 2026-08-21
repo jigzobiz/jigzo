@@ -272,7 +272,7 @@ html[dir="rtl"] .jzb-hero::before { mask-image: linear-gradient(to left,#000,tra
 .jzb-experiences .jzb-section-copy > p:last-child { margin-inline: auto; }
 .jzb-experience-core { position: relative; width: 255px; height: 255px; display: grid; place-items: center; margin: 62px auto 58px; }
 .jzb-experience-core::before { content: ""; position: absolute; inset: -27px; border: 1px solid var(--jzb-line); transform: rotate(45deg); }
-.jzb-experience-core__puzzle { width: 205px; opacity: .16; }
+.jzb-experience-core__puzzle { width: 205px; aspect-ratio: 1; opacity: .16; }
 .jzb-experience-core > span { position: absolute; z-index: 2; padding: 9px 14px; background: var(--jzb-cream); font-family: "Playfair Display",serif; font-size: 38px; font-style: italic; }
 .jzb-experience-rail { position: relative; display: grid; grid-template-columns: repeat(4,1fr); border: 0; }
 .jzb-experience-rail::before { content: ""; position: absolute; height: 1px; inset: 20px 12.5% auto; background: var(--jzb-line); }
@@ -298,7 +298,7 @@ html[dir="rtl"] .jzb-hero::before { mask-image: linear-gradient(to left,#000,tra
 .jzb-studio__message > span { color: var(--jzb-bronze-text); font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 .jzb-studio__message strong { display: block; max-width: 10ch; margin: 19px 0; font-family: "Playfair Display",serif; font-size: clamp(34px,4vw,55px); font-weight: 500; line-height: .98; }
 .jzb-studio__message small { color: var(--jzb-muted); }
-.jzb-studio__puzzle { width: min(390px,100%); justify-self: center; filter: drop-shadow(18px 25px 18px rgba(28,25,19,.18)); }
+.jzb-studio__puzzle { width: min(390px,100%); aspect-ratio: 1; justify-self: center; filter: drop-shadow(18px 25px 18px rgba(28,25,19,.18)); }
 .jzb-studio__puzzle .jzb-puzzle__piece { stroke: rgba(244,237,223,.38); }
 .jzb-studio__tools { display: grid; grid-template-columns: repeat(4,1fr); border-top: 1px solid var(--jzb-line); }
 .jzb-studio__tools > div { min-height: 82px; display: grid; grid-template-columns: auto 1fr; align-content: center; gap: 5px 10px; padding: 12px 16px; border-inline-end: 1px solid var(--jzb-line); }

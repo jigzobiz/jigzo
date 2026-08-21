@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { CampaignStudioProvider, useCampaignStudio } from '../../business/studio/CampaignStudioContext';
 import { studioCopy } from '../../business/studio/studio-copy';
 import BusinessPuzzle from '../../business/landing/BusinessPuzzle';
+import BusinessImageCropModal from '../../business/studio/BusinessImageCropModal';
 import { PIECE_OPTIONS } from '../../config/difficulties';
 import { businessApi } from '../../services/businessApi';
 import { prepareBusinessImage } from '../../business/studio/business-image-upload';
@@ -59,7 +60,7 @@ function PhonePreview({ copy, isArabic }) {
   const recipient = state.studio.previewRecipient || state.recipients.entitiesById[state.studio.selectedRecipientId];
   const recipientName = recipient?.displayName || recipient?.name || '';
   const firstName = recipientName ? recipientName.split(' ')[0] : copy.preview.select;
-  const plusOne = recipient ? (recipient.plusOneOverride === 'allowed' || (recipient.plusOneOverride === 'inherit' && state.experience.allowPlusOneDefault)) : false;
+  const plusOne = recipient ? (recipient.plusOneOverride === 'allowed' || (recipient.plusOneOverride === 'inherit' && state.experience.allowPlusOneDefault)) : state.experience.allowPlusOneDefault;
   const channel = recipient?.deliveryChannel || recipient?.contactMethod;
   const cycle = () => {
     const ids = state.recipients.orderedIds; if (ids.length < 2) return;
@@ -118,21 +119,29 @@ function CampaignArea({ copy }) {
   </>;
 }
 
-function PuzzleArea({ copy }) {
+function PuzzleArea({ copy, isArabic }) {
   const { state, dispatch } = useCampaignStudio();
   const pieceCount = PIECE_OPTIONS.find((option) => option.id === state.puzzle.difficultyId)?.count || 18;
   const fileInput = useRef(null);
   const [uploadState, setUploadState] = useState('');
+  const [cropSrc, setCropSrc] = useState(null);
   const uploadReady = Boolean(state.sync.hydrated && state.identity.campaignId);
   const hasImage = Boolean(state.puzzle.imagePreviewUrl);
-  const selectImage = async (event) => {
+  const selectImage = (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
     if (!uploadReady) { setUploadState('Wait for this campaign to finish saving.'); return; }
+    setUploadState('');
+    const reader = new FileReader();
+    reader.onload = (e) => setCropSrc(e.target.result);
+    reader.readAsDataURL(file);
+  };
+  const applyCrop = async (croppedBlob) => {
+    setCropSrc(null);
     try {
       setUploadState('Saving…');
-      const prepared = await prepareBusinessImage(file);
+      const prepared = await prepareBusinessImage(croppedBlob);
       await businessApi.persistPuzzle(state.identity.campaignId, prepared.blob);
       dispatch({ type: 'SET_FIELD', section: 'puzzle', field: 'imagePreviewUrl', value: prepared.previewUrl });
       setUploadState('');
@@ -142,6 +151,7 @@ function PuzzleArea({ copy }) {
     }
   };
   return <>
+    {cropSrc && <BusinessImageCropModal imgSrc={cropSrc} copy={copy} isArabic={isArabic} onCancel={() => setCropSrc(null)} onDone={applyCrop} />}
     <div className="jzs-puzzle-head">
       <AreaIntro copy={copy} index={1} />
       <button type="button" className="jzs-action jzs-action--ghost jzs-action--sm" disabled={!uploadReady} onClick={() => fileInput.current?.click()}>{hasImage ? copy.puzzle.replace : copy.puzzle.upload}</button>

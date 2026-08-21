@@ -193,3 +193,113 @@ test('Review only claims Scheduled after the backend has actually persisted a sc
   assert.match(copy, /notScheduledHeadline: 'Not scheduled yet\.'/);
   assert.match(copy, /notScheduledHeadline: 'لم تتم الجدولة بعد\.'/);
 });
+
+test('phone preview plus-one reflects the campaign default even before a recipient is selected', () => {
+  // Regression: plusOne used to hard-fall-back to false whenever no recipient was
+  // selected/previewed yet, so toggling "Allow a plus one" in Experience had no visible
+  // effect until a specific recipient existed. It must reflect allowPlusOneDefault live.
+  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
+  assert.match(page, /const plusOne = recipient \? \(recipient\.plusOneOverride === 'allowed' \|\| \(recipient\.plusOneOverride === 'inherit' && state\.experience\.allowPlusOneDefault\)\) : state\.experience\.allowPlusOneDefault;/);
+  assert.match(page, /\{plusOne && <button type="button">\{copy\.preview\.guest\}<\/button>\}/);
+});
+
+test('Business image upload reuses the consumer crop-stage math instead of a new positioning system', () => {
+  const hook = fs.readFileSync(path.resolve('src/components/imageCropStage.js'), 'utf8');
+  const consumer = fs.readFileSync(path.resolve('src/pages/CreatePage.jsx'), 'utf8');
+  const modal = fs.readFileSync(path.resolve('src/business/studio/BusinessImageCropModal.jsx'), 'utf8');
+  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
+  // The clamp/capture math in the shared hook is a faithful port of CreatePage.jsx's own
+  // crop math (same formulas), not a reimplemented/invented alternative.
+  const containScaleFormula = 'const containScale = Math.min(Wf / Wi, Hf / Hi);';
+  assert.ok(hook.includes(containScaleFormula), 'shared hook has the contain-scale formula');
+  assert.ok(consumer.includes(containScaleFormula), 'consumer /create still has the same formula (untouched)');
+  assert.match(hook, /export function useImageCropStage/);
+  assert.match(modal, /import \{ useImageCropStage \} from '\.\.\/\.\.\/components\/imageCropStage'/);
+  // CreatePage.jsx (locked consumer flow) is not modified to depend on the new shared module.
+  assert.doesNotMatch(consumer, /imageCropStage/);
+  // Business wires file selection into the crop modal, and only persists after the user
+  // confirms a crop — the raw file is never uploaded directly.
+  assert.match(page, /reader\.onload = \(e\) => setCropSrc\(e\.target\.result\);/);
+  assert.match(page, /const applyCrop = async \(croppedBlob\) => \{/);
+  assert.match(page, /const prepared = await prepareBusinessImage\(croppedBlob\);/);
+  assert.match(page, /await businessApi\.persistPuzzle\(state\.identity\.campaignId, prepared\.blob\);/);
+  assert.match(page, /\{cropSrc && <BusinessImageCropModal imgSrc=\{cropSrc\}/);
+});
+
+test('the crop stage bakes the real 9:16 puzzle-board output, not an arbitrary square', () => {
+  // The real shared puzzle player (ReceivePage.jsx: BW=288,BH=512) and the consumer
+  // /create crop (CreatePage.jsx: OUT_W=540,OUT_H=960) both bake to a fixed 9:16 board —
+  // every piece count just subdivides that same rectangle differently. Business must
+  // bake to the same ratio so the crop the customer approves is exactly what fills the
+  // puzzle board later, with no further slicing.
+  const modal = fs.readFileSync(path.resolve('src/business/studio/BusinessImageCropModal.jsx'), 'utf8');
+  const receive = fs.readFileSync(path.resolve('src/pages/ReceivePage.jsx'), 'utf8');
+  assert.match(modal, /const OUTPUT_W = 540;/);
+  assert.match(modal, /const OUTPUT_H = 960;/);
+  assert.match(modal, /stage\.captureCrop\(OUTPUT_W, OUTPUT_H/);
+  assert.match(modal, /className="jzs-crop-frame"/);
+  assert.match(receive, /BW = 288, BH = 512/);
+  assert.equal(540 / 960, 288 / 512);
+});
+
+test('puzzle workspace, phone preview, and difficulty cards all frame the puzzle at its real 9:16 board aspect, not a guessed one', () => {
+  // Regression #1: these three containers used a 4:3 rectangle around what was assumed
+  // to be a square puzzle board — that pillarboxed it inside a much larger empty frame.
+  // Regression #2 (caught in review): "square" was itself wrong. BusinessPuzzle.jsx used
+  // to invent its own landscape columns/rows per piece count on a square 280x280 canvas;
+  // the real shared player (ReceivePage.jsx GRID_FOR) uses a fixed 288x512 (9:16) board
+  // for every piece count, only the grid subdividing it changes. All three containers
+  // must match that real, constant 9:16 board — not 4:3, and not 1:1.
+  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
+  assert.match(css, /\.jzs-puzzle-hero\{[^}]*aspect-ratio:9\/16/);
+  assert.match(css, /\.jzs-phone__puzzle\{[^}]*aspect-ratio:9\/16/);
+  assert.match(css, /\.jzs-difficulty-card__art\{[^}]*aspect-ratio:9\/16/);
+  assert.match(css, /\.jzs-difficulty-card__art svg\{position:absolute;inset:0;width:100%;height:100%\}/);
+});
+
+test('BusinessPuzzle grid and board match the real shared puzzle player exactly', () => {
+  const puzzle = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
+  const receive = fs.readFileSync(path.resolve('src/pages/ReceivePage.jsx'), 'utf8');
+  const puzzleGrid = {}, receiveGrid = {};
+  for (const m of puzzle.matchAll(/(\d+): \{ columns: (\d+), rows: (\d+) \}/g)) puzzleGrid[m[1]] = `${m[2]}x${m[3]}`;
+  for (const m of receive.matchAll(/(\d+): \{ cols: (\d+), rows: (\d+) \}/g)) receiveGrid[m[1]] = `${m[2]}x${m[3]}`;
+  assert.deepEqual(puzzleGrid, { '6': '2x3', '15': '3x5', '18': '3x6', '28': '4x7' });
+  assert.deepEqual(puzzleGrid, receiveGrid, 'Business preview grid must equal the real player grid for every piece count');
+  assert.match(puzzle, /const BOARD_W = 288;/);
+  assert.match(puzzle, /const BOARD_H = 512;/);
+});
+
+test('landing-page BusinessPuzzle usages are pinned to their prior square footprint (locked design unaffected)', () => {
+  // BusinessPuzzle.jsx is shared with the locked marketing landing page. Its internal
+  // viewBox just changed from square to 9:16 to fix the Studio; without an explicit
+  // aspect-ratio pin, the landing page's unrelated containers (which never declared their
+  // own height) would inherit the new taller intrinsic ratio and visibly balloon. These
+  // must stay pinned to 1:1, matching how they rendered before this fix.
+  const css = fs.readFileSync(path.resolve('src/business/landing/business-landing.css'), 'utf8');
+  assert.match(css, /\.jzb-experience-core__puzzle \{ width: 205px; aspect-ratio: 1;/);
+  assert.match(css, /\.jzb-studio__puzzle \{ width: min\(390px,100%\); aspect-ratio: 1;/);
+  assert.match(css, /\.jzb-recipient__puzzle \{ width: 74%; aspect-ratio: 1;/);
+});
+
+test('mystery mode card is compact, not an oversized empty box', () => {
+  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
+  assert.match(css, /\.jzs-mystery-card\{[^}]*padding:16px 20px/);
+  assert.match(css, /\.jzs-mystery-card \.jzs-toggle-row\{padding:6px 0\}/);
+});
+
+test('area headings use the available desktop width instead of an arbitrary narrow cap', () => {
+  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
+  assert.match(css, /\.jzs-area-intro\{max-width:min\(100%,860px\);margin-bottom:32px\}/);
+  assert.match(css, /\.jzs-area-intro h1\{max-width:100%/);
+  assert.match(css, /\.jzs-area-intro p\{max-width:100%/);
+  assert.doesNotMatch(css, /\.jzs-area-intro h1\{max-width:600px/);
+  assert.doesNotMatch(css, /\.jzs-area-intro p\{max-width:560px/);
+});
+
+test('crop UI copy exists and stays parity-complete across EN/AR', () => {
+  const copy = fs.readFileSync(path.resolve('src/business/studio/studio-copy.js'), 'utf8');
+  for (const key of ['cropTitle', 'cropHint', 'cropApply', 'cropCancel', 'rotateLeft', 'rotateRight']) {
+    const matches = copy.match(new RegExp(`${key}: '[^']+'`, 'g')) || [];
+    assert.equal(matches.length, 2, `${key} should appear once in EN and once in AR`);
+  }
+});
