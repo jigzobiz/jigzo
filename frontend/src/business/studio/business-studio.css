@@ -217,8 +217,15 @@
 
 /* ---- Puzzle area ---- */
 .jzs-puzzle-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
-.jzs-puzzle-hero{margin:22px auto 0;position:relative;width:min(100%,640px);aspect-ratio:3/2;border-radius:var(--radius-lg);overflow:hidden;background:var(--cream-300);border:1px solid var(--border-hairline)}
-.jzs-puzzle-hero svg{position:absolute;inset:12px}
+/* No aspect-ratio on the frame itself: forcing the outer box to exactly 3/2 while also
+   subtracting equal padding for the inset left the *inner* content area a few px off
+   3/2, so the SVG (itself exact 3/2) letterboxed asymmetrically inside it — thicker
+   gaps on one pair of sides than the other. Instead the frame's height is derived from
+   its content: the SVG carries its own exact aspect-ratio:3/2 sized to the padded
+   width, and the frame (a grid with uniform padding) wraps it with mathematically
+   equal spacing on all four sides, no per-side compensation needed. */
+.jzs-puzzle-hero{margin:22px auto 0;position:relative;width:min(100%,640px);padding:12px;box-sizing:border-box;border-radius:0;overflow:hidden;background:var(--cream-300);border:1px solid var(--border-hairline);display:grid;place-items:center}
+.jzs-puzzle-hero svg{width:100%;aspect-ratio:3/2;display:block}
 .jzs-puzzle-hero__badge{position:absolute;inset-inline-start:16px;bottom:16px;height:32px;padding:0 14px;border-radius:var(--radius-pill);background:rgba(5,5,5,.72);color:var(--cream-100);font-size:13px;display:flex;align-items:center;gap:8px}
 /* BusinessPuzzle (shared/landing/BusinessPuzzle.jsx) is rendered on this page too, but
    business-landing.css is never loaded here — without these rules the piece <path>s fall
@@ -237,10 +244,18 @@
 .jzs-difficulty-card__count strong{font-size:20px;font-weight:600;color:var(--ink-900)}
 .jzs-difficulty-card__count span{font-size:13px;color:var(--ink-400)}
 .jzs-difficulty-card__note{font-size:13px;color:var(--ink-400)}
-.jzs-mystery-card{margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:16px 20px;background:var(--surface-card);border:1px solid var(--border-hairline);border-radius:var(--radius-lg)}
+.jzs-mystery-card{margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 20px;background:var(--surface-card);border:1px solid var(--border-hairline);border-radius:var(--radius-lg)}
 .jzs-mystery-card strong{font-size:17px;font-weight:600;color:var(--ink-900)}
 .jzs-mystery-card p{margin-top:4px;font-size:14px;color:var(--ink-500);max-width:60ch}
-.jzs-mystery-card .jzs-toggle-row{padding:6px 0}
+/* .jzs-mystery-card is a flex row with a single child (the Toggle's .jzs-toggle-row
+   label) — flex doesn't stretch a lone item to fill the row, so the label+toggle
+   cluster was sizing to its own content width and floating near the start of the row
+   with the toggle right after the text, instead of anchoring at the far edge. Forcing
+   the toggle-row to fill the available width lets its own grid (1fr auto-width label,
+   fixed 52px toggle) push the switch to the true right edge. padding:0 here because the
+   card above already provides balanced vertical padding — the toggle-row's own 6px
+   was doubling up on top of it. */
+.jzs-mystery-card .jzs-toggle-row{width:100%;padding:0}
 
 /* ---- image crop modal (shared pan/zoom/rotate math: components/imageCropStage.js) ---- */
 .jzs-crop-overlay{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:rgba(5,5,5,.72);padding:24px}

@@ -310,7 +310,10 @@ test('a 3:2 Business image is not recropped anywhere: crop bake, board, and CSS 
   assert.ok(boardMatch, 'BUSINESS_PUZZLE_GEOMETRY board found');
   const boardRatio = Number(boardMatch[1]) / Number(boardMatch[2]);
   assert.equal(boardRatio, 3 / 2);
-  assert.match(css, /\.jzs-puzzle-hero\{[^}]*aspect-ratio:3\/2/);
+  // .jzs-puzzle-hero's own aspect-ratio moved onto its svg child (see the dedicated
+  // "main puzzle frame" test below) — the frame itself is now sized from that content
+  // plus uniform padding, but the rendered puzzle is still exactly 3:2 either way.
+  assert.match(css, /\.jzs-puzzle-hero svg\{width:100%;aspect-ratio:3\/2;display:block\}/);
   assert.match(css, /\.jzs-phone__puzzle\{[^}]*aspect-ratio:3\/2/);
   assert.match(css, /\.jzs-difficulty-card__art\{[^}]*aspect-ratio:3\/2/);
   assert.match(css, /\.jzs-crop-frame\{[^}]*aspect-ratio:3\/2/);
@@ -327,12 +330,6 @@ test('landing-page BusinessPuzzle usages are pinned to their prior square footpr
   assert.match(css, /\.jzb-experience-core__puzzle \{ width: 205px; aspect-ratio: 1;/);
   assert.match(css, /\.jzb-studio__puzzle \{ width: min\(390px,100%\); aspect-ratio: 1;/);
   assert.match(css, /\.jzb-recipient__puzzle \{ width: 74%; aspect-ratio: 1;/);
-});
-
-test('mystery mode card is compact, not an oversized empty box', () => {
-  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
-  assert.match(css, /\.jzs-mystery-card\{[^}]*padding:16px 20px/);
-  assert.match(css, /\.jzs-mystery-card \.jzs-toggle-row\{padding:6px 0\}/);
 });
 
 test('area headings use the available desktop width instead of an arbitrary narrow cap', () => {
@@ -367,9 +364,46 @@ test('BusinessPuzzle fills its board exactly, no letterboxing margin around the 
 
 test('puzzle-frame containers have small deliberate padding, not a giant presentation mat', () => {
   const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
-  assert.match(css, /\.jzs-puzzle-hero svg\{position:absolute;inset:12px\}/);
+  // .jzs-phone__puzzle and .jzs-difficulty-card__art are locked for this pass (phone
+  // preview approved; difficulty cards acceptable as-is) — unchanged from before.
   assert.match(css, /\.jzs-phone__puzzle svg\{position:absolute;inset:4px\}/);
   assert.match(css, /\.jzs-difficulty-card__art svg\{position:absolute;inset:5px\}/);
+});
+
+test('main puzzle frame has mathematically equal padding on all four sides, sharp corners, no per-side compensation', () => {
+  // Regression: .jzs-puzzle-hero previously forced aspect-ratio:3/2 on the OUTER box
+  // while the svg used inset:12px (equal on all sides per the CSS shorthand) — but
+  // subtracting equal absolute px from a 3:2 box does not leave an exactly-3:2 inner
+  // area, so the exactly-3:2 svg content letterboxed on one axis only, producing visibly
+  // unequal margins (and off-center content) despite the inset value itself being equal.
+  // Fix: no aspect-ratio on the frame — its height is derived from content instead. The
+  // svg carries its own aspect-ratio:3/2 sized to the padded width, and uniform
+  // `padding` + `display:grid;place-items:center` wraps it with truly equal spacing on
+  // every side; no separate top/right/bottom/left values to drift out of sync.
+  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
+  assert.match(css, /\.jzs-puzzle-hero\{[^}]*padding:12px;box-sizing:border-box;border-radius:0;[^}]*display:grid;place-items:center\}/);
+  assert.doesNotMatch(css, /\.jzs-puzzle-hero\{[^}]*aspect-ratio:3\/2/);
+  assert.match(css, /\.jzs-puzzle-hero svg\{width:100%;aspect-ratio:3\/2;display:block\}/);
+  // The piece-count badge keeps its existing anchor.
+  assert.match(css, /\.jzs-puzzle-hero__badge\{position:absolute;inset-inline-start:16px;bottom:16px/);
+});
+
+test('Mystery Mode is a compact settings row: label left, toggle anchored to the far right edge', () => {
+  // Regression: .jzs-mystery-card is display:flex with a SINGLE child (the Toggle's
+  // .jzs-toggle-row label). Flex does not stretch a lone item to fill the row, so the
+  // toggle-row sized to its own content width (label text + 52px switch) and sat at the
+  // start of the row instead of spanning it — leaving the switch stranded near the
+  // middle of an otherwise oversized card instead of anchored at the right edge, plus a
+  // large unused area to the right. Forcing the toggle-row to width:100% lets its own
+  // grid (1fr label column, fixed 52px switch column) push the switch to the true right
+  // edge. Also removed the toggle-row's own extra 6px vertical padding, which was
+  // doubling up on top of the card's own padding.
+  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
+  assert.match(css, /\.jzs-mystery-card\{[^}]*padding:14px 20px;/);
+  assert.match(css, /\.jzs-mystery-card \.jzs-toggle-row\{width:100%;padding:0\}/);
+  // The Toggle component's own grid (label column vs fixed-width switch column) still
+  // provides the vertical centering and right-anchoring once it's allowed to fill width.
+  assert.match(css, /\.jzs-toggle-row\{position:relative;display:grid;grid-template-columns:1fr 52px;align-items:center/);
 });
 
 test('phone shell derives its height from its own width instead of an ambiguous ancestor chain', () => {
