@@ -72,11 +72,16 @@ test('invalid image is rejected before processing', async () => {
   await assert.rejects(() => prepareBusinessImage({ type: 'image/gif', size: 100 }), /JPEG, PNG or WebP/);
 });
 
-test('persisted image drives editor and live recipient puzzle while Mystery Mode hides only the recipient image', () => {
+test('persisted image drives the main workspace and the storyboard Solve panel, while Mystery Mode hides only the recipient-facing image', () => {
   const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
   const puzzle = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
-  assert.match(page, /BusinessPuzzle finalPiece=\{4\} pieceCount=\{pieceCount\} imageUrl=\{state\.puzzle\.imagePreviewUrl\} mysteryMode=\{state\.puzzle\.mysteryMode\}/);
+  // Main workspace hero (PuzzleArea).
   assert.match(page, /BusinessPuzzle finalPiece=\{7\} pieceCount=\{pieceCount\} imageUrl=\{state\.puzzle\.imagePreviewUrl\}/);
+  // Storyboard "Solve" panel — mirrors what a real recipient sees mid-solve: the image
+  // shows through placed/unplaced pieces exactly when mysteryMode is off, matching the
+  // real PuzzlePlayer's per-piece <image> rendering (ReceivePage.jsx), which is gated on
+  // the same mysteryMode flag via GET /puzzle's imageUrl, not on solved state.
+  assert.match(page, /BusinessPuzzle finalPiece=\{-1\} pieceCount=\{pieceCount\} imageUrl=\{state\.puzzle\.imagePreviewUrl\} mysteryMode=\{state\.puzzle\.mysteryMode\} \/>/);
   assert.match(puzzle, /showImage = Boolean\(imageUrl && !mysteryMode\)/);
   assert.match(puzzle, /preserveAspectRatio="xMidYMid slice"/);
 });
@@ -197,13 +202,15 @@ test('Review only claims Scheduled after the backend has actually persisted a sc
   assert.match(copy, /notScheduledHeadline: 'لم تتم الجدولة بعد\.'/);
 });
 
-test('phone preview plus-one reflects the campaign default even before a recipient is selected', () => {
+test('storyboard plus-one reflects the campaign default even before a recipient is selected', () => {
   // Regression: plusOne used to hard-fall-back to false whenever no recipient was
   // selected/previewed yet, so toggling "Allow a plus one" in Experience had no visible
   // effect until a specific recipient existed. It must reflect allowPlusOneDefault live.
+  // The computation itself is unchanged by the storyboard rewrite — only where its
+  // result is consumed (SolvedInvitationFrame's allowPlusOne prop) changed.
   const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
   assert.match(page, /const plusOne = recipient \? \(recipient\.plusOneOverride === 'allowed' \|\| \(recipient\.plusOneOverride === 'inherit' && state\.experience\.allowPlusOneDefault\)\) : state\.experience\.allowPlusOneDefault;/);
-  assert.match(page, /\{plusOne && <button type="button">\{copy\.preview\.guest\}<\/button>\}/);
+  assert.match(page, /allowPlusOne=\{plusOne\}/);
 });
 
 test('Business image upload reuses the consumer crop-stage math instead of a new positioning system', () => {
@@ -364,10 +371,29 @@ test('BusinessPuzzle fills its board exactly, no letterboxing margin around the 
 
 test('puzzle-frame containers have small deliberate padding, not a giant presentation mat', () => {
   const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
-  // .jzs-phone__puzzle and .jzs-difficulty-card__art are locked for this pass (phone
-  // preview approved; difficulty cards acceptable as-is) — unchanged from before.
+  // Insets themselves are locked for this pass — only the outer border-radius changed
+  // (see the sharp-corners test below) to match the large preview's frame treatment.
   assert.match(css, /\.jzs-phone__puzzle svg\{position:absolute;inset:4px\}/);
   assert.match(css, /\.jzs-difficulty-card__art svg\{position:absolute;inset:5px\}/);
+});
+
+test('the puzzle-art frame is sharp-cornered and exactly 3:2 on every surface — main preview, phone, and difficulty cards', () => {
+  // Root cause: .jzs-phone__puzzle (border-radius:14px) and .jzs-difficulty-card__art
+  // (border-radius:10px) each wrapped a sharp-cornered assembled puzzle (BusinessPuzzle's
+  // pieces tile a plain rectangle — see BusinessPuzzle.jsx) in a rounded outer frame, the
+  // same "rounded frame around sharp content" mismatch .jzs-puzzle-hero had before its own
+  // fix. Only their border-radius changes here — sizing/inset/margin (and therefore the
+  // phone's overall height and internal spacing) are untouched, since those are locked for
+  // this pass. .jzs-difficulty-card (the outer selectable card) intentionally keeps its
+  // own --radius-md; only .jzs-difficulty-card__art (the inner artwork area) goes sharp.
+  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
+  assert.match(css, /\.jzs-puzzle-hero\{[^}]*border-radius:0;/);
+  assert.match(css, /\.jzs-puzzle-hero svg\{width:100%;aspect-ratio:3\/2;/);
+  assert.match(css, /\.jzs-phone__puzzle\{[^}]*aspect-ratio:3\/2;border-radius:0;/);
+  assert.match(css, /\.jzs-difficulty-card__art\{[^}]*aspect-ratio:3\/2;border-radius:0;/);
+  // The outer difficulty selection card keeps its own design-system radius — only the
+  // nested artwork area goes sharp.
+  assert.match(css, /\.jzs-difficulty-card\{text-align:start;padding:12px;border-radius:var\(--radius-md\);/);
 });
 
 test('main puzzle frame has mathematically equal padding on all four sides, sharp corners, no per-side compensation', () => {
@@ -423,32 +449,9 @@ test('phone shell derives its height from its own width instead of an ambiguous 
   assert.match(css, /\.jzs-preview\{position:sticky;top:24px;align-self:start;max-height:calc\(100vh - 48px\);overflow-y:auto\}/);
 });
 
-test('phone preview body still structurally contains the full invitation, including RSVP, inside the device shell', () => {
-  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
-  const body = page.match(/<div className="jzs-phone__body">[\s\S]*?<\/div>\s*<\/div><\/div>\s*<\/div>\s*<\/aside>/);
-  assert.ok(body, 'jzs-phone__body block found');
-  const inner = body[0];
-  assert.match(inner, /jzs-phone__brand-row/);
-  assert.match(inner, /jzs-phone__eyebrow/);
-  assert.match(inner, /jzs-phone__puzzle/);
-  assert.match(inner, /jzs-invitation/);
-  assert.match(inner, /jzs-rsvp/);
-});
-
-test('+1 preview renders exactly the right RSVP choices for ON and OFF, using approved user-facing copy', () => {
-  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
-  const copy = fs.readFileSync(path.resolve('src/business/studio/studio-copy.js'), 'utf8');
-  // Always-present: Going, Not going. Conditionally present: Going (+1), only when plusOne.
-  assert.match(page, /<button type="button" className="is-primary">\{copy\.preview\.going\}<\/button>/);
-  assert.match(page, /\{plusOne && <button type="button">\{copy\.preview\.guest\}<\/button>\}/);
-  assert.match(page, /<button type="button">\{copy\.preview\.notGoing\}<\/button>/);
-  // No backend inherit/allowed/not_allowed terminology leaks into user-facing copy.
-  assert.doesNotMatch(copy, /'inherit'|'allowed'|'not_allowed'/);
-});
-
-test('PhonePreview is still the one shared component mounted once for every Studio step', () => {
-  const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
-  const mounts = page.match(/<PhonePreview /g) || [];
-  assert.equal(mounts.length, 1, 'PhonePreview must be mounted exactly once, shared across all six areas');
-  assert.match(page, /<PhonePreview copy=\{copy\} isArabic=\{isArabic\} \/>/);
-});
+// The single "final invitation" phone mockup (jzs-phone__body / jzs-invitation / jzs-rsvp
+// and the PhonePreview component) was replaced this pass by the three-stage static
+// storyboard (Received/Solve/Revealed, RecipientJourneyPreview) — see
+// business/journey/business-journey.test.js for the equivalent and more precise coverage
+// of the new architecture (storyboard mounted once, RSVP matrix inside
+// SolvedInvitationFrame, no backend terminology in copy, etc).

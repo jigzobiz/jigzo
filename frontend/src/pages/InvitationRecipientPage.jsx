@@ -3,7 +3,21 @@ import PuzzlePlayer from'../components/PuzzlePlayer';
 import{invitationExchange}from'../services/invitationBootstrap';
 import{invitationApi}from'../services/invitationApi';
 import{BUSINESS_PUZZLE_GEOMETRY}from'../puzzle/puzzle-geometry';
+import{businessJourneyCopy}from'../business/journey/businessJourneyCopy';
+import ArrivalScene from'../business/journey/ArrivalScene';
+import SolvedInvitationFrame from'../business/journey/SolvedInvitationFrame';
+import'../business/journey/business-journey.css';
 import'./invitation-recipient.css';
+
+// GET /puzzle's imageUrl field is gated purely on campaign.puzzle.mysteryMode — it
+// returns null whenever mysteryMode is on, with no regard for whether this recipient
+// has already solved (backend: publicInvitations.js). The actual image-serving route,
+// GET /image, gates correctly on mysteryMode && !firstSolvedAt, so once a recipient has
+// solved (the only time this constant is used) it always serves successfully regardless
+// of mysteryMode. Using the fixed path directly — rather than a possibly-stale/null
+// imageUrl fetched before solving — is what keeps Mystery Mode's actual security
+// guarantee (server-side, untouched) and the Revealed frame's image in sync.
+const REVEALED_IMAGE_URL='/api/public/invitations/image';
 
 const COPY={
   en:{
@@ -46,6 +60,11 @@ const COPY={
   }
 };
 
+// Recipient journey: loading -> arrival (JIGZO arrival moment, not the invitation) ->
+// puzzle (the existing shared PuzzlePlayer, unmodified, geometry=BUSINESS_PUZZLE_GEOMETRY)
+// -> revealing (brief transition) -> revealed (the SAME solved puzzle frame becomes the
+// invitation — see SolvedInvitationFrame). A returning visitor who already solved skips
+// straight to "revealed".
 export default function InvitationRecipientPage(){
   const[phase,setPhase]=useState('loading');
   const[session,setSession]=useState(null);
@@ -58,6 +77,7 @@ export default function InvitationRecipientPage(){
   const start=useRef(Date.now());
   const lang=session?.recipient?.language||'en';
   const c=COPY[lang];
+  const jc=businessJourneyCopy[lang==='ar'?'ar':'en'];
 
   useEffect(()=>{
     let active=true;
@@ -72,7 +92,7 @@ export default function InvitationRecipientPage(){
         if(s.recipient.solved){
           setInvitation(s.invitation);
           setResponse(s.recipient.rsvpStatus==='pending'?null:{status:s.recipient.rsvpStatus,guestCount:s.recipient.guestCount});
-          setPhase('invitation');
+          setPhase('revealed');
           return;
         }
         const p=await invitationApi.puzzle();
@@ -86,8 +106,7 @@ export default function InvitationRecipientPage(){
           message:'',
           experienceLanguage:s.recipient.language
         });
-        start.current=Date.now();
-        setPhase('puzzle');
+        setPhase('arrival');
       }catch(e){
         if(active){
           setError(e.message);
@@ -98,17 +117,22 @@ export default function InvitationRecipientPage(){
     return()=>{active=false;};
   },[]);
 
+  const beginSolve=()=>{
+    start.current=Date.now();
+    setPhase('puzzle');
+  };
+
   const solved=useCallback(async seconds=>{
     const result=await invitationApi.solve(seconds);
     setInvitation(result.invitation);
     setSession(value=>({...value,recipient:{...value.recipient,solved:true}}));
     const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (prefersReduced) {
-      setPhase('invitation');
+      setPhase('revealed');
     } else {
       setPhase('revealing');
       await new Promise(r => setTimeout(r, 1600));
-      setPhase('invitation');
+      setPhase('revealed');
     }
     return{success:true,message:'unlocked'};
   },[]);
@@ -125,6 +149,20 @@ export default function InvitationRecipientPage(){
 
   if(phase==='loading')return <main className="jzi-state"><span className="jzi-mark">JIGZO</span><p>{c.loading}</p></main>;
   if(phase==='error')return <main className="jzi-state"><span className="jzi-mark">JIGZO</span><p>{c.invalid}</p></main>;
+
+  if(phase==='arrival'){
+    return (
+      <main className="jzi-page" dir={lang==='ar'?'rtl':'ltr'}>
+        <header>
+          <span className="jzi-mark">JIGZO</span>
+          <small>{c.for} {session.recipient.displayName}</small>
+        </header>
+        <div className="jzi-arrival-wrapper">
+          <ArrivalScene mode="interactive" copy={jc} isArabic={lang==='ar'} onContinue={beginSolve} />
+        </div>
+      </main>
+    );
+  }
 
   if(phase==='puzzle' || phase==='revealing') {
     return (
@@ -145,6 +183,9 @@ export default function InvitationRecipientPage(){
     timeStyle:'short',
     timeZone:invitation.timezone
   });
+  const deadlineDisplay = invitation.rsvpDeadline
+    ? new Date(invitation.rsvpDeadline).toLocaleString(lang==='ar'?'ar-BH':'en-GB',{dateStyle:'medium'})
+    : '';
 
   return (
     <main className="jzi-page jzi-reveal" dir={lang==='ar'?'rtl':'ltr'}>
@@ -152,81 +193,29 @@ export default function InvitationRecipientPage(){
         <span className="jzi-mark">JIGZO</span>
         <small>{c.solved}</small>
       </header>
-      <div className="jzi-invitation-container">
-        <article className="jzi-invitation">
-          <header className="jzi-greeting">
-            <span className="jzi-eyebrow">{c.for}</span>
-            <h2 className="jzi-recipient-name">{session.recipient.displayName}</h2>
-          </header>
-
-          <div className="jzi-badge-mark" aria-hidden="true" />
-
-          <p className="jzi-kicker">{c.invited}</p>
-          <h1 className="jzi-title">{invitation.eventTitle}</h1>
-
-          <dl className="jzi-meta-grid">
-            <div className="jzi-meta-item">
-              <dt className="jzi-meta-label">When</dt>
-              <dd className="jzi-meta-value">{formattedDateTime}</dd>
-              <dd className="jzi-meta-tz">{invitation.timezone}</dd>
-            </div>
-            <div className="jzi-meta-item">
-              <dt className="jzi-meta-label">Where</dt>
-              <dd className="jzi-meta-value">{invitation.location}</dd>
-            </div>
-          </dl>
-
-          <p className="jzi-message">{invitation.message}</p>
-
-          {invitation.rsvpDeadline && (
-            <div className="jzi-deadline">
-              <span>{new Date(invitation.rsvpDeadline).toLocaleString(lang==='ar'?'ar-BH':'en-GB',{dateStyle:'medium'})}</span>
-            </div>
-          )}
-
-          <div className="jzi-rsvp-section">
-            {response ? (
-              <div className="jzi-confirm">
-                <div className="jzi-confirm__icon" aria-hidden="true">✓</div>
-                <h3>
-                  {response.status === 'going'
-                    ? (response.guestCount > 1 ? c.statusGoingPlus : c.statusGoing)
-                    : c.statusNotGoing}
-                </h3>
-                <p className="jzi-confirm__helper">{c.confirmed}</p>
-                {invitation.rsvpEnabled && (
-                  <button className="jzi-btn jzi-btn--ghost jzi-btn--small" onClick={() => setResponse(null)}>
-                    {c.change}
-                  </button>
-                )}
-              </div>
-            ) : invitation.rsvpEnabled ? (
-              pendingGoing && invitation.allowPlusOne ? (
-                <div className="jzi-guest-selection">
-                  <p className="jzi-guest-title">{c.guestQuestion}</p>
-                  <div className="jzi-actions">
-                    <button className="jzi-btn" onClick={() => respond('going', 1)}>{c.justMe}</button>
-                    <button className="jzi-btn jzi-btn--gold" onClick={() => respond('going', 2)}>{c.plus}</button>
-                    <button className="jzi-btn jzi-btn--ghost" onClick={() => setPendingGoing(false)}>{c.back}</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="jzi-actions">
-                  <button className="jzi-btn" onClick={() => {
-                    if (invitation.allowPlusOne) {
-                      setPendingGoing(true);
-                    } else {
-                      respond('going', 1);
-                    }
-                  }}>{c.going}</button>
-                  <button className="jzi-btn jzi-btn--ghost" onClick={() => respond('not_going', 0)}>{c.no}</button>
-                </div>
-              )
-            ) : null}
-          </div>
-
-          {error && <p className="jzi-error" role="alert">{error}</p>}
-        </article>
+      <div className="jzi-solved-wrapper">
+        <SolvedInvitationFrame
+          mode="interactive"
+          imageUrl={REVEALED_IMAGE_URL}
+          eventTitle={invitation.eventTitle}
+          whenDisplay={`${formattedDateTime} (${invitation.timezone})`}
+          location={invitation.location}
+          message={invitation.message}
+          rsvpDeadlineDisplay={deadlineDisplay}
+          rsvpEnabled={invitation.rsvpEnabled}
+          allowPlusOne={invitation.allowPlusOne}
+          copy={c}
+          isArabic={lang==='ar'}
+          rsvp={{
+            response,
+            pendingGoing,
+            onRespond: respond,
+            onPendingGoing: () => setPendingGoing(true),
+            onBack: () => setPendingGoing(false),
+            onChangeResponse: () => setResponse(null)
+          }}
+        />
+        {error && <p className="jzi-error" role="alert">{error}</p>}
       </div>
     </main>
   );

@@ -1,0 +1,91 @@
+/* Shared "arrival scene" + "solved puzzle becomes the invitation" presentation, used by
+   both the real Business recipient page (frontend/src/pages/InvitationRecipientPage.jsx)
+   and the Business Studio storyboard preview (BusinessCampaignStudioPage.jsx), so the
+   owner's preview and the guest's real experience never visually drift apart. Warm
+   cream / near-black JIGZO palette; gold stays reserved for the piece-solved reveal
+   moment elsewhere and is intentionally not used here. */
+
+/* ---- Arrival scene ---- */
+.jzj-arrival{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px}
+.jzj-arrival__scene{width:min(100%,320px);aspect-ratio:320/220;overflow:visible}
+.jzj-arrival__envelope-body{fill:#17140f}
+.jzj-arrival__envelope-flap{fill:#2c2a25;stroke:#4a4740;stroke-width:1;stroke-linejoin:round}
+.jzj-arrival__piece path{fill:#4b3d2a;stroke:rgba(250,248,236,.18);stroke-width:1}
+.jzj-arrival__teaser{margin:0;max-width:34ch;font-size:15px;line-height:1.5;color:#1c1913}
+.jzj-arrival__cta{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 28px;border:none;border-radius:999px;background:#1c1913;color:#faf8ec;font-family:"Archia",sans-serif;font-weight:650;font-size:14px;cursor:pointer;transition:transform .2s ease}
+.jzj-arrival__cta:hover{transform:translateY(-1px)}
+.jzj-arrival__cta:focus-visible{outline:3px solid #e6c67f;outline-offset:2px}
+
+/* Default state (also the reduced-motion / static state): pieces and envelope already
+   settled, no animation. Motion is layered on only for interactive mode when the visitor
+   hasn't asked for reduced motion. */
+.jzj-arrival__envelope,.jzj-arrival__piece{opacity:1}
+@media (prefers-reduced-motion: no-preference) {
+  .jzj-arrival--interactive .jzj-arrival__envelope{animation:jzj-envelope-in .5s cubic-bezier(.22,1,.36,1) both}
+  .jzj-arrival--interactive .jzj-arrival__piece{animation:jzj-piece-fall .5s cubic-bezier(.22,1,.36,1) both;animation-delay:var(--jzj-delay,.3s)}
+}
+@keyframes jzj-envelope-in{from{opacity:0;transform:translate(100px,8px) translateY(-36px) scale(.94)}to{opacity:1;transform:translate(100px,48px)}}
+@keyframes jzj-piece-fall{from{opacity:0;transform:translate(var(--jzj-x),var(--jzj-y)) translateY(-30px) rotate(calc(var(--jzj-rot) - 20deg))}to{opacity:1;transform:translate(var(--jzj-x),var(--jzj-y)) rotate(var(--jzj-rot))}}
+
+/* Compact variant used inside the Studio storyboard's "Received" panel. */
+.jzj-arrival--compact{gap:8px}
+.jzj-arrival--compact .jzj-arrival__scene{max-width:180px}
+.jzj-arrival--compact .jzj-arrival__teaser{font-size:11.5px;line-height:1.4;color:var(--ink-500,#4a4740)}
+
+/* ---- Solved puzzle / invitation frame ---- */
+.jzj-solved{position:relative;width:100%;aspect-ratio:3/2;border-radius:0;overflow:hidden;background:#17140f}
+.jzj-solved__image{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.jzj-solved__scrim{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(5,5,5,0) 30%,rgba(5,5,5,.72) 78%)}
+.jzj-solved__panel{position:absolute;inset-inline:0;bottom:0;max-height:78%;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:8px;color:#faf8ec}
+.jzj-solved__kicker{margin:0;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#e6dcc4}
+.jzj-solved__title{margin:0;font-family:"Playfair Display",serif;font-size:clamp(20px,3vw,28px);font-weight:500;line-height:1.15;letter-spacing:-.01em}
+.jzj-solved__meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:8px 0;border-top:1px solid rgba(250,248,236,.18);border-bottom:1px solid rgba(250,248,236,.18)}
+.jzj-solved__meta span{display:block;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#c9c4b4}
+.jzj-solved__meta b{display:block;margin-top:2px;font-size:13px;font-weight:400}
+.jzj-solved__message{margin:0;font-size:13px;line-height:1.5;color:#f1eedc;white-space:pre-line}
+.jzj-solved__deadline{margin:0;font-size:11px;color:#c9c4b4}
+.jzj-solved__rsvp-row{margin-top:2px}
+.jzj-solved__guest-q{margin:0 0 8px;font-size:12.5px;color:#e6dcc4}
+.jzj-solved__choices{display:flex;flex-wrap:wrap;gap:8px}
+.jzj-solved__btn{min-height:40px;padding:0 18px;border:1px solid #faf8ec;border-radius:999px;background:#faf8ec;color:#17140f;font-family:"Archia",sans-serif;font-weight:600;font-size:13px;cursor:pointer}
+.jzj-solved__btn--ghost{background:transparent;color:#faf8ec}
+.jzj-solved__btn--gold{background:#e6c67f;border-color:#e6c67f;color:#17140f}
+.jzj-solved__btn:disabled{cursor:default;opacity:.9}
+.jzj-solved__confirm{display:grid;justify-items:start;gap:4px}
+.jzj-solved__confirm-icon{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:rgba(250,248,236,.16);font-size:14px}
+.jzj-solved__confirm strong{font-family:"Playfair Display",serif;font-size:16px;font-weight:500}
+.jzj-solved__confirm small{color:#c9c4b4;font-size:12px}
+.jzj-solved__ghost-btn{margin-top:4px;height:30px;padding:0 14px;border:1px solid rgba(250,248,236,.4);border-radius:999px;background:transparent;color:#faf8ec;font-size:11.5px}
+
+/* Compact variant for the Studio storyboard "Revealed" panel — same structure, smaller
+   type/spacing so it reads clearly inside a narrow storyboard column. */
+.jzj-solved--compact .jzj-solved__panel{padding:10px 12px;gap:5px}
+.jzj-solved--compact .jzj-solved__kicker{font-size:8px}
+.jzj-solved--compact .jzj-solved__title{font-size:13px;line-height:1.2}
+.jzj-solved--compact .jzj-solved__meta{gap:6px;padding:5px 0}
+.jzj-solved--compact .jzj-solved__meta span{font-size:7.5px}
+.jzj-solved--compact .jzj-solved__meta b{font-size:10px}
+.jzj-solved--compact .jzj-solved__message{font-size:10px;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
+.jzj-solved--compact .jzj-solved__deadline{font-size:8.5px}
+.jzj-solved--compact .jzj-solved__btn{min-height:26px;padding:0 10px;font-size:10px}
+.jzj-solved--compact .jzj-solved__choices{gap:5px}
+
+/* ---- Studio storyboard shell (Received / Solve / Revealed) ---- */
+.jzj-storyboard{display:flex;flex-direction:column;gap:14px;width:100%}
+.jzj-storyboard__stage{display:grid;gap:8px}
+.jzj-storyboard__label{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-400,#6e6a60)}
+.jzj-storyboard__label i{flex:none;width:16px;height:16px;border-radius:50%;background:var(--cream-200,#f1eedc);color:var(--ink-500,#4a4740);display:grid;place-items:center;font-size:9px;font-style:normal;font-weight:700}
+.jzj-storyboard__frame{border:1px solid var(--border-hairline,rgba(5,5,5,.1));background:var(--cream-200,#f1eedc);padding:14px}
+.jzj-storyboard__caption{margin:0;font-size:11.5px;color:var(--ink-400,#6e6a60);text-align:center}
+
+/* "Solve" stage artwork frame — same locked rule as every other puzzle-art surface
+   (.jzs-puzzle-hero, .jzs-phone__puzzle, .jzs-difficulty-card__art): sharp corners,
+   exact 3:2, small equal inset. */
+.jzj-storyboard__puzzle{position:relative;width:100%;aspect-ratio:3/2;border-radius:0;overflow:hidden;background:var(--cream-300,#e6e1c9);border:1px solid var(--border-hairline,rgba(5,5,5,.1))}
+.jzj-storyboard__puzzle svg{position:absolute;inset:4px}
+
+@media (max-width: 900px) {
+  .jzj-solved__meta{grid-template-columns:1fr}
+}
+
+[dir=rtl] .jzj-solved__panel{text-align:start}
