@@ -8,13 +8,7 @@ import LoaderOrbit from '../components/LoaderOrbit';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import { analytics } from '../services/analytics';
 import { getDeviceWallpaperDimensions, getCompositionRules } from '../utils/wallpaperHelpers';
-
-const GRID_FOR = {
-  6: { cols: 2, rows: 3 },
-  15: { cols: 3, rows: 5 },
-  18: { cols: 3, rows: 6 },
-  28: { cols: 4, rows: 7 }
-};
+import { CONSUMER_PUZZLE_GEOMETRY } from '../puzzle/puzzle-geometry';
 
 const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
 
@@ -238,12 +232,12 @@ export default function ReceivePage() {
   return <PuzzlePlayer data={puzzleData} setData={setPuzzleData} publicId={publicId} rIndex={resolvedRIndex} startTimeRef={startTimeRef} />;
 }
 
-export function PuzzlePlayer({ data, setData, publicId, rIndex, startTimeRef, onSolved }) {
+export function PuzzlePlayer({ data, setData, publicId, rIndex, startTimeRef, onSolved, geometry = CONSUMER_PUZZLE_GEOMETRY }) {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
-  const g = GRID_FOR[data.pieceCount] || { cols: 3, rows: 6 };
+  const g = geometry.grid[data.pieceCount] || { cols: 3, rows: 6 };
   const cols = g.cols, rows = g.rows;
-  const BW = 288, BH = 512, PAD = 46;
+  const BW = geometry.board.width, BH = geometry.board.height, PAD = 46;
   const stageW = BW + PAD * 2, stageH = BH + PAD * 2;
   const pieceW = BW / cols, pieceH = BH / rows;
   const tabPad = 0.46 * Math.max(pieceW, pieceH);

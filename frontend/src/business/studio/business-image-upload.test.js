@@ -96,9 +96,12 @@ test('BusinessPuzzle pieces get a real fill on the Studio page, not the SVG defa
 
 test('all four persisted difficulty choices drive real editor and phone geometry', () => {
   const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
-  const puzzle = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
+  const geometry = fs.readFileSync(path.resolve('src/puzzle/puzzle-geometry.js'), 'utf8');
   const context = fs.readFileSync(path.resolve('src/business/studio/CampaignStudioContext.jsx'), 'utf8');
-  for (const count of [6, 15, 18, 28]) assert.match(puzzle, new RegExp(`${count}: \\{ columns:`));
+  // BusinessPuzzle.jsx no longer defines its own grid literals — it reads GRID from
+  // BUSINESS_PUZZLE_GEOMETRY, so the four piece counts are verified against that one
+  // authoritative source instead.
+  for (const count of [6, 15, 18, 28]) assert.match(geometry, new RegExp(`${count}: \\{ cols:`));
   assert.equal((page.match(/pieceCount=\{pieceCount\}/g) || []).length, 2);
   assert.match(context, /difficultyId: campaign\.puzzle\?\.difficultyId/);
   assert.match(context, /puzzle: \{ difficultyId: state\.puzzle\.difficultyId/);
@@ -226,55 +229,100 @@ test('Business image upload reuses the consumer crop-stage math instead of a new
   assert.match(page, /\{cropSrc && <BusinessImageCropModal imgSrc=\{cropSrc\}/);
 });
 
-test('the crop stage bakes the real 9:16 puzzle-board output, not an arbitrary square', () => {
-  // The real shared puzzle player (ReceivePage.jsx: BW=288,BH=512) and the consumer
-  // /create crop (CreatePage.jsx: OUT_W=540,OUT_H=960) both bake to a fixed 9:16 board —
-  // every piece count just subdivides that same rectangle differently. Business must
-  // bake to the same ratio so the crop the customer approves is exactly what fills the
-  // puzzle board later, with no further slicing.
-  const modal = fs.readFileSync(path.resolve('src/business/studio/BusinessImageCropModal.jsx'), 'utf8');
+test('one authoritative geometry module defines both the consumer default and the Business shape', () => {
+  const geometry = fs.readFileSync(path.resolve('src/puzzle/puzzle-geometry.js'), 'utf8');
+  assert.match(geometry, /export const CONSUMER_PUZZLE_GEOMETRY = \{/);
+  assert.match(geometry, /export const BUSINESS_PUZZLE_GEOMETRY = \{/);
+  // Consumer geometry must be exactly what PuzzlePlayer has always hardcoded.
+  assert.match(geometry, /board: \{ width: 288, height: 512 \}/);
+  assert.match(geometry, /6: \{ cols: 2, rows: 3 \}/);
+  assert.match(geometry, /15: \{ cols: 3, rows: 5 \}/);
+  assert.match(geometry, /18: \{ cols: 3, rows: 6 \}/);
+  assert.match(geometry, /28: \{ cols: 4, rows: 7 \}/);
+  // Business geometry: flat 4x6 landscape card (3:2), landscape grid per piece count.
+  assert.match(geometry, /board: \{ width: 288, height: 192 \}/);
+  assert.match(geometry, /6: \{ cols: 3, rows: 2 \}/);
+  assert.match(geometry, /15: \{ cols: 5, rows: 3 \}/);
+  assert.match(geometry, /18: \{ cols: 6, rows: 3 \}/);
+  assert.match(geometry, /28: \{ cols: 7, rows: 4 \}/);
+  assert.equal(288 / 192, 3 / 2);
+  assert.equal(288 / 512, 9 / 16);
+});
+
+test('consumer PuzzlePlayer defaults to CONSUMER_PUZZLE_GEOMETRY and stays 9:16 when no geometry is supplied', () => {
   const receive = fs.readFileSync(path.resolve('src/pages/ReceivePage.jsx'), 'utf8');
-  assert.match(modal, /const OUTPUT_W = 540;/);
-  assert.match(modal, /const OUTPUT_H = 960;/);
-  assert.match(modal, /stage\.captureCrop\(OUTPUT_W, OUTPUT_H/);
-  assert.match(modal, /className="jzs-crop-frame"/);
-  assert.match(receive, /BW = 288, BH = 512/);
-  assert.equal(540 / 960, 288 / 512);
+  assert.match(receive, /import \{ CONSUMER_PUZZLE_GEOMETRY \} from '\.\.\/puzzle\/puzzle-geometry';/);
+  assert.match(receive, /geometry = CONSUMER_PUZZLE_GEOMETRY/);
+  assert.match(receive, /const g = geometry\.grid\[data\.pieceCount\] \|\| \{ cols: 3, rows: 6 \};/);
+  assert.match(receive, /const BW = geometry\.board\.width, BH = geometry\.board\.height, PAD = 46;/);
+  // The consumer route (/p/:publicId, /receive.html) calls PuzzlePlayer without a
+  // geometry override, so it gets the default above — unchanged, byte-for-byte.
+  assert.match(receive, /<PuzzlePlayer data=\{puzzleData\} setData=\{setPuzzleData\} publicId=\{publicId\} rIndex=\{resolvedRIndex\} startTimeRef=\{startTimeRef\} \/>/);
+  assert.doesNotMatch(receive, /<PuzzlePlayer data=\{puzzleData\}[^>]*geometry=/);
+  // The old module-level GRID_FOR constant/hardcoded BW/BH literals are gone — geometry
+  // now flows in through the prop, not a second definition living in this file.
+  assert.doesNotMatch(receive, /^const GRID_FOR = \{/m);
+  assert.doesNotMatch(receive, /const BW = 288, BH = 512, PAD = 46;/);
 });
 
-test('puzzle workspace, phone preview, and difficulty cards all frame the puzzle at its real 9:16 board aspect, not a guessed one', () => {
-  // Regression #1: these three containers used a 4:3 rectangle around what was assumed
-  // to be a square puzzle board — that pillarboxed it inside a much larger empty frame.
-  // Regression #2 (caught in review): "square" was itself wrong. BusinessPuzzle.jsx used
-  // to invent its own landscape columns/rows per piece count on a square 280x280 canvas;
-  // the real shared player (ReceivePage.jsx GRID_FOR) uses a fixed 288x512 (9:16) board
-  // for every piece count, only the grid subdividing it changes. All three containers
-  // must match that real, constant 9:16 board — not 4:3, and not 1:1.
-  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
-  assert.match(css, /\.jzs-puzzle-hero\{[^}]*aspect-ratio:9\/16/);
-  assert.match(css, /\.jzs-phone__puzzle\{[^}]*aspect-ratio:9\/16/);
-  assert.match(css, /\.jzs-difficulty-card__art\{[^}]*aspect-ratio:9\/16/);
-  assert.match(css, /\.jzs-difficulty-card__art svg\{position:absolute;inset:0;width:100%;height:100%\}/);
+test('Business invitation explicitly requests BUSINESS_PUZZLE_GEOMETRY from the same shared PuzzlePlayer', () => {
+  // /i (InvitationRecipientPage) is exclusively the Business recipient route — reached
+  // only via the Business invitation session/token exchange (invitationApi), never by
+  // consumer traffic — so requesting Business geometry unconditionally here is not a
+  // client-guessable inference, it's what this whole page always is.
+  const invitationPage = fs.readFileSync(path.resolve('src/pages/InvitationRecipientPage.jsx'), 'utf8');
+  assert.match(invitationPage, /import\{BUSINESS_PUZZLE_GEOMETRY\}from'\.\.\/puzzle\/puzzle-geometry';/);
+  assert.match(invitationPage, /<PuzzlePlayer data=\{data\} setData=\{setData\} publicId="business-invitation" rIndex=\{0\} startTimeRef=\{start\} onSolved=\{solved\} geometry=\{BUSINESS_PUZZLE_GEOMETRY\}\/>/);
+  // It still imports the one shared PuzzlePlayer — no separate Business solving engine.
+  assert.match(invitationPage, /import PuzzlePlayer from'\.\.\/components\/PuzzlePlayer';/);
+  const shim = fs.readFileSync(path.resolve('src/components/PuzzlePlayer.jsx'), 'utf8');
+  assert.match(shim, /export \{ PuzzlePlayer as default, PuzzlePlayer \} from '\.\.\/pages\/ReceivePage';/);
 });
 
-test('BusinessPuzzle grid and board match the real shared puzzle player exactly', () => {
+test('BusinessPuzzle Studio preview and the real recipient solve both read BUSINESS_PUZZLE_GEOMETRY from one file', () => {
+  // Regression: BusinessPuzzle.jsx previously defined its own board/grid literals
+  // independent of the real solving engine, which drifted out of sync twice. Both this
+  // Studio preview and the real InvitationRecipientPage solve path must import from the
+  // one puzzle-geometry.js module — no local re-definition in either file.
   const puzzle = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
-  const receive = fs.readFileSync(path.resolve('src/pages/ReceivePage.jsx'), 'utf8');
-  const puzzleGrid = {}, receiveGrid = {};
-  for (const m of puzzle.matchAll(/(\d+): \{ columns: (\d+), rows: (\d+) \}/g)) puzzleGrid[m[1]] = `${m[2]}x${m[3]}`;
-  for (const m of receive.matchAll(/(\d+): \{ cols: (\d+), rows: (\d+) \}/g)) receiveGrid[m[1]] = `${m[2]}x${m[3]}`;
-  assert.deepEqual(puzzleGrid, { '6': '2x3', '15': '3x5', '18': '3x6', '28': '4x7' });
-  assert.deepEqual(puzzleGrid, receiveGrid, 'Business preview grid must equal the real player grid for every piece count');
-  assert.match(puzzle, /const BOARD_W = 288;/);
-  assert.match(puzzle, /const BOARD_H = 512;/);
+  assert.match(puzzle, /import \{ BUSINESS_PUZZLE_GEOMETRY \} from '\.\.\/\.\.\/puzzle\/puzzle-geometry';/);
+  assert.match(puzzle, /const \{ board: BOARD, grid: GRID \} = BUSINESS_PUZZLE_GEOMETRY;/);
+  assert.doesNotMatch(puzzle, /const BOARD_W = \d/);
+  assert.doesNotMatch(puzzle, /BUSINESS_PUZZLE_LAYOUTS/);
 });
 
-test('landing-page BusinessPuzzle usages are pinned to their prior square footprint (locked design unaffected)', () => {
+test('a 3:2 Business image is not recropped anywhere: crop bake, board, and CSS frames all share the exact same ratio', () => {
+  // Business's WYSIWYG chain: crop bake -> BusinessPuzzle board (Studio preview) -> the
+  // real PuzzlePlayer board (actual recipient solve, via geometry=BUSINESS_PUZZLE_GEOMETRY).
+  // xMidYMid slice only performs zero-op scaling when source and target ratios already
+  // match — verify that holds at every step, derived from the one geometry module, not
+  // separately hardcoded numbers that could quietly drift.
+  const geometry = fs.readFileSync(path.resolve('src/puzzle/puzzle-geometry.js'), 'utf8');
+  const modal = fs.readFileSync(path.resolve('src/business/studio/BusinessImageCropModal.jsx'), 'utf8');
+  const puzzle = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
+  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
+  assert.match(modal, /import \{ BUSINESS_PUZZLE_GEOMETRY \} from '\.\.\/\.\.\/puzzle\/puzzle-geometry';/);
+  assert.match(modal, /const OUTPUT_W = BUSINESS_PUZZLE_GEOMETRY\.board\.width \* CROP_RESOLUTION_SCALE;/);
+  assert.match(modal, /const OUTPUT_H = BUSINESS_PUZZLE_GEOMETRY\.board\.height \* CROP_RESOLUTION_SCALE;/);
+  assert.match(modal, /stage\.captureCrop\(OUTPUT_W, OUTPUT_H/);
+  assert.match(puzzle, /width=\{BOARD\.width\} height=\{BOARD\.height\} preserveAspectRatio="xMidYMid slice"/);
+  const boardMatch = geometry.match(/BUSINESS_PUZZLE_GEOMETRY = \{\s*board: \{ width: (\d+), height: (\d+) \}/);
+  assert.ok(boardMatch, 'BUSINESS_PUZZLE_GEOMETRY board found');
+  const boardRatio = Number(boardMatch[1]) / Number(boardMatch[2]);
+  assert.equal(boardRatio, 3 / 2);
+  assert.match(css, /\.jzs-puzzle-hero\{[^}]*aspect-ratio:3\/2/);
+  assert.match(css, /\.jzs-phone__puzzle\{[^}]*aspect-ratio:3\/2/);
+  assert.match(css, /\.jzs-difficulty-card__art\{[^}]*aspect-ratio:3\/2/);
+  assert.match(css, /\.jzs-crop-frame\{[^}]*aspect-ratio:3\/2/);
+});
+
+test('landing-page BusinessPuzzle usages are pinned to their prior square footprint across both geometry passes', () => {
   // BusinessPuzzle.jsx is shared with the locked marketing landing page. Its internal
-  // viewBox just changed from square to 9:16 to fix the Studio; without an explicit
-  // aspect-ratio pin, the landing page's unrelated containers (which never declared their
-  // own height) would inherit the new taller intrinsic ratio and visibly balloon. These
-  // must stay pinned to 1:1, matching how they rendered before this fix.
+  // viewBox has changed twice now (square -> 9:16 -> 3:2) while fixing Studio issues;
+  // without an explicit aspect-ratio pin, the landing page's unrelated containers (which
+  // never declared their own height) would inherit whatever the latest intrinsic ratio
+  // is and visibly resize. These must stay pinned to 1:1 regardless of further Studio-
+  // only geometry changes, matching how they rendered before any of this work started.
   const css = fs.readFileSync(path.resolve('src/business/landing/business-landing.css'), 'utf8');
   assert.match(css, /\.jzb-experience-core__puzzle \{ width: 205px; aspect-ratio: 1;/);
   assert.match(css, /\.jzb-studio__puzzle \{ width: min\(390px,100%\); aspect-ratio: 1;/);

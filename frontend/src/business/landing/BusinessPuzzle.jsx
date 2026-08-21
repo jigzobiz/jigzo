@@ -1,37 +1,30 @@
 import React, { useId, useMemo } from 'react';
 import { buildEdgeMap, piecePath } from '../../puzzle/puzzle-shape';
+import { BUSINESS_PUZZLE_GEOMETRY } from '../../puzzle/puzzle-geometry';
 
-// Mirrors the real shared puzzle player's grid per piece count
-// (frontend/src/pages/ReceivePage.jsx GRID_FOR) so this Business Studio preview shows
-// the actual playable geometry instead of an invented layout.
-export const BUSINESS_PUZZLE_LAYOUTS = {
-  6: { columns: 2, rows: 3 },
-  15: { columns: 3, rows: 5 },
-  18: { columns: 3, rows: 6 },
-  28: { columns: 4, rows: 7 }
-};
-// The puzzle image is always this fixed 9:16 board regardless of piece count — only the
-// grid subdividing it changes. Matches ReceivePage.jsx's BW/BH and the consumer /create
-// crop output (CreatePage.jsx captureCrop OUT_W/OUT_H), so a customer-approved crop
-// already fills this board exactly with no further slicing.
-const BOARD_W = 288;
-const BOARD_H = 512;
+// Business Studio's own preview, built from the SAME authoritative BUSINESS_PUZZLE_GEOMETRY
+// (frontend/src/puzzle/puzzle-geometry.js) that the real recipient PuzzlePlayer
+// (frontend/src/pages/ReceivePage.jsx, invoked with geometry=BUSINESS_PUZZLE_GEOMETRY by
+// frontend/src/pages/InvitationRecipientPage.jsx) uses to actually solve the puzzle.
+// Board/grid can no longer drift apart between "what Studio shows" and "what the
+// recipient solves" — both read from one definition.
+const { board: BOARD, grid: GRID } = BUSINESS_PUZZLE_GEOMETRY;
 
 export default function BusinessPuzzle({ className = '', finalPiece = 4, label, imageUrl = null, mysteryMode = false, pieceCount = 18 }) {
   const clipId = `jzb-puzzle-image-${useId().replace(/:/g, '')}`;
   const showImage = Boolean(imageUrl && !mysteryMode);
   const { pieces, tabPad } = useMemo(() => {
-    const layout = BUSINESS_PUZZLE_LAYOUTS[pieceCount] || BUSINESS_PUZZLE_LAYOUTS[18];
-    const pieceW = BOARD_W / layout.columns;
-    const pieceH = BOARD_H / layout.rows;
+    const layout = GRID[pieceCount] || GRID[18];
+    const pieceW = BOARD.width / layout.cols;
+    const pieceH = BOARD.height / layout.rows;
     const pad = 0.46 * Math.max(pieceW, pieceH);
-    const edges = buildEdgeMap(layout.columns, layout.rows, 407 + pieceCount);
-    const list = Array.from({ length: layout.columns * layout.rows }, (_, index) => {
-      const row = Math.floor(index / layout.columns);
-      const column = index % layout.columns;
+    const edges = buildEdgeMap(layout.cols, layout.rows, 407 + pieceCount);
+    const list = Array.from({ length: layout.cols * layout.rows }, (_, index) => {
+      const row = Math.floor(index / layout.cols);
+      const column = index % layout.cols;
       return {
         index,
-        path: piecePath(row, column, layout.columns, layout.rows, pieceW, pieceH, edges),
+        path: piecePath(row, column, layout.cols, layout.rows, pieceW, pieceH, edges),
         x: column * pieceW,
         y: row * pieceH
       };
@@ -39,7 +32,7 @@ export default function BusinessPuzzle({ className = '', finalPiece = 4, label, 
     return { pieces: list, tabPad: pad };
   }, [pieceCount]);
 
-  const viewBox = `${-tabPad} ${-tabPad} ${BOARD_W + tabPad * 2} ${BOARD_H + tabPad * 2}`;
+  const viewBox = `${-tabPad} ${-tabPad} ${BOARD.width + tabPad * 2} ${BOARD.height + tabPad * 2}`;
 
   return (
     <svg className={`jzb-puzzle${showImage ? ' jzb-puzzle--image' : ''} ${className}`} viewBox={viewBox} role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
@@ -50,7 +43,7 @@ export default function BusinessPuzzle({ className = '', finalPiece = 4, label, 
         </linearGradient>
         {showImage && <clipPath id={clipId}>{pieces.map((piece) => <path key={piece.index} transform={`translate(${piece.x} ${piece.y})`} d={piece.path} />)}</clipPath>}
       </defs>
-      {showImage && <image href={imageUrl} x="0" y="0" width={BOARD_W} height={BOARD_H} preserveAspectRatio="xMidYMid slice" clipPath={`url(#${clipId})`} />}
+      {showImage && <image href={imageUrl} x="0" y="0" width={BOARD.width} height={BOARD.height} preserveAspectRatio="xMidYMid slice" clipPath={`url(#${clipId})`} />}
       {pieces.map((piece) => (
         <g key={piece.index} transform={`translate(${piece.x} ${piece.y})`}>
           <path

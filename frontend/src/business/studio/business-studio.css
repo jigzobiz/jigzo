@@ -217,7 +217,7 @@
 
 /* ---- Puzzle area ---- */
 .jzs-puzzle-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
-.jzs-puzzle-hero{margin:22px auto 0;position:relative;width:min(100%,380px);aspect-ratio:9/16;border-radius:var(--radius-lg);overflow:hidden;background:var(--cream-300);border:1px solid var(--border-hairline)}
+.jzs-puzzle-hero{margin:22px auto 0;position:relative;width:min(100%,640px);aspect-ratio:3/2;border-radius:var(--radius-lg);overflow:hidden;background:var(--cream-300);border:1px solid var(--border-hairline)}
 .jzs-puzzle-hero svg{position:absolute;inset:0;width:100%;height:100%}
 .jzs-puzzle-hero__badge{position:absolute;inset-inline-start:16px;bottom:16px;height:32px;padding:0 14px;border-radius:var(--radius-pill);background:rgba(5,5,5,.72);color:var(--cream-100);font-size:13px;display:flex;align-items:center;gap:8px}
 /* BusinessPuzzle (shared/landing/BusinessPuzzle.jsx) is rendered on this page too, but
@@ -231,7 +231,7 @@
 .jzs-difficulty-grid{margin-top:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .jzs-difficulty-card{text-align:start;padding:12px;border-radius:var(--radius-md);background:var(--surface-card);border:1px solid var(--border-hairline)}
 .jzs-difficulty-card.is-active{border:1.5px solid var(--ink-900);background:var(--cream-200)}
-.jzs-difficulty-card__art{width:100%;aspect-ratio:9/16;border-radius:10px;overflow:hidden;background:var(--cream-300);position:relative}
+.jzs-difficulty-card__art{width:100%;aspect-ratio:3/2;border-radius:10px;overflow:hidden;background:var(--cream-300);position:relative}
 .jzs-difficulty-card__art svg{position:absolute;inset:0;width:100%;height:100%}
 .jzs-difficulty-card__count{margin-top:12px;display:flex;align-items:baseline;gap:6px}
 .jzs-difficulty-card__count strong{font-size:20px;font-weight:600;color:var(--ink-900)}
@@ -247,7 +247,7 @@
 .jzs-crop-modal{width:min(100%,420px);padding:28px;background:var(--surface-card);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);display:grid;gap:14px;max-height:calc(100vh - 48px);overflow-y:auto}
 .jzs-crop-modal h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em;color:var(--ink-900)}
 .jzs-crop-modal p{margin:0;font-size:13.5px;color:var(--ink-500)}
-.jzs-crop-frame{position:relative;width:100%;max-width:280px;margin:0 auto;aspect-ratio:9/16;border-radius:var(--radius-lg);overflow:hidden;background:var(--ink-900);cursor:grab;touch-action:none}
+.jzs-crop-frame{position:relative;width:100%;aspect-ratio:3/2;border-radius:var(--radius-lg);overflow:hidden;background:var(--ink-900);cursor:grab;touch-action:none}
 .jzs-crop-frame:active{cursor:grabbing}
 .jzs-crop-frame__backdrop{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(18px) brightness(.5);transform:scale(1.15);user-select:none;pointer-events:none}
 .jzs-crop-frame__image{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;transform-origin:center;user-select:none;pointer-events:none}
@@ -358,7 +358,7 @@
 .jzs-phone__brand-row img{height:13px;width:auto}
 .jzs-phone__brand-row span{font-size:11px;color:var(--ink-400)}
 .jzs-phone__eyebrow{margin-top:14px;font-size:11.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-400)}
-.jzs-phone__puzzle{margin-top:10px;position:relative;width:100%;aspect-ratio:9/16;border-radius:14px;overflow:hidden;background:var(--cream-300);border:1px solid var(--border-hairline)}
+.jzs-phone__puzzle{margin-top:10px;position:relative;width:100%;aspect-ratio:3/2;border-radius:14px;overflow:hidden;background:var(--cream-300);border:1px solid var(--border-hairline)}
 .jzs-phone__puzzle svg{position:absolute;inset:0;width:100%;height:100%}
 .jzs-phone__teaser{margin-top:18px}
 .jzs-phone__teaser h3{margin:0;font-size:21px;line-height:1.18;letter-spacing:-.02em;font-weight:600;color:var(--ink-900)}

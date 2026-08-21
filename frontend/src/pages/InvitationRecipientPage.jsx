@@ -2,6 +2,7 @@ import React,{useCallback,useEffect,useRef,useState}from'react';
 import PuzzlePlayer from'../components/PuzzlePlayer';
 import{invitationExchange}from'../services/invitationBootstrap';
 import{invitationApi}from'../services/invitationApi';
+import{BUSINESS_PUZZLE_GEOMETRY}from'../puzzle/puzzle-geometry';
 import'./invitation-recipient.css';
 
 const COPY={
@@ -133,7 +134,7 @@ export default function InvitationRecipientPage(){
           <small>{c.for} {session.recipient.displayName}</small>
         </header>
         <div className="jzi-puzzle-wrapper">
-          <PuzzlePlayer data={data} setData={setData} publicId="business-invitation" rIndex={0} startTimeRef={start} onSolved={solved}/>
+          <PuzzlePlayer data={data} setData={setData} publicId="business-invitation" rIndex={0} startTimeRef={start} onSolved={solved} geometry={BUSINESS_PUZZLE_GEOMETRY}/>
         </div>
       </main>
     );

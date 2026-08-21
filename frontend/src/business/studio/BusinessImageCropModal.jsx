@@ -1,17 +1,21 @@
 import React, { useEffect } from 'react';
 import { useImageCropStage } from '../../components/imageCropStage';
+import { BUSINESS_PUZZLE_GEOMETRY } from '../../puzzle/puzzle-geometry';
 
-// The real puzzle board (frontend/src/pages/ReceivePage.jsx BW/BH) and the consumer
-// /create crop output (CreatePage.jsx captureCrop OUT_W/OUT_H) are both a fixed 9:16
-// rectangle — every piece count just subdivides that same shape differently. Baking to
-// the same 9:16 here means what the customer approves is exactly what later fills the
-// puzzle board, with no further slicing.
-const OUTPUT_W = 540;
-const OUTPUT_H = 960;
+// Business's invitation image reads as a flat card (4x6 landscape, 3:2), the same shape
+// the recipient's real PuzzlePlayer board uses when Business geometry is requested (see
+// puzzle-geometry.js and InvitationRecipientPage.jsx). The bake resolution is derived
+// from that same board, scaled up for on-screen quality — never a separately hardcoded
+// number — so the crop frame, this output, the Studio previews, and the actual solving
+// board can't drift apart. Baking to this ratio everywhere means the customer's approved
+// framing is never re-sliced again anywhere it's shown.
+const CROP_RESOLUTION_SCALE = 3.125; // 288x192 board -> 900x600 bake, ample for preview/solve quality
+const OUTPUT_W = BUSINESS_PUZZLE_GEOMETRY.board.width * CROP_RESOLUTION_SCALE;
+const OUTPUT_H = BUSINESS_PUZZLE_GEOMETRY.board.height * CROP_RESOLUTION_SCALE;
 
 // Reuses the same pan/zoom/rotate/crop-bake mechanics as the consumer /create photo
-// step (see components/imageCropStage.js), framed at the puzzle's real 9:16 aspect so
-// what the customer approves here is what later appears through the puzzle pieces.
+// step (see components/imageCropStage.js), framed as a flat 4x6 landscape card so the
+// customer positions their photo in the same shape it's shown in everywhere in Studio.
 export default function BusinessImageCropModal({ imgSrc, onCancel, onDone, copy, isArabic }) {
   const stage = useImageCropStage({ initialZoom: 1.15, minZoom: 1, maxZoom: 3 });
 
