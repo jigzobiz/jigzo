@@ -5,8 +5,7 @@ import { CampaignStudioProvider, useCampaignStudio } from '../../business/studio
 import { studioCopy } from '../../business/studio/studio-copy';
 import BusinessPuzzle from '../../business/landing/BusinessPuzzle';
 import BusinessImageCropModal from '../../business/studio/BusinessImageCropModal';
-import ArrivalScene from '../../business/journey/ArrivalScene';
-import SolvedInvitationFrame from '../../business/journey/SolvedInvitationFrame';
+import PhoneJourneyAnimation from '../../business/journey/PhoneJourneyAnimation';
 import { businessJourneyCopy } from '../../business/journey/businessJourneyCopy';
 import { PIECE_OPTIONS } from '../../config/difficulties';
 import { businessApi } from '../../services/businessApi';
@@ -58,17 +57,16 @@ function computeScheduleErrors(state, copy) {
   return errors;
 }
 
-// The right-rail preview is a static three-stage storyboard (Received -> Solve ->
-// Revealed), not a single "final invitation" mockup — the actual guest never sees the
-// invitation/RSVP first. This mirrors the real recipient journey in
-// InvitationRecipientPage.jsx: ArrivalScene (static) for Received, BusinessPuzzle with
-// no image for Solve (matches the shared BUSINESS_PUZZLE_GEOMETRY board), and
-// SolvedInvitationFrame (static) for Revealed, so the Studio owner's preview and the
-// guest's real experience are built from the same presentational components and can't
-// drift apart visually.
+// The right-rail preview lives INSIDE the phone shell (the device framing is part of
+// how Studio communicates "this is what your guest experiences"). Unlike the recipient
+// page's own step-by-step journey (arrival -> solve -> revealed, each a distinct phase
+// the guest actively drives), the Studio phone shows that whole journey as ONE
+// continuous animated loop — envelope arrival/open, pieces spill/pile, pieces assemble
+// onto the real selected Business grid, crossfade into the actual complete puzzle,
+// reveal into the invitation, RSVP hold, then loop — via PhoneJourneyAnimation, so
+// owners see the guest experience unfold through motion rather than static mockups.
 function RecipientJourneyPreview({ copy, isArabic }) {
   const { state, dispatch } = useCampaignStudio();
-  const jc = businessJourneyCopy[isArabic ? 'ar' : 'en'];
   const pieceCount = PIECE_OPTIONS.find((option) => option.id === state.puzzle.difficultyId)?.count || 18;
   const recipient = state.studio.previewRecipient || state.recipients.entitiesById[state.studio.selectedRecipientId];
   const recipientName = recipient?.displayName || recipient?.name || '';
@@ -79,41 +77,35 @@ function RecipientJourneyPreview({ copy, isArabic }) {
     const currentIndex = Math.max(0, ids.indexOf(state.studio.selectedRecipientId));
     dispatch({ type: 'SELECT_RECIPIENT', id: ids[(currentIndex + 1) % ids.length] });
   };
+  const jc = businessJourneyCopy[isArabic ? 'ar' : 'en'];
   const revealedCopy = { invited: copy.preview.invitation, when: copy.preview.when, where: copy.preview.where, going: copy.preview.going, plus: copy.preview.guest, notGoing: copy.preview.notGoing };
   return <aside className="jzs-preview" aria-label={fillTemplate(copy.preview.label, { name: firstName })}>
     <div className="jzs-preview__heading">
       <span>{fillTemplate(copy.preview.label, { name: firstName })}</span>
       {state.recipients.orderedIds.length > 1 && <button type="button" className="jzs-preview__cycle" onClick={cycle}>{copy.preview.nextGuest}</button>}
     </div>
-    <p className="jzj-storyboard__caption">{jc.storyboardCaption}</p>
-    <div className="jzj-storyboard">
-      <div className="jzj-storyboard__stage">
-        <span className="jzj-storyboard__label"><i>1</i>{jc.stageReceived}</span>
-        <div className="jzj-storyboard__frame">
-          <ArrivalScene mode="static" compact copy={jc} isArabic={isArabic} />
+    <div className="jzs-phone-wrap">
+      <div className="jzs-phone"><div className="jzs-phone__screen">
+        <span className="jzs-phone__island" />
+        <div className="jzs-phone__top"><span>9:41</span><span className="jzs-ltr">JIGZO</span></div>
+        <div className="jzs-phone__body">
+          <div className="jzs-phone__brand-row"><img src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" /></div>
+          <PhoneJourneyAnimation
+            pieceCount={pieceCount}
+            imageUrl={state.puzzle.imagePreviewUrl}
+            mysteryMode={state.puzzle.mysteryMode}
+            eventTitle={state.experience.eventTitle}
+            whenDisplay={formatEventDateTime(state.experience.dateTime, isArabic)}
+            location={state.experience.location}
+            message={state.experience.message}
+            rsvpEnabled={state.experience.rsvpEnabled}
+            allowPlusOne={plusOne}
+            copy={jc}
+            revealedCopy={revealedCopy}
+            isArabic={isArabic}
+          />
         </div>
-      </div>
-      <div className="jzj-storyboard__stage">
-        <span className="jzj-storyboard__label"><i>2</i>{jc.stageSolve}</span>
-        <div className="jzj-storyboard__puzzle"><BusinessPuzzle finalPiece={-1} pieceCount={pieceCount} imageUrl={state.puzzle.imagePreviewUrl} mysteryMode={state.puzzle.mysteryMode} /></div>
-      </div>
-      <div className="jzj-storyboard__stage">
-        <span className="jzj-storyboard__label"><i>3</i>{jc.stageRevealed}</span>
-        <SolvedInvitationFrame
-          mode="static"
-          compact
-          imageUrl={state.puzzle.imagePreviewUrl}
-          eventTitle={state.experience.eventTitle}
-          whenDisplay={formatEventDateTime(state.experience.dateTime, isArabic)}
-          location={state.experience.location}
-          message={state.experience.message}
-          rsvpDeadlineDisplay=""
-          rsvpEnabled={state.experience.rsvpEnabled}
-          allowPlusOne={plusOne}
-          copy={revealedCopy}
-          isArabic={isArabic}
-        />
-      </div>
+      </div></div>
     </div>
   </aside>;
 }

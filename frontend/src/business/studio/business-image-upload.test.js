@@ -72,16 +72,20 @@ test('invalid image is rejected before processing', async () => {
   await assert.rejects(() => prepareBusinessImage({ type: 'image/gif', size: 100 }), /JPEG, PNG or WebP/);
 });
 
-test('persisted image drives the main workspace and the storyboard Solve panel, while Mystery Mode hides only the recipient-facing image', () => {
+test('persisted image drives the main workspace hero and the phone preview\'s animated journey, while Mystery Mode hides only the recipient-facing image', () => {
   const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
+  const anim = fs.readFileSync(path.resolve('src/business/journey/PhoneJourneyAnimation.jsx'), 'utf8');
   const puzzle = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
   // Main workspace hero (PuzzleArea).
   assert.match(page, /BusinessPuzzle finalPiece=\{7\} pieceCount=\{pieceCount\} imageUrl=\{state\.puzzle\.imagePreviewUrl\}/);
-  // Storyboard "Solve" panel — mirrors what a real recipient sees mid-solve: the image
-  // shows through placed/unplaced pieces exactly when mysteryMode is off, matching the
-  // real PuzzlePlayer's per-piece <image> rendering (ReceivePage.jsx), which is gated on
-  // the same mysteryMode flag via GET /puzzle's imageUrl, not on solved state.
-  assert.match(page, /BusinessPuzzle finalPiece=\{-1\} pieceCount=\{pieceCount\} imageUrl=\{state\.puzzle\.imagePreviewUrl\} mysteryMode=\{state\.puzzle\.mysteryMode\} \/>/);
+  // The Studio page hands the live image/mystery state straight through to the phone's
+  // continuous animation, which mirrors real recipient behavior via the same
+  // mysteryMode-gated BusinessPuzzle/SolvedInvitationFrame layers — not a re-derived copy.
+  assert.match(page, /imageUrl=\{state\.puzzle\.imagePreviewUrl\}\s*\n\s*mysteryMode=\{state\.puzzle\.mysteryMode\}/);
+  // The animated branch clips the same image per-piece (see business-journey.test.js for
+  // full coverage); the reduced-motion static branch renders the real BusinessPuzzle.
+  assert.match(anim, /<BusinessPuzzle finalPiece=\{-1\} pieceCount=\{pieceCount\} imageUrl=\{imageUrl\} mysteryMode=\{mysteryMode\} \/>/);
+  assert.match(anim, /const showImage = Boolean\(imageUrl && !mysteryMode\);/);
   assert.match(puzzle, /showImage = Boolean\(imageUrl && !mysteryMode\)/);
   assert.match(puzzle, /preserveAspectRatio="xMidYMid slice"/);
 });
@@ -202,11 +206,11 @@ test('Review only claims Scheduled after the backend has actually persisted a sc
   assert.match(copy, /notScheduledHeadline: 'لم تتم الجدولة بعد\.'/);
 });
 
-test('storyboard plus-one reflects the campaign default even before a recipient is selected', () => {
+test('phone preview plus-one reflects the campaign default even before a recipient is selected', () => {
   // Regression: plusOne used to hard-fall-back to false whenever no recipient was
   // selected/previewed yet, so toggling "Allow a plus one" in Experience had no visible
   // effect until a specific recipient existed. It must reflect allowPlusOneDefault live.
-  // The computation itself is unchanged by the storyboard rewrite — only where its
+  // The computation itself is unchanged by the journey-preview rewrites — only where its
   // result is consumed (SolvedInvitationFrame's allowPlusOne prop) changed.
   const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
   assert.match(page, /const plusOne = recipient \? \(recipient\.plusOneOverride === 'allowed' \|\| \(recipient\.plusOneOverride === 'inherit' && state\.experience\.allowPlusOneDefault\)\) : state\.experience\.allowPlusOneDefault;/);
@@ -449,9 +453,17 @@ test('phone shell derives its height from its own width instead of an ambiguous 
   assert.match(css, /\.jzs-preview\{position:sticky;top:24px;align-self:start;max-height:calc\(100vh - 48px\);overflow-y:auto\}/);
 });
 
-// The single "final invitation" phone mockup (jzs-phone__body / jzs-invitation / jzs-rsvp
-// and the PhonePreview component) was replaced this pass by the three-stage static
-// storyboard (Received/Solve/Revealed, RecipientJourneyPreview) — see
-// business/journey/business-journey.test.js for the equivalent and more precise coverage
-// of the new architecture (storyboard mounted once, RSVP matrix inside
-// SolvedInvitationFrame, no backend terminology in copy, etc).
+// The old single "final invitation" phone mockup (a static jzs-invitation/jzs-rsvp block
+// shown as the only content) went through three since-corrected attempts before landing
+// on the current design: first three stacked storyboard blocks outside any phone, then a
+// setInterval-driven crossfade between three static scenes inside the phone, then a
+// continuous animation where only 6 decorative pieces assembled before fading into a
+// separately-rendered BusinessPuzzle (rejected as a "pieces disappear, puzzle appears"
+// discontinuity). RecipientJourneyPreview now mounts PhoneJourneyAnimation inside the
+// same .jzs-phone shell — ONE continuous CSS-keyframe timeline where ALL of the selected
+// pieceCount pieces (6/15/18/28) spill/pile and assemble by animating back to their own
+// real BUSINESS_PUZZLE_GEOMETRY grid position, so the pieces themselves resolve into the
+// completed puzzle (no swap) — then reveal into SolvedInvitationFrame -> RSVP hold ->
+// loop — see business/journey/business-journey.test.js for full coverage: per-piece
+// image clipping for Mystery OFF, concealment for Mystery ON, RSVP matrix inside
+// SolvedInvitationFrame, no backend terminology in copy, JS-matchMedia reduced-motion.

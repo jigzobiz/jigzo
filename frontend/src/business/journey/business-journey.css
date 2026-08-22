@@ -1,6 +1,6 @@
 /* Shared "arrival scene" + "solved puzzle becomes the invitation" presentation, used by
    both the real Business recipient page (frontend/src/pages/InvitationRecipientPage.jsx)
-   and the Business Studio storyboard preview (BusinessCampaignStudioPage.jsx), so the
+   and the Business Studio phone preview (BusinessCampaignStudioPage.jsx), so the
    owner's preview and the guest's real experience never visually drift apart. Warm
    cream / near-black JIGZO palette; gold stays reserved for the piece-solved reveal
    moment elsewhere and is intentionally not used here. */
@@ -27,7 +27,7 @@
 @keyframes jzj-envelope-in{from{opacity:0;transform:translate(100px,8px) translateY(-36px) scale(.94)}to{opacity:1;transform:translate(100px,48px)}}
 @keyframes jzj-piece-fall{from{opacity:0;transform:translate(var(--jzj-x),var(--jzj-y)) translateY(-30px) rotate(calc(var(--jzj-rot) - 20deg))}to{opacity:1;transform:translate(var(--jzj-x),var(--jzj-y)) rotate(var(--jzj-rot))}}
 
-/* Compact variant used inside the Studio storyboard's "Received" panel. */
+/* Compact variant used inside the Studio phone preview's arrival scene. */
 .jzj-arrival--compact{gap:8px}
 .jzj-arrival--compact .jzj-arrival__scene{max-width:180px}
 .jzj-arrival--compact .jzj-arrival__teaser{font-size:11.5px;line-height:1.4;color:var(--ink-500,#4a4740)}
@@ -57,8 +57,8 @@
 .jzj-solved__confirm small{color:#c9c4b4;font-size:12px}
 .jzj-solved__ghost-btn{margin-top:4px;height:30px;padding:0 14px;border:1px solid rgba(250,248,236,.4);border-radius:999px;background:transparent;color:#faf8ec;font-size:11.5px}
 
-/* Compact variant for the Studio storyboard "Revealed" panel — same structure, smaller
-   type/spacing so it reads clearly inside a narrow storyboard column. */
+/* Compact variant for the Studio phone preview's reveal scene — same structure, smaller
+   type/spacing so it reads clearly inside the phone's body width. */
 .jzj-solved--compact .jzj-solved__panel{padding:10px 12px;gap:5px}
 .jzj-solved--compact .jzj-solved__kicker{font-size:8px}
 .jzj-solved--compact .jzj-solved__title{font-size:13px;line-height:1.2}
@@ -70,19 +70,72 @@
 .jzj-solved--compact .jzj-solved__btn{min-height:26px;padding:0 10px;font-size:10px}
 .jzj-solved--compact .jzj-solved__choices{gap:5px}
 
-/* ---- Studio storyboard shell (Received / Solve / Revealed) ---- */
-.jzj-storyboard{display:flex;flex-direction:column;gap:14px;width:100%}
-.jzj-storyboard__stage{display:grid;gap:8px}
-.jzj-storyboard__label{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-400,#6e6a60)}
-.jzj-storyboard__label i{flex:none;width:16px;height:16px;border-radius:50%;background:var(--cream-200,#f1eedc);color:var(--ink-500,#4a4740);display:grid;place-items:center;font-size:9px;font-style:normal;font-weight:700}
-.jzj-storyboard__frame{border:1px solid var(--border-hairline,rgba(5,5,5,.1));background:var(--cream-200,#f1eedc);padding:14px}
-.jzj-storyboard__caption{margin:0;font-size:11.5px;color:var(--ink-400,#6e6a60);text-align:center}
+/* ---- Studio phone preview: ONE continuous animated journey inside the shared
+   .jzs-phone shell (business-studio.css) — envelope arrival/open, ALL selected pieces
+   spill/pile, those SAME pieces assemble onto their real Business grid slots (already
+   the completed puzzle — no separate component swapped in), reveal transition into
+   SolvedInvitationFrame, RSVP hold, then loop. Every element below shares the SAME 8s
+   timeline (0%-100% maps to 0-8s) so motion stays in sync without JS-driven scene
+   swapping. Each piece is two nested groups: the outer (.jzj-anim-piece, positioned via
+   an SVG transform attribute in PhoneJourneyAnimation.jsx, not CSS) sits statically at
+   the piece's TRUE final grid position — required so its image clip always samples the
+   right slice of the photo — while the inner .jzj-anim-piece__move is what actually
+   animates, traveling spawn -> pile -> (0,0), i.e. back to that static final spot.
+   Reduced motion is handled in JS (a static frame renders instead of this markup at
+   all), not by neutralizing these keyframes. */
+.jzj-anim{display:flex;flex-direction:column;align-items:center;gap:8px}
+.jzj-anim-stage{position:relative;width:100%;aspect-ratio:3/2;border-radius:0;overflow:hidden;background:#100e0a}
+.jzj-anim-stage>*{position:absolute;inset:0;width:100%;height:100%}
+.jzj-anim-envelope{z-index:4;animation:jzj-anim-envelope 8s ease-in-out infinite}
+.jzj-anim-envelope__group .jzj-arrival__envelope-flap{transform-box:fill-box;transform-origin:50% 0%;animation:jzj-anim-flap 8s ease-in-out infinite}
+.jzj-anim-pieces{z-index:3}
+.jzj-anim-piece__move{animation:jzj-anim-piece 8s ease-in-out infinite}
+.jzj-anim-piece__fill{fill:#4b3d2a;stroke:rgba(250,248,236,.18);stroke-width:1}
+.jzj-anim-reveal{z-index:5;animation:jzj-anim-reveal 8s ease-in-out infinite}
+.jzj-anim-reveal .jzj-solved{aspect-ratio:auto;height:100%}
+.jzj-anim-teaser{margin:6px 0 0;max-width:30ch;text-align:center;font-size:11px;line-height:1.4;color:var(--ink-500,#4a4740);animation:jzj-anim-teaser 8s ease-in-out infinite}
+.jzj-anim--reduced .jzj-anim-stage{background:#17140f}
+.jzj-anim-teaser--static{animation:none}
 
-/* "Solve" stage artwork frame — same locked rule as every other puzzle-art surface
-   (.jzs-puzzle-hero, .jzs-phone__puzzle, .jzs-difficulty-card__art): sharp corners,
-   exact 3:2, small equal inset. */
-.jzj-storyboard__puzzle{position:relative;width:100%;aspect-ratio:3/2;border-radius:0;overflow:hidden;background:var(--cream-300,#e6e1c9);border:1px solid var(--border-hairline,rgba(5,5,5,.1))}
-.jzj-storyboard__puzzle svg{position:absolute;inset:4px}
+@keyframes jzj-anim-envelope{
+  0%{opacity:0;transform:translateY(22px) scale(.55)}
+  9%{opacity:1}
+  10%,15%{opacity:1;transform:translateY(0) scale(1)}
+  22%{opacity:1}
+  27.5%{opacity:0;transform:translateY(-4px) scale(1.02)}
+  100%{opacity:0;transform:translateY(22px) scale(.55)}
+}
+@keyframes jzj-anim-flap{
+  0%,10%{transform:scaleY(.14)}
+  15%,27.5%{transform:scaleY(1)}
+  100%{transform:scaleY(1)}
+}
+/* Spawn (hidden, at the envelope) -> pile (fallen/scattered) -> (0,0) i.e. the piece's
+   own static final-grid position, held through the completed-puzzle pause, then faded
+   as SolvedInvitationFrame takes over — the pieces resolve INTO the completed puzzle,
+   they are never replaced by a separately-rendered one. */
+@keyframes jzj-anim-piece{
+  0%,14%{opacity:0;transform:translate(var(--spawn-x),var(--spawn-y)) scale(.3) rotate(0deg)}
+  18%{opacity:1}
+  27.5%,37.5%{opacity:1;transform:translate(var(--pile-x),var(--pile-y)) scale(1) rotate(var(--pile-rot))}
+  60%,67%{opacity:1;transform:translate(0,0) scale(1) rotate(0deg)}
+  73%{opacity:0}
+  100%{opacity:0;transform:translate(var(--spawn-x),var(--spawn-y)) scale(.3) rotate(0deg)}
+}
+@keyframes jzj-anim-reveal{
+  0%,64%{opacity:0}
+  73%,96%{opacity:1}
+  100%{opacity:0}
+}
+@keyframes jzj-anim-teaser{
+  0%{opacity:0}
+  4%,35%{opacity:1}
+  40%{opacity:0}
+  100%{opacity:0}
+}
+@media (prefers-reduced-motion: reduce) {
+  .jzj-anim-envelope,.jzj-anim-envelope__group .jzj-arrival__envelope-flap,.jzj-anim-piece__move,.jzj-anim-reveal,.jzj-anim-teaser{animation:none}
+}
 
 @media (max-width: 900px) {
   .jzj-solved__meta{grid-template-columns:1fr}
