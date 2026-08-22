@@ -195,7 +195,7 @@ function ExperienceArea({ copy }) {
         <Field label={copy.experience.eventTitle} wide><input dir="auto" value={state.experience.eventTitle} onChange={set('eventTitle')} /></Field>
         <div className="jzs-composer-row">
           <Field label={copy.experience.location}><input dir="auto" value={state.experience.location} onChange={set('location')} /></Field>
-          <Field label={copy.experience.date}><input className="jzs-ltr" type="datetime-local" value={state.experience.dateTime} onChange={set('dateTime')} /><small className="jzs-help">{copy.experience.dateTimeHint}</small></Field>
+          <Field label={copy.experience.date}><input className="jzs-ltr" type="datetime-local" value={state.experience.dateTime} onChange={set('dateTime')} /></Field>
         </div>
         <Field label={copy.experience.message} wide><textarea dir="auto" rows="5" value={state.experience.message} onChange={set('message')} /></Field>
         <div className="jzs-composer-card__help">{copy.experience.messageHelp}</div>
@@ -309,10 +309,10 @@ function DeliveryArea({ copy, isArabic, validation, refreshDelivery, emailReadyC
     <div className="jzs-mystery-card" style={{ marginTop: 16, flexDirection: 'column', alignItems: 'stretch', gap: 14 }}>
       <strong>{copy.delivery.sendTiming.title}</strong>
       <div className="jzs-format-grid">
-        <button type="button" className={`jzs-format-card${state.schedule.mode === 'now' ? ' is-active' : ''}`} onClick={() => dispatch({ type: 'SET_FIELD', section: 'schedule', field: 'mode', value: 'now' })}>
+        <button type="button" className={`jzs-format-card jzs-format-card--compact${state.schedule.mode === 'now' ? ' is-active' : ''}`} onClick={() => dispatch({ type: 'SET_FIELD', section: 'schedule', field: 'mode', value: 'now' })}>
           <div className="jzs-format-card__head"><strong>{copy.delivery.sendTiming.sendNow}</strong></div>
         </button>
-        <button type="button" className={`jzs-format-card${state.schedule.mode === 'later' ? ' is-active' : ''}`} onClick={() => dispatch({ type: 'SET_FIELD', section: 'schedule', field: 'mode', value: 'later' })}>
+        <button type="button" className={`jzs-format-card jzs-format-card--compact${state.schedule.mode === 'later' ? ' is-active' : ''}`} onClick={() => dispatch({ type: 'SET_FIELD', section: 'schedule', field: 'mode', value: 'later' })}>
           <div className="jzs-format-card__head"><strong>{copy.delivery.sendTiming.scheduleLater}</strong></div>
         </button>
       </div>

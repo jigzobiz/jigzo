@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
 import { businessApi } from '../../services/businessApi';
-import { utcIsoToZonedParts } from './timezone-utils';
+import { utcIsoToZonedParts, zonedTimeToUtcIso } from './timezone-utils';
 
 const initialState = {
   identity: { campaignId: null, organizationId: null, revision: null, status: 'local-draft' },
@@ -14,23 +14,36 @@ const initialState = {
   sync: { hydrated: false, dirty: false, changeSequence: 0 }
 };
 
-function fromServer(state, campaign) {
+export function fromServer(state, campaign) {
+  // Campaign timezone is the single source of truth for all Business event timing —
+  // eventDateTime and scheduledSendAt are both stored as true UTC instants, so both are
+  // converted back to campaign-local wall-clock digits using the SAME timezone, never
+  // the browser's own zone (utcIsoToZonedParts uses Intl with an explicit timeZone, so
+  // this doesn't depend on where the browser happens to be).
+  const timezone = campaign.invitation?.timezone || 'Asia/Bahrain';
+  const eventParts = campaign.invitation?.eventDateTime ? utcIsoToZonedParts(campaign.invitation.eventDateTime, timezone) : { date: '', time: '' };
   return { ...state,
     identity: { campaignId: campaign.campaignId, organizationId: null, revision: campaign.revision, status: campaign.status },
     studio: { ...state.studio, saveState: 'saved', saveError: '' },
     campaign: { name: campaign.name, experienceType: campaign.experienceType },
     puzzle: { ...state.puzzle, imagePreviewUrl: campaign.puzzle?.puzzleId ? `/api/business/campaigns/${encodeURIComponent(campaign.campaignId)}/puzzle/image` : null, difficultyId: campaign.puzzle?.difficultyId || 'classic', mysteryMode: Boolean(campaign.puzzle?.mysteryMode) },
-    experience: { eventTitle: campaign.invitation?.eventTitle || '', dateTime: campaign.invitation?.eventDateTime ? String(campaign.invitation.eventDateTime).slice(0, 16) : '', timezone: campaign.invitation?.timezone || 'Asia/Bahrain', location: campaign.invitation?.location || '', rsvpDeadline: campaign.invitation?.rsvpDeadline ? String(campaign.invitation.rsvpDeadline).slice(0, 10) : '', message: campaign.invitation?.message || '', rsvpEnabled: campaign.invitation?.rsvpEnabled !== false, allowPlusOneDefault: Boolean(campaign.invitation?.allowPlusOneDefault) },
+    experience: { eventTitle: campaign.invitation?.eventTitle || '', dateTime: eventParts.date && eventParts.time ? `${eventParts.date}T${eventParts.time}` : '', timezone, location: campaign.invitation?.location || '', rsvpDeadline: campaign.invitation?.rsvpDeadline ? String(campaign.invitation.rsvpDeadline).slice(0, 10) : '', message: campaign.invitation?.message || '', rsvpEnabled: campaign.invitation?.rsvpEnabled !== false, allowPlusOneDefault: Boolean(campaign.invitation?.allowPlusOneDefault) },
     delivery: { channel: campaign.deliveryDefault || 'whatsapp' },
     schedule: (() => {
-      const timezone = campaign.invitation?.timezone || 'Asia/Bahrain';
       const parts = campaign.scheduledSendAt ? utcIsoToZonedParts(campaign.scheduledSendAt, timezone) : { date: '', time: '' };
       return { mode: campaign.status === 'scheduled' ? 'later' : 'now', date: parts.date, time: parts.time, scheduledSendAt: campaign.scheduledSendAt || null };
     })(),
     sync: { hydrated: true, dirty: false, changeSequence: state.sync.changeSequence }
   };
 }
-function toServer(state) { return { revision: state.identity.revision, name: state.campaign.name, puzzle: { difficultyId: state.puzzle.difficultyId, mysteryMode: state.puzzle.mysteryMode }, invitation: { eventTitle: state.experience.eventTitle, eventDateTime: state.experience.dateTime || null, timezone: state.experience.timezone, location: state.experience.location, rsvpDeadline: state.experience.rsvpDeadline || null, message: state.experience.message, rsvpEnabled: state.experience.rsvpEnabled, allowPlusOneDefault: state.experience.allowPlusOneDefault }, deliveryDefault: state.delivery.channel } }
+export function toServer(state) {
+  // eventDateTime must be sent as a true UTC instant, exactly like scheduledSendAt
+  // already is (via zonedTimeToUtcIso) — the raw datetime-local string alone has no
+  // offset, so persisting it as-is (the prior bug) let the server's own local clock,
+  // not the campaign's chosen timezone, decide what "19:30" meant.
+  const [eventDate, eventTime] = (state.experience.dateTime || '').split('T');
+  return { revision: state.identity.revision, name: state.campaign.name, puzzle: { difficultyId: state.puzzle.difficultyId, mysteryMode: state.puzzle.mysteryMode }, invitation: { eventTitle: state.experience.eventTitle, eventDateTime: zonedTimeToUtcIso(eventDate, eventTime, state.experience.timezone), timezone: state.experience.timezone, location: state.experience.location, rsvpDeadline: state.experience.rsvpDeadline || null, message: state.experience.message, rsvpEnabled: state.experience.rsvpEnabled, allowPlusOneDefault: state.experience.allowPlusOneDefault }, deliveryDefault: state.delivery.channel };
+}
 
 function reducer(state, action) {
   switch (action.type) {

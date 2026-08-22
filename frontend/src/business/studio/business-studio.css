@@ -214,6 +214,14 @@
 .jzs-format-card small{margin-top:6px;font-size:14px;color:var(--ink-500)}
 .jzs-format-card--placeholder{border-style:dashed;border-color:var(--border-strong)}
 .jzs-format-card--placeholder strong,.jzs-format-card--placeholder small{color:var(--ink-400)}
+/* Segmented-choice variant for Delivery's Send now / Schedule for later — same card
+   styling (border, active state, type) as .jzs-format-card, just compact: these have a
+   single short label and no description, so the base card's min-height:100px/18px
+   padding (sized for the two-line Campaign-format cards) left them looking like empty
+   boxes. Scoped to its own modifier rather than changed on .jzs-format-card itself, so
+   the Campaign area's format cards are unaffected. */
+.jzs-format-card--compact{min-height:56px;padding:0 20px;justify-content:center}
+.jzs-format-card--compact .jzs-format-card__head{justify-content:center}
 
 /* ---- Puzzle area ---- */
 .jzs-puzzle-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}

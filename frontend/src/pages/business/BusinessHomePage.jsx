@@ -17,9 +17,12 @@ function relativeTime(date, isArabic) {
   if (isArabic) return `${value} ${unit === 'minute' ? 'دقيقة' : unit === 'hour' ? 'ساعة' : 'يوم'}`;
   return `${value} ${unit}${value === 1 ? '' : 's'}`;
 }
-function formatDate(date, isArabic) {
+function formatDate(date, isArabic, timeZone) {
   if (!date) return '';
-  return new Date(date).toLocaleDateString(isArabic ? 'ar' : 'en-GB', { day: 'numeric', month: 'short' });
+  // timeZone is only passed for campaign event timing (see call sites below) — the
+  // campaign's own timezone must govern the displayed day, not the viewer's browser
+  // zone, consistent with formatZonedDisplay's use for the scheduled-send date above.
+  return new Date(date).toLocaleDateString(isArabic ? 'ar' : 'en-GB', { day: 'numeric', month: 'short', ...(timeZone ? { timeZone } : {}) });
 }
 function fillTemplate(template, values) {
   return Object.entries(values).reduce((text, [key, value]) => text.replaceAll(`{{${key}}}`, value), template);
@@ -31,7 +34,7 @@ function buildRow(campaign, copy, isArabic) {
   const pieceCount = { extra_easy: 6, easy: 15, classic: 18, challenging: 28 }[campaign.puzzle?.difficultyId] || 18;
   let context = '';
   if (campaign.status === 'draft' || campaign.status === 'ready') {
-    const bits = [campaign.invitation?.eventDateTime ? formatDate(campaign.invitation.eventDateTime, isArabic) : '', campaign.invitation?.location || ''].filter(Boolean).join(', ');
+    const bits = [campaign.invitation?.eventDateTime ? formatDate(campaign.invitation.eventDateTime, isArabic, campaign.invitation?.timezone) : '', campaign.invitation?.location || ''].filter(Boolean).join(', ');
     context = fillTemplate(copy.home.context.draft, { event: bits, sep: bits ? ' · ' : '', puzzle: `${pieceCount} ${copy.home.pieceSuffix}` });
   } else if (campaign.status === 'scheduled') {
     const zoned = formatZonedDisplay(campaign.scheduledSendAt, campaign.invitation?.timezone || 'Asia/Bahrain', isArabic);
@@ -46,7 +49,7 @@ function buildRow(campaign, copy, isArabic) {
   let updated = '';
   if (campaign.status === 'draft' || campaign.status === 'ready' || campaign.status === 'scheduled') updated = fillTemplate(copy.home.updated.editedAgo, { time: relativeTime(campaign.updatedAt, isArabic) });
   else if (campaign.status === 'sending') updated = fillTemplate(copy.home.updated.launchedAgo, { time: relativeTime(campaign.updatedAt, isArabic) });
-  else if (campaign.status === 'active') updated = campaign.invitation?.eventDateTime ? fillTemplate(copy.home.updated.repliesClose, { date: formatDate(campaign.invitation.eventDateTime, isArabic) }) : '';
+  else if (campaign.status === 'active') updated = campaign.invitation?.eventDateTime ? fillTemplate(copy.home.updated.repliesClose, { date: formatDate(campaign.invitation.eventDateTime, isArabic, campaign.invitation?.timezone) }) : '';
   else updated = fillTemplate(copy.home.updated.ended, { date: formatDate(campaign.updatedAt, isArabic) });
   const actionKey = campaign.status === 'ready' ? 'draft' : (campaign.status === 'cancelled' ? 'completed' : campaign.status);
   const isDraft = campaign.status === 'draft' || campaign.status === 'ready';
