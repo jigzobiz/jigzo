@@ -2,7 +2,7 @@ import React,{useCallback,useEffect,useRef,useState}from'react';
 import PuzzlePlayer from'../components/PuzzlePlayer';
 import{invitationExchange}from'../services/invitationBootstrap';
 import{invitationApi}from'../services/invitationApi';
-import{BUSINESS_PUZZLE_GEOMETRY}from'../puzzle/puzzle-geometry';
+import{CONSUMER_PUZZLE_GEOMETRY}from'../puzzle/puzzle-geometry';
 import{businessJourneyCopy}from'../business/journey/businessJourneyCopy';
 import ArrivalScene from'../business/journey/ArrivalScene';
 import SolvedInvitationFrame from'../business/journey/SolvedInvitationFrame';
@@ -23,47 +23,46 @@ const COPY={
   en:{
     loading:'Opening your JIGZO…',
     invalid:'This invitation link is invalid or has expired.',
-    for:'Made personally for',
     solved:'Puzzle solved',
-    invited:"You’re invited",
+    kicker:'This is what it was hiding',
+    prompt:'Will you join us?',
     going:'Going',
-    plus:'Going +1',
-    no:'Not going',
-    confirmed:'Your response is saved.',
-    change:'Change response',
-    closed:'RSVP is closed.',
+    goingPlus:'Going +1',
+    notGoing:'Not going',
+    replyingAs:name=>`Replying as ${name}. You can change your answer later.`,
     statusGoing: "You're going.",
     statusGoingPlus: "You're going with a guest.",
     statusNotGoing: "You are not attending.",
-    guestQuestion: "Are you bringing a guest?",
-    justMe: "Just me",
-    back: "Back"
+    confirmedNote:'Your response is saved.',
+    change:'Change response',
+    closed:'RSVP is closed.'
   },
   ar:{
     loading:'جارٍ فتح JIGZO الخاص بك…',
     invalid:'رابط الدعوة غير صالح أو انتهت صلاحيته.',
-    for:'صُممت خصيصاً لـ',
     solved:'تم حل الأحجية',
-    invited:'أنت مدعو',
+    kicker:'هذا ما كانت تخفيه',
+    prompt:'هل ستنضم إلينا؟',
     going:'سأحضر',
-    plus:'سأحضر +1',
-    no:'لن أحضر',
-    confirmed:'تم حفظ ردك.',
-    change:'تغيير الرد',
-    closed:'انتهى وقت الرد.',
+    goingPlus:'سأحضر +1',
+    notGoing:'لن أحضر',
+    replyingAs:name=>`تردّ باسم ${name}. يمكنك تغيير ردك لاحقاً.`,
     statusGoing: 'أنت ذاهب.',
     statusGoingPlus: 'أنت ذاهب مع مرافق.',
     statusNotGoing: 'لن تحضر.',
-    guestQuestion: "هل ستحضر معك مرافقاً؟",
-    justMe: "أنا فقط",
-    back: "رجوع"
+    confirmedNote:'تم حفظ ردك.',
+    change:'تغيير الرد',
+    closed:'انتهى وقت الرد.'
   }
 };
 
-// Recipient journey: loading -> arrival (JIGZO arrival moment, not the invitation) ->
-// puzzle (the existing shared PuzzlePlayer, unmodified, geometry=BUSINESS_PUZZLE_GEOMETRY)
-// -> revealing (brief transition) -> revealed (the SAME solved puzzle frame becomes the
-// invitation — see SolvedInvitationFrame). A returning visitor who already solved skips
+// Recipient journey (locked Claude Design recipient spec, revision 2): loading -> arrival
+// (near-black envelope moment, nothing about the event on screen) -> puzzle (the existing
+// shared PuzzlePlayer, unmodified, geometry=CONSUMER_PUZZLE_GEOMETRY — Business solving
+// must look and play exactly like consumer Receive, per the locked product requirement;
+// only the FINAL revealed card below is Business's own 4:5 shape) -> revealing (brief
+// transition) -> revealed (the solved puzzle's image becomes the invitation — see
+// SolvedInvitationFrame, with RSVP below it). A returning visitor who already solved skips
 // straight to "revealed".
 export default function InvitationRecipientPage(){
   const[phase,setPhase]=useState('loading');
@@ -73,7 +72,6 @@ export default function InvitationRecipientPage(){
   const[invitation,setInvitation]=useState(null);
   const[response,setResponse]=useState(null);
   const[error,setError]=useState('');
-  const[pendingGoing,setPendingGoing]=useState(false);
   const start=useRef(Date.now());
   const lang=session?.recipient?.language||'en';
   const c=COPY[lang];
@@ -122,6 +120,12 @@ export default function InvitationRecipientPage(){
     setPhase('puzzle');
   };
 
+  const headerCopy=useCallback((placedCount,total)=>{
+    if(placedCount===0)return{title:jc.readyTitle,subtitle:jc.readySubtitle};
+    if(placedCount===total-1)return{title:jc.lastPieceTitle,subtitle:jc.lastPieceSubtitle};
+    return{title:jc.progressTitle,subtitle:jc.progressSubtitle.replace('{{placed}}',placedCount).replace('{{total}}',total)};
+  },[jc]);
+
   const solved=useCallback(async seconds=>{
     const result=await invitationApi.solve(seconds);
     setInvitation(result.invitation);
@@ -141,7 +145,6 @@ export default function InvitationRecipientPage(){
     try{
       const result=await invitationApi.respond({status,guestCount},crypto.randomUUID());
       setResponse(result.response);
-      setPendingGoing(false);
     }catch(e){
       setError(e.response?.data?.error||c.closed);
     }
@@ -152,14 +155,8 @@ export default function InvitationRecipientPage(){
 
   if(phase==='arrival'){
     return (
-      <main className="jzi-page" dir={lang==='ar'?'rtl':'ltr'}>
-        <header>
-          <span className="jzi-mark">JIGZO</span>
-          <small>{c.for} {session.recipient.displayName}</small>
-        </header>
-        <div className="jzi-arrival-wrapper">
-          <ArrivalScene mode="interactive" copy={jc} isArabic={lang==='ar'} onContinue={beginSolve} />
-        </div>
+      <main className="jzi-page jzi-page--arrival" dir={lang==='ar'?'rtl':'ltr'}>
+        <ArrivalScene copy={jc} isArabic={lang==='ar'} onContinue={beginSolve} />
       </main>
     );
   }
@@ -167,12 +164,9 @@ export default function InvitationRecipientPage(){
   if(phase==='puzzle' || phase==='revealing') {
     return (
       <main className={`jzi-page${phase==='revealing'?' jzi-revealing':''}`} dir={lang==='ar'?'rtl':'ltr'}>
-        <header>
-          <span className="jzi-mark">JIGZO</span>
-          <small>{c.for} {session.recipient.displayName}</small>
-        </header>
+        <header><span className="jzi-mark">JIGZO</span></header>
         <div className="jzi-puzzle-wrapper">
-          <PuzzlePlayer data={data} setData={setData} publicId="business-invitation" rIndex={0} startTimeRef={start} onSolved={solved} geometry={BUSINESS_PUZZLE_GEOMETRY}/>
+          <PuzzlePlayer data={data} setData={setData} publicId="business-invitation" rIndex={0} startTimeRef={start} onSolved={solved} geometry={CONSUMER_PUZZLE_GEOMETRY} headerCopy={headerCopy}/>
         </div>
       </main>
     );
@@ -183,35 +177,37 @@ export default function InvitationRecipientPage(){
     timeStyle:'short',
     timeZone:invitation.timezone
   });
-  const deadlineDisplay = invitation.rsvpDeadline
-    ? new Date(invitation.rsvpDeadline).toLocaleString(lang==='ar'?'ar-BH':'en-GB',{dateStyle:'medium'})
-    : '';
 
   return (
     <main className="jzi-page jzi-reveal" dir={lang==='ar'?'rtl':'ltr'}>
-      <header>
-        <span className="jzi-mark">JIGZO</span>
-        <small>{c.solved}</small>
-      </header>
+      <header><span className="jzi-mark">JIGZO</span></header>
       <div className="jzi-solved-wrapper">
         <SolvedInvitationFrame
           mode="interactive"
           imageUrl={REVEALED_IMAGE_URL}
+          kicker={c.kicker}
           eventTitle={invitation.eventTitle}
           whenDisplay={`${formattedDateTime} (${invitation.timezone})`}
           location={invitation.location}
           message={invitation.message}
-          rsvpDeadlineDisplay={deadlineDisplay}
           rsvpEnabled={invitation.rsvpEnabled}
           allowPlusOne={invitation.allowPlusOne}
-          copy={c}
+          copy={{
+            prompt:c.prompt,
+            going:c.going,
+            goingPlus:c.goingPlus,
+            notGoing:c.notGoing,
+            replyingAs:response?'':c.replyingAs(session.recipient.displayName),
+            statusGoing:c.statusGoing,
+            statusGoingPlus:c.statusGoingPlus,
+            statusNotGoing:c.statusNotGoing,
+            confirmedNote:c.confirmedNote,
+            change:c.change
+          }}
           isArabic={lang==='ar'}
           rsvp={{
             response,
-            pendingGoing,
             onRespond: respond,
-            onPendingGoing: () => setPendingGoing(true),
-            onBack: () => setPendingGoing(false),
             onChangeResponse: () => setResponse(null)
           }}
         />

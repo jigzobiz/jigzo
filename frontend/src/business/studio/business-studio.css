@@ -232,8 +232,11 @@
    its content: the SVG carries its own exact aspect-ratio:3/2 sized to the padded
    width, and the frame (a grid with uniform padding) wraps it with mathematically
    equal spacing on all four sides, no per-side compensation needed. */
-.jzs-puzzle-hero{margin:22px auto 0;position:relative;width:min(100%,640px);padding:12px;box-sizing:border-box;border-radius:0;overflow:hidden;background:var(--cream-300);border:1px solid var(--border-hairline);display:grid;place-items:center}
-.jzs-puzzle-hero svg{width:100%;aspect-ratio:3/2;display:block}
+/* Previews the SOLVING experience (9:16, same as consumer Receive — CONSUMER_PUZZLE_GEOMETRY),
+   not the 4:5 final-invitation card. Narrower cap than the old 4:5 hero since 9:16 is
+   taller per unit width. */
+.jzs-puzzle-hero{margin:22px auto 0;position:relative;width:min(100%,240px);padding:12px;box-sizing:border-box;border-radius:0;overflow:hidden;background:var(--cream-300);border:1px solid var(--border-hairline);display:grid;place-items:center}
+.jzs-puzzle-hero svg{width:100%;aspect-ratio:9/16;display:block}
 .jzs-puzzle-hero__badge{position:absolute;inset-inline-start:16px;bottom:16px;height:32px;padding:0 14px;border-radius:var(--radius-pill);background:rgba(5,5,5,.72);color:var(--cream-100);font-size:13px;display:flex;align-items:center;gap:8px}
 /* BusinessPuzzle (shared/landing/BusinessPuzzle.jsx) is rendered on this page too, but
    business-landing.css is never loaded here — without these rules the piece <path>s fall
@@ -246,7 +249,7 @@
 .jzs-difficulty-grid{margin-top:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .jzs-difficulty-card{text-align:start;padding:12px;border-radius:var(--radius-md);background:var(--surface-card);border:1px solid var(--border-hairline)}
 .jzs-difficulty-card.is-active{border:1.5px solid var(--ink-900);background:var(--cream-200)}
-.jzs-difficulty-card__art{width:100%;aspect-ratio:3/2;border-radius:0;overflow:hidden;background:var(--cream-300);position:relative}
+.jzs-difficulty-card__art{width:100%;aspect-ratio:9/16;border-radius:0;overflow:hidden;background:var(--cream-300);position:relative}
 .jzs-difficulty-card__art svg{position:absolute;inset:5px}
 .jzs-difficulty-card__count{margin-top:12px;display:flex;align-items:baseline;gap:6px}
 .jzs-difficulty-card__count strong{font-size:20px;font-weight:600;color:var(--ink-900)}
@@ -270,7 +273,11 @@
 .jzs-crop-modal{width:min(100%,420px);padding:28px;background:var(--surface-card);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);display:grid;gap:14px;max-height:calc(100vh - 48px);overflow-y:auto}
 .jzs-crop-modal h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em;color:var(--ink-900)}
 .jzs-crop-modal p{margin:0;font-size:13.5px;color:var(--ink-500)}
-.jzs-crop-frame{position:relative;width:100%;aspect-ratio:3/2;border-radius:var(--radius-lg);overflow:hidden;background:var(--ink-900);cursor:grab;touch-action:none}
+/* Frames the FINAL revealed-invitation card (4:5, BUSINESS_INVITATION_CARD) — the sender
+   is positioning the photo as it will be revealed, not as the puzzle board will solve it
+   (that's a separate 9:16 center-crop of this same image at solve time — see
+   BusinessImageCropModal.jsx and .jzs-puzzle-hero/.jzs-difficulty-card__art above). */
+.jzs-crop-frame{position:relative;width:100%;max-width:280px;margin:0 auto;aspect-ratio:4/5;border-radius:var(--radius-lg);overflow:hidden;background:var(--ink-900);cursor:grab;touch-action:none}
 .jzs-crop-frame:active{cursor:grabbing}
 .jzs-crop-frame__backdrop{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(18px) brightness(.5);transform:scale(1.15);user-select:none;pointer-events:none}
 .jzs-crop-frame__image{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;transform-origin:center;user-select:none;pointer-events:none}
@@ -282,10 +289,16 @@
 .jzs-crop-actions .jzs-action{flex:1}
 
 /* ---- Experience area ---- */
-.jzs-experience-composer{display:grid;grid-template-columns:minmax(280px,1.18fr) minmax(235px,.82fr);gap:18px;align-items:start}
+.jzs-experience-composer{display:grid;grid-template-columns:minmax(280px,1.18fr) minmax(235px,.82fr);gap:18px;align-items:stretch}
 .jzs-composer-support{display:grid;gap:14px}
 .jzs-composer-card{border:1px solid var(--border-hairline);background:var(--surface-card);border-radius:var(--radius-lg);padding:26px}
-.jzs-composer-card--invitation{padding:28px}
+/* Stretched to match the Timing+Replies column's height (align-items:stretch above) —
+   the message field grows to fill the remaining space (.jzs-field--grow below) so the
+   card balances itself regardless of how long either column's content is, rather than a
+   fixed textarea row-count guess that only matches one particular content length. */
+.jzs-composer-card--invitation{padding:28px;display:flex;flex-direction:column}
+.jzs-field--grow{flex:1;display:flex;flex-direction:column}
+.jzs-field--grow textarea{flex:1;min-height:160px}
 .jzs-composer-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .jzs-composer-card h2{margin:0 0 3px;font-size:20px;font-weight:600;letter-spacing:-.01em;color:var(--ink-900)}
 .jzs-composer-card__help{margin:8px 0 0;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-400);flex-wrap:wrap}
@@ -386,17 +399,10 @@
 .jzs-phone__island{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:88px;height:24px;border-radius:var(--radius-pill);background:var(--ink-900);z-index:3}
 .jzs-phone__top{flex:none;height:36px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 18px 4px;font-size:12px;color:var(--ink-600)}
 .jzs-phone__body{flex:1;min-height:0;overflow-y:auto;padding:6px 16px 16px}
-.jzs-phone__brand-row{display:flex;align-items:center;justify-content:space-between}
-.jzs-phone__brand-row img{height:13px;width:auto}
-.jzs-phone__brand-row span{font-size:11px;color:var(--ink-400)}
-.jzs-phone__eyebrow{margin-top:10px;font-size:11.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-400)}
-.jzs-phone__puzzle{margin-top:8px;position:relative;width:100%;aspect-ratio:3/2;border-radius:0;overflow:hidden;background:var(--cream-300);border:1px solid var(--border-hairline)}
-.jzs-phone__puzzle svg{position:absolute;inset:4px}
-.jzs-phone__teaser{margin-top:14px}
-.jzs-phone__teaser h3{margin:0;font-size:21px;line-height:1.18;letter-spacing:-.02em;font-weight:600;color:var(--ink-900)}
-.jzs-phone__teaser p{margin:8px 0 0;font-size:13.5px;color:var(--ink-500)}
-.jzs-phone__progress{margin-top:12px;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:12px;background:var(--cream-200);font-size:12.5px;color:var(--ink-600)}
-.jzs-phone__progress b{color:var(--ink-900);font-weight:600}
+/* The final-invitation preview centers vertically in the phone body rather than pinning
+   to the top, so a short card (RSVP off, no image yet) still reads as a considered
+   composition instead of floating at the top of empty space. */
+.jzs-phone__body--preview{display:flex;flex-direction:column;justify-content:center}
 .jzs-invitation{margin-top:14px}
 .jzs-invitation>p:first-child{margin:0 0 5px;color:var(--ink-400);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
 .jzs-invitation h3{margin:0;font-size:22px;line-height:1.16;letter-spacing:-.02em;font-weight:600;color:var(--ink-900)}

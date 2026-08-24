@@ -1,21 +1,26 @@
 import React, { useEffect } from 'react';
 import { useImageCropStage } from '../../components/imageCropStage';
-import { BUSINESS_PUZZLE_GEOMETRY } from '../../puzzle/puzzle-geometry';
+import { BUSINESS_INVITATION_CARD } from '../../business/invitationCardGeometry';
 
-// Business's invitation image reads as a flat card (4x6 landscape, 3:2), the same shape
-// the recipient's real PuzzlePlayer board uses when Business geometry is requested (see
-// puzzle-geometry.js and InvitationRecipientPage.jsx). The bake resolution is derived
-// from that same board, scaled up for on-screen quality — never a separately hardcoded
-// number — so the crop frame, this output, the Studio previews, and the actual solving
-// board can't drift apart. Baking to this ratio everywhere means the customer's approved
-// framing is never re-sliced again anywhere it's shown.
-const CROP_RESOLUTION_SCALE = 3.125; // 288x192 board -> 900x600 bake, ample for preview/solve quality
-const OUTPUT_W = BUSINESS_PUZZLE_GEOMETRY.board.width * CROP_RESOLUTION_SCALE;
-const OUTPUT_H = BUSINESS_PUZZLE_GEOMETRY.board.height * CROP_RESOLUTION_SCALE;
+// This crop tool positions the FINAL revealed-invitation image — the 4:5 portrait card
+// (locked Claude Design recipient spec, revision 2) shown in Studio's final preview and
+// the real post-solve reveal (SolvedInvitationFrame). It is deliberately NOT the puzzle-
+// solving board's shape: the puzzle is always solved using CONSUMER_PUZZLE_GEOMETRY
+// (9:16, same as consumer Receive — see puzzle-geometry.js), and the SAME baked image
+// below is re-sliced into that different, narrower shape at solve time via the puzzle
+// piece renderer's own `preserveAspectRatio="xMidYMid slice"` — a plain center-crop cover
+// fit, not a second stored asset. The sender only ever frames the FINAL card here; the
+// guest sees a center-cropped subset of that same framing while solving, then the full
+// approved framing on reveal. The bake resolution is derived from BUSINESS_INVITATION_CARD,
+// scaled up for on-screen quality — never a separately hardcoded number — so the crop
+// frame, this output, and the Studio/reveal previews can't drift apart.
+const CROP_RESOLUTION_SCALE = 3.125; // 288x360 card -> 900x1125 bake, ample for preview/solve quality
+const OUTPUT_W = BUSINESS_INVITATION_CARD.width * CROP_RESOLUTION_SCALE;
+const OUTPUT_H = BUSINESS_INVITATION_CARD.height * CROP_RESOLUTION_SCALE;
 
 // Reuses the same pan/zoom/rotate/crop-bake mechanics as the consumer /create photo
-// step (see components/imageCropStage.js), framed as a flat 4x6 landscape card so the
-// customer positions their photo in the same shape it's shown in everywhere in Studio.
+// step (see components/imageCropStage.js), framed as the 4:5 final-invitation card so
+// the customer positions their photo in the shape it will actually be revealed in.
 export default function BusinessImageCropModal({ imgSrc, onCancel, onDone, copy, isArabic }) {
   const stage = useImageCropStage({ initialZoom: 1.15, minZoom: 1, maxZoom: 3 });
 

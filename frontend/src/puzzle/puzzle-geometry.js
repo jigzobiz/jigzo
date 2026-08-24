@@ -1,14 +1,22 @@
-// Single authoritative source for puzzle board geometry (board size + the grid each
-// piece count divides it into). Consumed by the one shared PuzzlePlayer solving engine
-// (frontend/src/pages/ReceivePage.jsx) for both the consumer and Business recipient
-// flows, and by BusinessPuzzle.jsx / BusinessImageCropModal.jsx for the Business Studio
-// preview — so the assembled/solved geometry and the Studio preview geometry can never
-// drift apart again.
+// Single authoritative source for puzzle SOLVING board geometry (board size + the grid
+// each piece count divides it into). Consumed by the one shared PuzzlePlayer solving
+// engine (frontend/src/pages/ReceivePage.jsx) for BOTH the consumer and Business
+// recipient flows — there is only ever one geometry, because the locked product
+// requirement is that Business solving must look and play exactly like consumer Receive.
 //
-// CONSUMER_PUZZLE_GEOMETRY is PuzzlePlayer's default when no `geometry` prop is passed,
-// and must stay exactly what it has always been — this is what every existing consumer
-// puzzle (and every already-created Business campaign, since Business always explicitly
-// requests BUSINESS_PUZZLE_GEOMETRY) was built against.
+// This file is intentionally NOT the source of the Business final-invitation card's
+// shape (4:5, the locked Claude Design recipient spec) — that is a completely separate
+// concern, presentation of the already-solved image, not the puzzle mechanics. See
+// frontend/src/business/invitationCardGeometry.js. Do not add a second board/grid object
+// here for Business "puzzle" purposes again — that was tried once and was wrong: it
+// changed cell proportions (and therefore piece shapes) away from what Receive actually
+// plays, even though it reused the same cols/rows numbers. If Business solving ever needs
+// to look identical to Receive, it must import CONSUMER_PUZZLE_GEOMETRY directly, not a
+// same-shaped duplicate.
+//
+// This is PuzzlePlayer's default when no `geometry` prop is passed, and must stay exactly
+// what it has always been — every existing consumer puzzle (and every Business campaign,
+// which explicitly passes this same object) was built against it.
 export const CONSUMER_PUZZLE_GEOMETRY = {
   board: { width: 288, height: 512 },
   grid: {
@@ -16,17 +24,5 @@ export const CONSUMER_PUZZLE_GEOMETRY = {
     15: { cols: 3, rows: 5 },
     18: { cols: 3, rows: 6 },
     28: { cols: 4, rows: 7 }
-  }
-};
-
-// Business invitations present as a flat 4x6 landscape card (3:2) rather than a
-// phone-portrait photo — see BusinessPuzzle.jsx and BusinessImageCropModal.jsx.
-export const BUSINESS_PUZZLE_GEOMETRY = {
-  board: { width: 288, height: 192 },
-  grid: {
-    6: { cols: 3, rows: 2 },
-    15: { cols: 5, rows: 3 },
-    18: { cols: 6, rows: 3 },
-    28: { cols: 7, rows: 4 }
   }
 };

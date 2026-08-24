@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Product-flow regression coverage for the corrected Business recipient journey:
-// Received (arrival) -> Solve (shared PuzzlePlayer) -> Revealed (solved puzzle frame
-// becomes the invitation). This file reads source, not a rendered DOM — consistent with
-// the rest of this codebase's test suite (no DOM-render harness is set up) — but each
+// Regression coverage for the locked Claude Design recipient spec (revision 2): the
+// Business recipient journey (arrival -> shared PuzzlePlayer solve -> revealed
+// invitation+RSVP) and the Business Studio preview (final revealed invitation only, no
+// journey animation). This file reads source, not a rendered DOM — consistent with the
+// rest of this codebase's test suite (no DOM-render harness is set up) — but each
 // assertion is chosen to prove a real behavioral/structural invariant, not just a CSS
-// string, per the task's "not only CSS string assertions" requirement.
+// string.
 
 const recipientPage = () => fs.readFileSync(path.resolve('src/pages/InvitationRecipientPage.jsx'), 'utf8');
 const receivePage = () => fs.readFileSync(path.resolve('src/pages/ReceivePage.jsx'), 'utf8');
@@ -19,61 +20,75 @@ const solvedFrame = () => fs.readFileSync(path.resolve('src/business/journey/Sol
 const journeyCopy = () => fs.readFileSync(path.resolve('src/business/journey/businessJourneyCopy.js'), 'utf8');
 const journeyCss = () => fs.readFileSync(path.resolve('src/business/journey/business-journey.css'), 'utf8');
 const studioPage = () => fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
-const phoneAnim = () => fs.readFileSync(path.resolve('src/business/journey/PhoneJourneyAnimation.jsx'), 'utf8');
+const studioCss = () => fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
+const cropModal = () => fs.readFileSync(path.resolve('src/business/studio/BusinessImageCropModal.jsx'), 'utf8');
 
 test('1-2. /i begins in an arrival phase, not the revealed invitation — invitation details never render before solving', () => {
   const page = recipientPage();
-  // A fresh (not-yet-solved) session lands on 'arrival', not 'revealed'/'puzzle'.
   assert.match(page, /setPhase\('arrival'\);/);
-  // The invitation/RSVP JSX only exists in the branch reached after phase !== 'arrival'
-  // and !== 'puzzle'/'revealing' (the function falls through to it last) — the arrival
-  // phase's own early return renders only ArrivalScene, nothing invitation-shaped.
   const arrivalBranch = page.match(/if\(phase==='arrival'\)\{[\s\S]*?\n {2}\}\n/)[0];
-  assert.doesNotMatch(arrivalBranch, /eventTitle|SolvedInvitationFrame|jzj-solved/);
-  assert.match(arrivalBranch, /<ArrivalScene mode="interactive"/);
+  assert.doesNotMatch(arrivalBranch, /eventTitle|SolvedInvitationFrame|jzj-solved__frame/);
+  assert.match(arrivalBranch, /<ArrivalScene copy=\{jc\}/);
 });
 
-test('3. Arrival stage renders the approved teaser copy (and only via the shared journey copy module)', () => {
+test('3. Arrival renders no product/engine terminology — only the shared, locked journey copy', () => {
   const copy = journeyCopy();
-  assert.match(copy, /arrivalTeaser: 'A special invitation is waiting\. Solve to reveal it\.'/);
-  assert.match(copy, /arrivalTeaser: 'دعوة خاصة بانتظارك\. حلّ الأحجية لتكشفها\.'/);
+  assert.match(copy, /arrivalTitle: 'A special invitation is waiting for you\.'/);
+  assert.match(copy, /arrivalSubtitle: 'Solve the puzzle to reveal it\.'/);
   const scene = arrivalScene();
-  assert.match(scene, /\{copy\.arrivalTeaser\}/);
+  assert.match(scene, /\{copy\.arrivalTitle\}/);
+  assert.match(scene, /\{copy\.arrivalSubtitle\}/);
 });
 
-test('4-5. Arrival transitions to the existing shared PuzzlePlayer, still requesting BUSINESS_PUZZLE_GEOMETRY', () => {
+test('4-5. Arrival transitions to the existing shared PuzzlePlayer, requesting CONSUMER_PUZZLE_GEOMETRY (Business solving must look and play exactly like consumer Receive — there is no separate Business puzzle geometry), with a Business-specific header driven by real solve progress', () => {
   const page = recipientPage();
   assert.match(page, /import PuzzlePlayer from'\.\.\/components\/PuzzlePlayer';/);
   assert.match(page, /const beginSolve=\(\)=>\{[\s\S]*?setPhase\('puzzle'\);\s*\};/);
   assert.match(page, /onContinue=\{beginSolve\}/);
-  assert.match(page, /<PuzzlePlayer data=\{data\} setData=\{setData\} publicId="business-invitation" rIndex=\{0\} startTimeRef=\{start\} onSolved=\{solved\} geometry=\{BUSINESS_PUZZLE_GEOMETRY\}\/>/);
-  // No second/forked puzzle engine was introduced.
+  assert.match(page, /geometry=\{CONSUMER_PUZZLE_GEOMETRY\} headerCopy=\{headerCopy\}/);
+  // No second/forked puzzle engine was introduced, and no Business-specific geometry
+  // object exists to fork it with either.
   assert.doesNotMatch(page, /function PuzzlePlayer|const PuzzlePlayer\s*=/);
+  assert.doesNotMatch(page, /BUSINESS_PUZZLE_GEOMETRY/);
+  // Progress-driven header copy: start / mid-solve / one-piece-left, computed from the
+  // engine's own placedCount/total — never a hardcoded "step 2 of 3" style label.
+  assert.match(page, /if\(placedCount===0\)return\{title:jc\.readyTitle,subtitle:jc\.readySubtitle\};/);
+  assert.match(page, /if\(placedCount===total-1\)return\{title:jc\.lastPieceTitle,subtitle:jc\.lastPieceSubtitle\};/);
+  assert.match(page, /title:jc\.progressTitle,subtitle:jc\.progressSubtitle\.replace/);
 });
 
-test('6-7-8. Solving transitions to Revealed, which shows the solved image as the frame background with event details rendered inside it', () => {
+test('The shared PuzzlePlayer engine accepts headerCopy as a purely additive, opt-in prop — consumer default behavior (no prop passed) is byte-identical to before', () => {
+  const receive = receivePage();
+  assert.match(receive, /geometry = CONSUMER_PUZZLE_GEOMETRY, headerCopy \}/);
+  // Consumer's own call site never passes headerCopy — falls through to the original
+  // t('receive.heading')/t('receive.subheading')/piecesPlaced markup, untouched.
+  assert.match(receive, /<PuzzlePlayer data=\{puzzleData\} setData=\{setPuzzleData\} publicId=\{publicId\} rIndex=\{resolvedRIndex\} startTimeRef=\{startTimeRef\} \/>/);
+  assert.match(receive, /headerCopy \? \(\(\) => \{/);
+  assert.match(receive, /: <>\s*\n\s*<h1[^>]*>\s*\n\s*\{t\('receive\.heading'\)\}/);
+});
+
+test('6-7-8. Solving transitions to Revealed, which shows the solved image as the frame background with event details rendered inside it, RSVP below', () => {
   const page = recipientPage();
   assert.match(page, /setPhase\('revealed'\);/);
   assert.doesNotMatch(page, /setPhase\('invitation'\)/, 'the old phase name should be fully retired');
   assert.match(page, /<SolvedInvitationFrame\s*\n\s*mode="interactive"/);
   assert.match(page, /imageUrl=\{REVEALED_IMAGE_URL\}/);
+  assert.match(page, /kicker=\{c\.kicker\}/);
   assert.match(page, /eventTitle=\{invitation\.eventTitle\}/);
-  assert.match(page, /whenDisplay=\{`\$\{formattedDateTime\} \(\$\{invitation\.timezone\}\)`\}/);
   assert.match(page, /location=\{invitation\.location\}/);
   assert.match(page, /message=\{invitation\.message\}/);
   const frame = solvedFrame();
-  assert.match(frame, /<img className="jzj-solved__image" src=\{imageUrl\}/);
+  assert.match(frame, /\{imageUrl && <img className="jzj-solved__image" src=\{imageUrl\}/);
   assert.match(frame, /<h3 className="jzj-solved__title"[^>]*>\{eventTitle/);
+  // RSVP is a distinct block rendered AFTER the frame in the returned JSX, not inside the
+  // overlay panel on top of the photo — "below it, never covering it."
+  const frameIdx = frame.indexOf('className="jzj-solved__frame"');
+  const replyIdx = frame.indexOf('className="jzj-solved__reply">');
+  assert.ok(frameIdx > -1 && replyIdx > frameIdx, 'the reply block must come after the image frame in source order');
+  assert.doesNotMatch(frame.slice(frameIdx, replyIdx), /jzj-solved__choices/, 'no RSVP controls inside the overlay/frame block');
 });
 
 test('Mystery Mode: the Revealed image uses the fixed /image endpoint (correctly gated on solved state), not a pre-solve imageUrl that GET /puzzle nulls out for mystery campaigns', () => {
-  // Root cause this pass caught: GET /puzzle's imageUrl is gated purely on
-  // campaign.puzzle.mysteryMode (backend/src/routes/publicInvitations.js), with no
-  // regard for solved state — so for a Mystery Mode campaign it stays null even after
-  // solving. GET /image gates correctly (mysteryMode && !firstSolvedAt), so using its
-  // fixed path directly — rather than the possibly-stale/null puzzle.imageUrl fetched
-  // before solving — is what makes Mystery Mode campaigns actually show their image once
-  // legitimately revealed, without weakening the server-side gate at all.
   const page = recipientPage();
   const backend = fs.readFileSync(path.resolve('../backend/src/routes/publicInvitations.js'), 'utf8');
   assert.match(page, /const REVEALED_IMAGE_URL='\/api\/public\/invitations\/image';/);
@@ -81,19 +96,22 @@ test('Mystery Mode: the Revealed image uses the fixed /image endpoint (correctly
   assert.match(backend, /router\.get\('\/puzzle'.*imageUrl:value\.campaign\.puzzle\.mysteryMode\?null:'\/api\/public\/invitations\/image'/);
 });
 
-test('9-10-11. Revealed RSVP matrix: OFF hides controls, ON/no-plus-one shows two, ON/plus-one shows three', () => {
+test('9-10-11. Revealed RSVP matrix: OFF hides the whole reply block, ON/no-plus-one shows two real buttons, ON/plus-one shows three real buttons — no dead/decorative button', () => {
   const frame = solvedFrame();
   assert.match(frame, /if \(!rsvpEnabled\) return null;/);
-  assert.match(frame, /<button type="button" className="jzj-solved__btn" onClick=\{[\s\S]*?\}>\{copy\.going\}<\/button>/);
-  assert.match(frame, /\{allowPlusOne && <button type="button" className="jzj-solved__btn jzj-solved__btn--gold" disabled=\{!interactive\}>\{copy\.plus\}<\/button>\}/);
-  assert.match(frame, /<button type="button" className="jzj-solved__btn jzj-solved__btn--ghost" onClick=\{[\s\S]*?\}>\{copy\.notGoing\}<\/button>/);
+  assert.match(frame, /\{rsvpEnabled && <div className="jzj-solved__reply">/);
+  // Every button has a real onClick — the previous round's non-functional "Going +1"
+  // button (visible but wired to nothing in interactive mode) is gone.
+  assert.match(frame, /onClick=\{\(\) => respond\('going', 1\)\}>\{copy\.going\}/);
+  assert.match(frame, /\{allowPlusOne && <button type="button" className="jzj-solved__btn jzj-solved__btn--secondary" onClick=\{\(\) => respond\('going', 2\)\}>\{copy\.goingPlus\}<\/button>\}/);
+  assert.match(frame, /onClick=\{\(\) => respond\('not_going', 0\)\}>\{copy\.notGoing\}/);
+  // No leftover "are you bringing a guest" sub-step — the design shows the flat 2-or-3
+  // button choice directly, so it was removed rather than left half-wired.
+  assert.doesNotMatch(frame, /pendingGoing|guestQuestion|onPendingGoing/);
 });
 
 test('12. Recipient +1 override stays authoritative — real page trusts the server-resolved value, Studio reuses the same inherit/allowed/not_allowed resolution as before', () => {
   const page = recipientPage();
-  // The real page never re-derives allowPlusOne client-side — it passes through exactly
-  // what the backend already resolved (effectivePlusOne in publicInvitations.js), so
-  // recipient overrides can't be second-guessed or bypassed in the browser.
   assert.match(page, /allowPlusOne=\{invitation\.allowPlusOne\}/);
   assert.doesNotMatch(page, /plusOneOverride/);
   const studio = studioPage();
@@ -103,209 +121,59 @@ test('12. Recipient +1 override stays authoritative — real page trusts the ser
   assert.doesNotMatch(copy, /inherit|not_allowed/);
 });
 
-test('1. Studio preview lives inside the phone frame — not standalone stacked blocks', () => {
+test('10-11. Studio preview shows the FINAL revealed invitation only — no envelope, no solving, no journey animation — and lives inside the same phone shell used everywhere else', () => {
   const studio = studioPage();
   assert.match(studio, /function RecipientJourneyPreview/);
-  // The device shell: same .jzs-phone/.jzs-phone__screen markup used everywhere else,
-  // not a bespoke Studio-only frame.
   assert.match(studio, /<div className="jzs-phone-wrap">\s*\n\s*<div className="jzs-phone"><div className="jzs-phone__screen">/);
-  assert.match(studio, /<span className="jzs-phone__island" \/>/);
-  assert.match(studio, /<div className="jzs-phone__body">/);
-  assert.match(studio, /<PhoneJourneyAnimation/);
+  assert.match(studio, /<SolvedInvitationFrame\s*\n\s*mode="static"/);
+  // The obsolete journey-animation component and its module are both fully gone.
+  assert.doesNotMatch(studio, /PhoneJourneyAnimation/);
+  assert.ok(!fs.existsSync(path.resolve('src/business/journey/PhoneJourneyAnimation.jsx')), 'PhoneJourneyAnimation.jsx should be deleted, not left orphaned');
 });
 
-test('2. The old stacked Received/Solve/Revealed storyboard blocks, and the rejected 3-scene crossfade, no longer exist in JSX or CSS', () => {
+test('13. Every field the sender edits (image, title, date, location, message, RSVP, +1, mystery mode, recipient override) drives the live Studio preview', () => {
   const studio = studioPage();
-  const css = journeyCss();
-  assert.doesNotMatch(studio, /jzj-storyboard/);
-  assert.doesNotMatch(css, /\.jzj-storyboard/);
-  // The discrete-scene-crossfade mechanism explicitly rejected this round is fully gone —
-  // no JS-driven scene index, no setInterval-based scene swapping, no per-scene remount.
-  assert.doesNotMatch(studio, /JOURNEY_SCENES|useJourneyScene|window\.setInterval/);
-  assert.doesNotMatch(css, /\.jzj-phone-scene|\.jzj-phone-dots|jzj-scene-in/);
+  const previewFn = studio.match(/function RecipientJourneyPreview\([\s\S]*?\n\}/)[0];
+  assert.match(previewFn, /imageUrl=\{state\.puzzle\.mysteryMode \? null : state\.puzzle\.imagePreviewUrl\}/);
+  assert.match(previewFn, /eventTitle=\{state\.experience\.eventTitle\}/);
+  assert.match(previewFn, /whenDisplay=\{formatEventDateTime\(state\.experience\.dateTime, isArabic\)\}/);
+  assert.match(previewFn, /location=\{state\.experience\.location\}/);
+  assert.match(previewFn, /message=\{state\.experience\.message\}/);
+  assert.match(previewFn, /rsvpEnabled=\{state\.experience\.rsvpEnabled\}/);
+  assert.match(previewFn, /allowPlusOne=\{plusOne\}/);
 });
 
-test('4. The phone preview is ONE continuous CSS keyframe timeline (not JS-driven scene swapping), covering envelope arrival/open, piece spill/pile, piece assembly, and reveal', () => {
-  const css = journeyCss();
-  // A single shared 8s duration across every animated layer keeps them all in sync —
-  // this is the "one continuous transformation" the crossfade version failed to deliver.
-  const durations = [...css.matchAll(/animation:jzj-anim-\w+ (\d+(?:\.\d+)?)s/g)].map((m) => m[1]);
-  assert.ok(durations.length >= 4, 'expected every animated layer (envelope, flap, piece, reveal, teaser) to share one timeline');
-  assert.ok(durations.every((d) => d === durations[0]), 'all layers must share the exact same cycle duration to stay in sync');
-  assert.match(css, /animation-iteration-count|infinite/, 'the cycle loops rather than running once');
-  assert.match(css, /@keyframes jzj-anim-envelope\{/);
-  assert.match(css, /@keyframes jzj-anim-flap\{/);
-  assert.match(css, /@keyframes jzj-anim-piece\{/);
-  assert.match(css, /@keyframes jzj-anim-reveal\{/);
-  // The rejected "6 decorative pieces fade out, a separately-rendered BusinessPuzzle
-  // crossfades in" mechanism is fully gone — no separate puzzle-layer keyframe exists.
-  assert.doesNotMatch(css, /@keyframes jzj-anim-puzzle/);
-});
-
-test('4a. Envelope arrival/opening phase: starts smaller/farther and translates/scales in, then the flap opens', () => {
-  const css = journeyCss();
-  const envelopeKf = css.match(/@keyframes jzj-anim-envelope\{([\s\S]*?)\}\n\}/)[0];
-  assert.match(envelopeKf, /0%\{opacity:0;transform:translateY\(\d+px\) scale\(\.\d+\)\}/, 'envelope starts smaller/offset (farther back), not already in place');
-  assert.match(envelopeKf, /transform:translateY\(0\) scale\(1\)/, 'envelope settles to full size/position');
-  const flapKf = css.match(/@keyframes jzj-anim-flap\{([\s\S]*?)\}\n\}/)[0];
-  assert.match(flapKf, /scaleY\(\.\d+\)/, 'flap starts closed');
-  assert.match(flapKf, /scaleY\(1\)/, 'flap opens fully');
-});
-
-test('1. ALL of the selected pieceCount pieces (6/15/18/28) are generated for the assembly layer, not a fixed representative subset', () => {
-  const anim = phoneAnim();
-  // One piece per grid cell — length === layout.cols * layout.rows — for whichever
-  // geometry BUSINESS_PUZZLE_GEOMETRY.grid[pieceCount] resolves to, not a hardcoded
-  // REP_COUNT/SPILL_CELLS subset (that mechanism must be fully gone).
-  assert.match(anim, /const total = layout\.cols \* layout\.rows;/);
-  assert.match(anim, /Array\.from\(\{ length: total \}/);
-  assert.doesNotMatch(anim, /REP_COUNT|SPILL_CELLS/);
-});
-
-test('2. All 6/15/18/28 piece counts resolve their layout from BUSINESS_PUZZLE_GEOMETRY, and every piece gets a real final grid position', () => {
-  const anim = phoneAnim();
-  assert.match(anim, /import \{ BUSINESS_PUZZLE_GEOMETRY \} from '\.\.\/\.\.\/puzzle\/puzzle-geometry';/);
-  assert.match(anim, /const layout = GRID\[pieceCount\] \|\| GRID\[18\];/);
-  const geometry = fs.readFileSync(path.resolve('src/puzzle/puzzle-geometry.js'), 'utf8');
-  for (const count of [6, 15, 18, 28]) assert.match(geometry, new RegExp(`${count}: \\{ cols:`));
-  // Every piece's final position is its real (row, col) cell in that grid — the same
-  // math BusinessPuzzle.jsx itself uses — not a sampled/interpolated approximation.
-  assert.match(anim, /const finalX = col \* pieceW;/);
-  assert.match(anim, /const finalY = row \* pieceH;/);
-});
-
-test('3. Assembly piece paths use the shared puzzle-shape utilities (buildEdgeMap/piecePath) — no second puzzle-solving engine', () => {
-  const anim = phoneAnim();
-  assert.match(anim, /import \{ buildEdgeMap, mulberry32, piecePath \} from '\.\.\/\.\.\/puzzle\/puzzle-shape';/);
-  assert.match(anim, /buildEdgeMap\(layout\.cols, layout\.rows, 407 \+ pieceCount\)/);
-  assert.match(anim, /piecePath\(row, col, layout\.cols, layout\.rows, pieceW, pieceH, edges\)/);
-  assert.doesNotMatch(anim, /function piecePath|function buildEdgeMap/, 'no reimplemented puzzle-shape logic');
-});
-
-test('4b. Pieces spill from the envelope into a pile, then assemble by returning to their own static final-grid position — a real move, not a sampled slot', () => {
-  const css = journeyCss();
-  const pieceKf = css.match(/@keyframes jzj-anim-piece\{([\s\S]*?)\}\n\}/)[0];
-  // Spawn hidden at the envelope (offset from each piece's own final position).
-  assert.match(pieceKf, /opacity:0;transform:translate\(var\(--spawn-x\),var\(--spawn-y\)\) scale\(\.\d+\) rotate\(0deg\)\}/);
-  assert.match(pieceKf, /translate\(var\(--pile-x\),var\(--pile-y\)\) scale\(1\) rotate\(var\(--pile-rot\)\)/);
-  // Assemble: back to (0,0) relative to the piece's own static final-position wrapper —
-  // i.e. the piece's TRUE grid slot, held through the completed-puzzle pause.
-  assert.match(pieceKf, /60%,67%\{opacity:1;transform:translate\(0,0\) scale\(1\) rotate\(0deg\)\}/);
-  assert.match(pieceKf, /73%\{opacity:0\}/);
-  const anim = phoneAnim();
-  // The outer wrapper is statically placed at the piece's real final grid position via
-  // an SVG transform attribute — the CSS animation only ever moves relative to that.
-  assert.match(anim, /transform=\{`translate\(\$\{piece\.finalX\} \$\{piece\.finalY\}\)`\}/);
-});
-
-test('4c/8. Pieces resolve directly INTO the completed puzzle — no separate BusinessPuzzle is swapped in for the assembled/paused state, so there is no decorative-pieces-disappear/full-puzzle-appears moment', () => {
-  const anim = phoneAnim();
-  const animatedBranch = anim.split('if (reduced)')[0] + anim.split(/\n  \}\n\n  return/)[1];
-  // BusinessPuzzle only appears in the reduced-motion static branch (verified separately
-  // below) — the continuously-animated markup never mounts a second puzzle component.
-  const nonReducedMarkup = anim.match(/return <div className="jzj-anim" [\s\S]*/)[0];
-  assert.doesNotMatch(nonReducedMarkup, /<BusinessPuzzle/);
-  assert.match(anim, /<SolvedInvitationFrame/);
-});
-
-test('5-6. Reveal layer carries invitation/RSVP; the envelope/piece layers structurally cannot (SolvedInvitationFrame only appears in the reveal layer)', () => {
-  const anim = phoneAnim();
-  const revealBlock = anim.match(/<div className="jzj-anim-reveal">([\s\S]*)/)[1];
-  assert.match(revealBlock, /<SolvedInvitationFrame/);
-  assert.match(revealBlock, /rsvpEnabled=\{rsvpEnabled\}/);
-  assert.match(revealBlock, /allowPlusOne=\{allowPlusOne\}/);
-  const pieceMarkup = anim.match(/<svg className="jzj-anim-pieces"[\s\S]*?\n      <\/svg>/)[0];
-  const envelopeMarkup = anim.match(/<svg className="jzj-anim-envelope"[\s\S]*?<\/svg>/)[0];
-  assert.doesNotMatch(pieceMarkup, /SolvedInvitationFrame|eventTitle|rsvpEnabled/);
-  assert.doesNotMatch(envelopeMarkup, /SolvedInvitationFrame|eventTitle|rsvpEnabled/);
-  // SolvedInvitationFrame itself renders its RSVP buttons non-functional in static mode
-  // (this is a preview, not a playable widget) but still reflects the OFF/ON/+1 matrix.
-  const frame = solvedFrame();
-  assert.match(frame, /if \(!rsvpEnabled\) return null;/);
-  assert.match(frame, /const response = interactive \? rsvp\?\.response : null;/);
-  assert.match(frame, /disabled=\{!interactive\}/);
-});
-
-test('4d/5(mystery). Mystery OFF: each assembling piece is clipped to its own final-slot silhouette against ONE full-board image, so the pieces collectively show the real photo aligned to their true positions', () => {
-  const anim = phoneAnim();
-  assert.match(anim, /const showImage = Boolean\(imageUrl && !mysteryMode\);/);
-  // One clipPath per piece, keyed to that piece's own path (final-slot silhouette), and
-  // the <image> is offset by that SAME piece's final position so, once combined with the
-  // piece's own transform, the clip always reveals exactly the slice belonging there —
-  // not an independently cropped mini-image with its own coordinate system.
-  assert.match(anim, /<clipPath id=\{clipId\}><path d=\{piece\.path\} \/><\/clipPath>/);
-  assert.match(anim, /<image href=\{imageUrl\} x=\{-piece\.finalX\} y=\{-piece\.finalY\} width=\{BOARD\.width\} height=\{BOARD\.height\} preserveAspectRatio="xMidYMid slice" \/>/);
-  // Every piece's clip lives inside the SAME animated wrapper that carries it from pile
-  // to final position, so the image slice travels WITH the piece instead of a separate
-  // layer being swapped in once assembly finishes.
-  assert.match(anim, /<g clipPath=\{`url\(#\$\{clipId\}\)`\}>/);
-});
-
-test('4d/6(mystery). Mystery ON: assembling pieces render as plain silhouettes only — no <image>/clipPath reaches the DOM, so the photo cannot leak during spill or assembly', () => {
-  const anim = phoneAnim();
-  assert.match(anim, /\{showImage \? \(/);
-  // The non-image branch renders a flat-fill path only.
-  assert.match(anim, /<g className="jzj-anim-piece__move"><path className="jzj-anim-piece__fill" d=\{piece\.path\} \/><\/g>/);
-  // showImage is false whenever mysteryMode is true, regardless of imageUrl — the same
-  // gate BusinessPuzzle and the real recipient flow already use.
-  const puzzleSrc = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
-  assert.match(puzzleSrc, /const showImage = Boolean\(imageUrl && !mysteryMode\);/);
-});
-
-test('7. Assembled animation and the real BusinessPuzzle share one geometry/image coordinate system: same grid math, same edge-map seed, same full-board image + xMidYMid-slice mapping', () => {
-  const anim = phoneAnim();
-  const puzzleSrc = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
-  // Same edge-map seed formula, so piece silhouettes are visually identical to the real
-  // completed-puzzle rendering elsewhere in Studio (main hero, reduced-motion frame).
-  assert.match(anim, /buildEdgeMap\(layout\.cols, layout\.rows, 407 \+ pieceCount\)/);
-  assert.match(puzzleSrc, /buildEdgeMap\(layout\.cols, layout\.rows, 407 \+ pieceCount\)/);
-  // Same full-board image + preserveAspectRatio mapping — no independent crop/scale math.
-  assert.match(anim, /width=\{BOARD\.width\} height=\{BOARD\.height\} preserveAspectRatio="xMidYMid slice"/);
-  assert.match(puzzleSrc, /width=\{BOARD\.width\} height=\{BOARD\.height\} preserveAspectRatio="xMidYMid slice"/);
-});
-
-test('15. Reduced motion: PhoneJourneyAnimation renders a single static settled frame via JS matchMedia detection, not the same timer/keyframes with motion merely disabled in CSS', () => {
-  const anim = phoneAnim();
-  assert.match(anim, /window\.matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
-  assert.match(anim, /function useReducedMotion\(\)/);
-  assert.match(anim, /if \(reduced\) \{/);
-  // The reduced branch renders one settled BusinessPuzzle + teaser — no envelope/piece/
-  // reveal animation markup, no infinite loop, nothing that continuously auto-animates.
-  const reducedBranch = anim.match(/if \(reduced\) \{([\s\S]*?)\n  \}\n\n  return/)[1];
-  assert.match(reducedBranch, /<BusinessPuzzle finalPiece=\{-1\}/);
-  assert.doesNotMatch(reducedBranch, /jzj-anim-envelope|jzj-anim-pieces|jzj-anim-reveal|SolvedInvitationFrame/);
-  assert.match(reducedBranch, /jzj-anim-teaser--static/);
-  // Defense-in-depth: even if the animated branch's markup were ever reached under
-  // reduced motion, the CSS itself also disables every keyframe animation.
-  const css = journeyCss();
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\n\s*\.jzj-anim-envelope,\.jzj-anim-envelope__group \.jzj-arrival__envelope-flap,\.jzj-anim-piece__move,\.jzj-anim-reveal,\.jzj-anim-teaser\{animation:none\}/);
-});
-
-test('7. Phone preview stays contained — same locked .jzs-phone sizing as before, untouched', () => {
-  const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
-  assert.match(css, /\.jzs-phone\{width:100%;max-width:320px;aspect-ratio:9\/19\.5;/);
-  assert.doesNotMatch(css, /\.jzs-phone\{[^}]*height:100%/);
-});
-
-test('the progress-dot / stage-label copy keys were removed, not left orphaned — the animation explains itself through motion, no slideshow labels', () => {
-  const copy = journeyCopy();
-  assert.doesNotMatch(copy, /stageReceived|stageSolve|stageRevealed|storyboardCaption/);
+test('14. Experience layout correction: the invitation-message card stretches to match the Timing+Replies column height instead of a fixed textarea row-count guess', () => {
+  const css = studioCss();
+  assert.match(css, /\.jzs-experience-composer\{[^}]*align-items:stretch/);
+  assert.match(css, /\.jzs-composer-card--invitation\{[^}]*display:flex;flex-direction:column/);
+  assert.match(css, /\.jzs-field--grow\{flex:1;display:flex;flex-direction:column\}/);
   const studio = studioPage();
-  assert.doesNotMatch(studio, /jzj-phone-dots/);
+  assert.match(studio, /<Field label=\{copy\.experience\.message\} wide className="jzs-field--grow">/);
+  // The removed date-helper text was not restored.
+  assert.doesNotMatch(studio, /messageHelp2|dateHelper/);
 });
 
-test('Reduced-motion for the real /i arrival illustration is unchanged: settled by default, motion layered on only without the preference', () => {
-  const css = journeyCss();
-  assert.match(css, /@media \(prefers-reduced-motion: no-preference\) \{/);
-  assert.match(css, /\.jzj-arrival--interactive \.jzj-arrival__envelope\{animation:/);
-  assert.match(css, /\.jzj-arrival__envelope,\.jzj-arrival__piece\{opacity:1\}/);
-  assert.doesNotMatch(css, /\.jzj-arrival--static[^{]*\{animation:/);
+test('15. The Business image crop frame is 4:5 (the final-invitation card ratio, NOT puzzle geometry), derived the same way everywhere (never an independently hardcoded ratio)', () => {
+  const css = studioCss();
+  assert.match(css, /\.jzs-crop-frame\{[^}]*aspect-ratio:4\/5/);
+  const modal = cropModal();
+  assert.match(modal, /import \{ BUSINESS_INVITATION_CARD \} from '\.\.\/\.\.\/business\/invitationCardGeometry';/);
+  assert.match(modal, /BUSINESS_INVITATION_CARD\.width \* CROP_RESOLUTION_SCALE/);
+  assert.match(modal, /BUSINESS_INVITATION_CARD\.height \* CROP_RESOLUTION_SCALE/);
+  // The crop tool must never import puzzle-solving geometry — that was the exact
+  // conflation this correction fixed (a 4:5 puzzle board is NOT what Receive plays).
+  // (Explanatory comments may still reference CONSUMER_PUZZLE_GEOMETRY/puzzle-geometry.js
+  // for context — only an actual import is disallowed.)
+  assert.doesNotMatch(modal, /from '\.\.\/\.\.\/puzzle\/puzzle-geometry'/);
+  const cardGeo = fs.readFileSync(path.resolve('src/business/invitationCardGeometry.js'), 'utf8');
+  assert.match(cardGeo, /export const BUSINESS_INVITATION_CARD = \{ width: 288, height: 360 \};/);
+  assert.equal(288 / 360, 4 / 5);
 });
 
 test('16-17-18. Consumer /p (ReceivePage.jsx) and /create are untouched, and consumer geometry stays 9:16', () => {
   const receive = receivePage();
   assert.match(receive, /geometry = CONSUMER_PUZZLE_GEOMETRY/);
-  assert.match(receive, /<PuzzlePlayer data=\{puzzleData\} setData=\{setPuzzleData\} publicId=\{publicId\} rIndex=\{resolvedRIndex\} startTimeRef=\{startTimeRef\} \/>/);
   assert.doesNotMatch(receive, /jzj-|ArrivalScene|SolvedInvitationFrame|businessJourneyCopy/);
   const create = createPage();
   assert.doesNotMatch(create, /jzj-|ArrivalScene|SolvedInvitationFrame|businessJourneyCopy|puzzle-geometry/);
@@ -313,15 +181,19 @@ test('16-17-18. Consumer /p (ReceivePage.jsx) and /create are untouched, and con
   assert.match(geo, /board: \{ width: 288, height: 512 \}/);
 });
 
-test('19. Business geometry stays 3:2 (288x192), still the single authoritative source', () => {
+test('19. There is exactly ONE puzzle-solving geometry — no Business-specific board/grid exists any more. Business requests CONSUMER_PUZZLE_GEOMETRY directly (9:16, same cols/rows as Receive), not a same-shaped duplicate', () => {
   const geo = geometry();
-  assert.match(geo, /board: \{ width: 288, height: 192 \}/);
-  assert.equal(288 / 192, 3 / 2);
+  assert.match(geo, /export const CONSUMER_PUZZLE_GEOMETRY = \{/);
+  assert.doesNotMatch(geo, /BUSINESS_PUZZLE_GEOMETRY/, 'a second puzzle-geometry object was tried once and was wrong — it changed cell proportions away from what Receive actually plays');
+  assert.match(geo, /board: \{ width: 288, height: 512 \}/);
+  assert.equal(288 / 512, 9 / 16);
+  for (const count of [6, 15, 18, 28]) assert.match(geo, new RegExp(`${count}: \\{ cols: \\d+, rows: \\d+ \\}`));
   const page = recipientPage();
-  assert.match(page, /import\{BUSINESS_PUZZLE_GEOMETRY\}from'\.\.\/puzzle\/puzzle-geometry';/);
+  assert.match(page, /import\{CONSUMER_PUZZLE_GEOMETRY\}from'\.\.\/puzzle\/puzzle-geometry';/);
+  assert.match(page, /geometry=\{CONSUMER_PUZZLE_GEOMETRY\}/);
 });
 
-test('20. EN/AR parity for the new shared journey copy', () => {
+test('20. EN/AR parity for the shared journey copy', () => {
   const copy = journeyCopy();
   const enBlock = copy.match(/en:\s*\{([\s\S]*?)\}\s*,\s*ar:/)[1];
   const arBlock = copy.match(/ar:\s*\{([\s\S]*?)\}\s*;/)[1];
@@ -329,24 +201,66 @@ test('20. EN/AR parity for the new shared journey copy', () => {
   assert.deepEqual(keysOf(enBlock), keysOf(arBlock));
 });
 
-test('the solved frame carries the same locked sharp 3:2 artwork rule as every other puzzle surface', () => {
+test('The reveal frame is 4:5 everywhere it appears (recipient page and Studio preview share one component)', () => {
   const css = journeyCss();
-  assert.match(css, /\.jzj-solved\{position:relative;width:100%;aspect-ratio:3\/2;border-radius:0;/);
-  // The phone preview's "solve" scene reuses .jzs-phone__puzzle directly (already
-  // sharp-cornered per business-studio.css) rather than a separate storyboard-only frame.
-  const studioCss = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
-  assert.match(studioCss, /\.jzs-phone__puzzle\{[^}]*aspect-ratio:3\/2;border-radius:0;/);
+  assert.match(css, /\.jzj-solved__frame\{[^}]*aspect-ratio:4\/5/);
 });
 
-test('The actual /i recipient flow is untouched by this round\'s Studio-preview animation work — it still drives the real ArrivalScene/PuzzlePlayer/SolvedInvitationFrame, never the Studio-only PhoneJourneyAnimation', () => {
+test('The actual /i recipient flow drives the real ArrivalScene/PuzzlePlayer/SolvedInvitationFrame, never a Studio-only component', () => {
   const page = recipientPage();
   assert.doesNotMatch(page, /PhoneJourneyAnimation/);
-  assert.match(page, /<ArrivalScene mode="interactive"/);
+  assert.match(page, /<ArrivalScene copy=\{jc\}/);
 });
 
-test('InvitationRecipientPage no longer navigates to a separate generic invitation page — one solved frame carries the reveal', () => {
+test('InvitationRecipientPage never navigates to a separate generic invitation page — one solved frame carries the reveal', () => {
   const page = recipientPage();
   assert.doesNotMatch(page, /jzi-invitation-container/);
   assert.doesNotMatch(page, /jzi-badge-mark/);
   assert.match(page, /jzi-solved-wrapper/);
+});
+
+test('Arrival is dismissible by tapping anywhere on the scene (a real <button>, not a small icon-only control), and plays a brief opening transition before handing off to the real puzzle', () => {
+  const scene = arrivalScene();
+  assert.match(scene, /<button\s*\n\s*type="button"\s*\n\s*className=\{`jzj-arrival/);
+  assert.match(scene, /onClick=\{handleContinue\}/);
+  assert.match(scene, /setOpening\(true\);/);
+  assert.match(scene, /window\.setTimeout\(onContinue, OPEN_DELAY_MS\);/);
+  // Reduced motion skips the opening animation and hands off immediately.
+  assert.match(scene, /prefersReduced.*onContinue\(\); return;|if \(prefersReduced\) \{ onContinue\(\); return; \}/);
+});
+
+test('Reduced motion is respected: no keyframe animation plays for arrival/opening pieces under prefers-reduced-motion: reduce', () => {
+  const css = journeyCss();
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{/);
+  assert.match(css, /animation:none/);
+});
+
+test('No Business-specific scatter/drag/snap/lock/progress implementation exists anywhere — Business only ever mounts the one shared PuzzlePlayer function body that also runs consumer Receive', () => {
+  const page = recipientPage();
+  const receive = receivePage();
+  // Business's own files never define drag/scatter/snap logic.
+  for (const src of [page, arrivalScene(), solvedFrame()]) {
+    assert.doesNotMatch(src, /onPointerDown\(i, e\)|scatter\(\)|placeGroup|mulberry32\(4242/, 'Business files must not reimplement any piece of the solving engine');
+  }
+  // The engine itself — onDown/scatter/placeGroup/SNAP — exists exactly once, inside the
+  // shared PuzzlePlayer function body in ReceivePage.jsx, which both routes call into.
+  assert.match(receive, /const onDown = \(i, e\) =>/);
+  assert.match(receive, /const scatter = useCallback\(\(\) => \{/);
+  assert.match(receive, /const SNAP = Math\.max\(20, Math\.min\(pieceW, pieceH\) \* 0\.36\);/);
+  assert.match(receive, /export function PuzzlePlayer\(/);
+  assert.doesNotMatch(receive, /function PuzzlePlayer\(.*\n[\s\S]*export function PuzzlePlayer\(/, 'only one PuzzlePlayer definition should exist');
+});
+
+test('Piece cell proportions match consumer exactly: Business requests the literal same board width/height and grid cols/rows object, not a same-numbers-different-shape copy', () => {
+  const page = recipientPage();
+  const geo = geometry();
+  // Business's PuzzlePlayer call and consumer's default both resolve to the exact same
+  // CONSUMER_PUZZLE_GEOMETRY object — pieceW/pieceH (computed inside PuzzlePlayer as
+  // BW/cols, BH/rows) are therefore identical for any given piece count on both routes,
+  // by construction, not by coincidence of matching numbers in two separate objects.
+  assert.match(page, /geometry=\{CONSUMER_PUZZLE_GEOMETRY\}/);
+  const boardMatch = geo.match(/CONSUMER_PUZZLE_GEOMETRY = \{\s*board: \{ width: (\d+), height: (\d+) \}/);
+  assert.ok(boardMatch);
+  assert.equal(boardMatch[1], '288');
+  assert.equal(boardMatch[2], '512');
 });

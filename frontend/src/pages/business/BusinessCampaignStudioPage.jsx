@@ -5,8 +5,7 @@ import { CampaignStudioProvider, useCampaignStudio } from '../../business/studio
 import { studioCopy } from '../../business/studio/studio-copy';
 import BusinessPuzzle from '../../business/landing/BusinessPuzzle';
 import BusinessImageCropModal from '../../business/studio/BusinessImageCropModal';
-import PhoneJourneyAnimation from '../../business/journey/PhoneJourneyAnimation';
-import { businessJourneyCopy } from '../../business/journey/businessJourneyCopy';
+import SolvedInvitationFrame from '../../business/journey/SolvedInvitationFrame';
 import { PIECE_OPTIONS } from '../../config/difficulties';
 import { businessApi } from '../../services/businessApi';
 import { prepareBusinessImage } from '../../business/studio/business-image-upload';
@@ -36,8 +35,8 @@ function formatShortDate(value, isArabic) {
 function Toggle({ checked, onChange, label, description }) {
   return <label className="jzs-toggle-row"><span><strong>{label}</strong>{description && <small>{description}</small>}</span><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} /><i aria-hidden="true" /></label>;
 }
-function Field({ label, children, wide = false }) {
-  return <label className={`jzs-field${wide ? ' jzs-field--wide' : ''}`}><span>{label}</span>{children}</label>;
+function Field({ label, children, wide = false, className = '' }) {
+  return <label className={`jzs-field${wide ? ' jzs-field--wide' : ''}${className ? ` ${className}` : ''}`}><span>{label}</span>{children}</label>;
 }
 function AreaIntro({ copy, index }) {
   const key = AREA_KEYS[index];
@@ -57,17 +56,15 @@ function computeScheduleErrors(state, copy) {
   return errors;
 }
 
-// The right-rail preview lives INSIDE the phone shell (the device framing is part of
-// how Studio communicates "this is what your guest experiences"). Unlike the recipient
-// page's own step-by-step journey (arrival -> solve -> revealed, each a distinct phase
-// the guest actively drives), the Studio phone shows that whole journey as ONE
-// continuous animated loop — envelope arrival/open, pieces spill/pile, pieces assemble
-// onto the real selected Business grid, crossfade into the actual complete puzzle,
-// reveal into the invitation, RSVP hold, then loop — via PhoneJourneyAnimation, so
-// owners see the guest experience unfold through motion rather than static mockups.
+// The right-rail preview shows the FINAL revealed invitation only — no envelope, no
+// solving, no journey animation (the locked Claude Design recipient spec, revision 2,
+// Part A: the sender is judging composition, not watching a storyboard). It lives inside
+// the same phone shell used everywhere else in Studio and reuses the exact
+// SolvedInvitationFrame component the real recipient sees post-solve, so approving this
+// frame IS approving what the guest gets. Every field edit (image, title, date, location,
+// message, RSVP, +1, selected recipient override) re-renders it live.
 function RecipientJourneyPreview({ copy, isArabic }) {
   const { state, dispatch } = useCampaignStudio();
-  const pieceCount = PIECE_OPTIONS.find((option) => option.id === state.puzzle.difficultyId)?.count || 18;
   const recipient = state.studio.previewRecipient || state.recipients.entitiesById[state.studio.selectedRecipientId];
   const recipientName = recipient?.displayName || recipient?.name || '';
   const firstName = recipientName ? recipientName.split(' ')[0] : copy.preview.select;
@@ -77,8 +74,7 @@ function RecipientJourneyPreview({ copy, isArabic }) {
     const currentIndex = Math.max(0, ids.indexOf(state.studio.selectedRecipientId));
     dispatch({ type: 'SELECT_RECIPIENT', id: ids[(currentIndex + 1) % ids.length] });
   };
-  const jc = businessJourneyCopy[isArabic ? 'ar' : 'en'];
-  const revealedCopy = { invited: copy.preview.invitation, when: copy.preview.when, where: copy.preview.where, going: copy.preview.going, plus: copy.preview.guest, notGoing: copy.preview.notGoing };
+  const previewCopy = { prompt: copy.preview.prompt, going: copy.preview.going, goingPlus: copy.preview.goingPlus, notGoing: copy.preview.notGoing, replyingAs: '' };
   return <aside className="jzs-preview" aria-label={fillTemplate(copy.preview.label, { name: firstName })}>
     <div className="jzs-preview__heading">
       <span>{fillTemplate(copy.preview.label, { name: firstName })}</span>
@@ -88,20 +84,18 @@ function RecipientJourneyPreview({ copy, isArabic }) {
       <div className="jzs-phone"><div className="jzs-phone__screen">
         <span className="jzs-phone__island" />
         <div className="jzs-phone__top"><span>9:41</span><span className="jzs-ltr">JIGZO</span></div>
-        <div className="jzs-phone__body">
-          <div className="jzs-phone__brand-row"><img src="/assets/JIGZO-Logo-Black.png" alt="JIGZO" /></div>
-          <PhoneJourneyAnimation
-            pieceCount={pieceCount}
-            imageUrl={state.puzzle.imagePreviewUrl}
-            mysteryMode={state.puzzle.mysteryMode}
+        <div className="jzs-phone__body jzs-phone__body--preview">
+          <SolvedInvitationFrame
+            mode="static"
+            imageUrl={state.puzzle.mysteryMode ? null : state.puzzle.imagePreviewUrl}
+            kicker={fillTemplate(copy.preview.madeFor, { name: firstName })}
             eventTitle={state.experience.eventTitle}
             whenDisplay={formatEventDateTime(state.experience.dateTime, isArabic)}
             location={state.experience.location}
             message={state.experience.message}
             rsvpEnabled={state.experience.rsvpEnabled}
             allowPlusOne={plusOne}
-            copy={jc}
-            revealedCopy={revealedCopy}
+            copy={previewCopy}
             isArabic={isArabic}
           />
         </div>
@@ -197,7 +191,7 @@ function ExperienceArea({ copy }) {
           <Field label={copy.experience.location}><input dir="auto" value={state.experience.location} onChange={set('location')} /></Field>
           <Field label={copy.experience.date}><input className="jzs-ltr" type="datetime-local" value={state.experience.dateTime} onChange={set('dateTime')} /></Field>
         </div>
-        <Field label={copy.experience.message} wide><textarea dir="auto" rows="5" value={state.experience.message} onChange={set('message')} /></Field>
+        <Field label={copy.experience.message} wide className="jzs-field--grow"><textarea dir="auto" value={state.experience.message} onChange={set('message')} /></Field>
         <div className="jzs-composer-card__help">{copy.experience.messageHelp}</div>
       </section>
       <aside className="jzs-composer-support">

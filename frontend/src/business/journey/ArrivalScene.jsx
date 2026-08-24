@@ -1,16 +1,14 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { buildEdgeMap, piecePath } from '../../puzzle/puzzle-shape';
 
-// A lightweight, CSS-only "envelope arrives, puzzle pieces spill out and settle" prelude.
-// Reuses the real piece silhouettes (buildEdgeMap/piecePath, the same shared geometry
-// module every other puzzle surface uses) rather than inventing decorative shapes, so it
-// reads as unmistakably JIGZO rather than generic confetti/illustration.
-//
-// mode="interactive" (the real /i recipient page) plays the settle-in animation once,
-// and — per prefers-reduced-motion — the *default* CSS state is already the settled
-// composition; the animation is only layered on for users who don't mind motion.
-// mode="static" (the Business Studio storyboard preview) always renders the settled
-// composition with no animation at all, regardless of motion preference.
+// The near-black arrival stage (locked Claude Design recipient spec, revision 2, frame
+// B1): envelope forward from depth, real JIGZO piece silhouettes (buildEdgeMap/piecePath,
+// the same shared geometry module every other puzzle surface uses) rather than invented
+// decoration, teaser copy the only text on screen. "Tap anywhere skips ahead" — the whole
+// scene is the control, not just the envelope. On tap the pieces spill outward and the
+// flap opens (skipped under prefers-reduced-motion) before the parent swaps to the real,
+// already-scattered PuzzlePlayer board — a short, premium handover rather than a
+// pixel-matched continuity between two separate rendering systems.
 const SCATTER = [
   { x: 96, y: 158, rot: -14 },
   { x: 150, y: 172, rot: 9 },
@@ -18,8 +16,10 @@ const SCATTER = [
   { x: 176, y: 150, rot: -6 },
   { x: 200, y: 168, rot: 16 }
 ];
+const OPEN_DELAY_MS = 550;
 
-export default function ArrivalScene({ mode = 'interactive', compact = false, copy, isArabic, onContinue }) {
+export default function ArrivalScene({ copy, isArabic, onContinue }) {
+  const [opening, setOpening] = useState(false);
   const pieces = useMemo(() => {
     const edges = buildEdgeMap(3, 2, 88);
     const cells = [[0, 0], [0, 1], [1, 0], [1, 2], [0, 2]];
@@ -30,19 +30,37 @@ export default function ArrivalScene({ mode = 'interactive', compact = false, co
     }));
   }, []);
 
-  return <div className={`jzj-arrival${mode === 'interactive' ? ' jzj-arrival--interactive' : ' jzj-arrival--static'}${compact ? ' jzj-arrival--compact' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
-    <svg className="jzj-arrival__scene" viewBox="0 0 320 220" role="img" aria-hidden="true">
-      {pieces.map((piece) => (
-        <g key={piece.index} className="jzj-arrival__piece" style={{ '--jzj-x': `${piece.x}px`, '--jzj-y': `${piece.y}px`, '--jzj-rot': `${piece.rot}deg`, '--jzj-delay': `${0.32 + piece.index * 0.07}s` }} transform={`translate(${piece.x} ${piece.y}) rotate(${piece.rot})`}>
-          <path d={piece.d} transform="translate(-15 -11)" />
-        </g>
-      ))}
-      <g className="jzj-arrival__envelope" transform="translate(100 48)">
-        <path className="jzj-arrival__envelope-body" d="M0 10 L60 10 L120 10 L120 74 L0 74 Z" />
-        <path className="jzj-arrival__envelope-flap" d="M0 10 L60 54 L120 10" />
-      </g>
-    </svg>
-    <p className="jzj-arrival__teaser">{copy.arrivalTeaser}</p>
-    {mode === 'interactive' && <button type="button" className="jzj-arrival__cta" onClick={onContinue}>{copy.solveAction}</button>}
-  </div>;
+  const handleContinue = () => {
+    if (opening) return;
+    const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) { onContinue(); return; }
+    setOpening(true);
+    window.setTimeout(onContinue, OPEN_DELAY_MS);
+  };
+
+  return <button
+    type="button"
+    className={`jzj-arrival jzj-arrival--interactive jzj-arrival__cta${opening ? ' jzj-arrival--opening' : ''}`}
+    dir={isArabic ? 'rtl' : 'ltr'}
+    onClick={handleContinue}
+  >
+    <div className="jzj-arrival__copy">
+      <p className="jzj-arrival__title">{copy.arrivalTitle}</p>
+      <p className="jzj-arrival__subtitle">{copy.arrivalSubtitle}</p>
+    </div>
+    <div className="jzj-arrival__stage">
+      <span className="jzj-arrival__ghost jzj-arrival__ghost--far" aria-hidden="true" />
+      <span className="jzj-arrival__ghost jzj-arrival__ghost--near" aria-hidden="true" />
+      <svg className="jzj-arrival__pieces" viewBox="0 0 300 210" aria-hidden="true">
+        {pieces.map((piece) => (
+          <g key={piece.index} className="jzj-arrival__piece" style={{ '--jzj-x': `${piece.x}px`, '--jzj-y': `${piece.y}px`, '--jzj-rot': `${piece.rot}deg`, '--jzj-delay': `${0.32 + piece.index * 0.07}s` }} transform={`translate(${piece.x} ${piece.y}) rotate(${piece.rot})`}>
+            <path d={piece.d} transform="translate(-15 -11)" />
+          </g>
+        ))}
+      </svg>
+      <span className="jzj-arrival__envelope" aria-hidden="true">
+        <span className="jzj-arrival__envelope-flap" />
+      </span>
+    </div>
+  </button>;
 }

@@ -1,14 +1,18 @@
 import React, { useId, useMemo } from 'react';
 import { buildEdgeMap, piecePath } from '../../puzzle/puzzle-shape';
-import { BUSINESS_PUZZLE_GEOMETRY } from '../../puzzle/puzzle-geometry';
+import { CONSUMER_PUZZLE_GEOMETRY } from '../../puzzle/puzzle-geometry';
 
-// Business Studio's own preview, built from the SAME authoritative BUSINESS_PUZZLE_GEOMETRY
-// (frontend/src/puzzle/puzzle-geometry.js) that the real recipient PuzzlePlayer
-// (frontend/src/pages/ReceivePage.jsx, invoked with geometry=BUSINESS_PUZZLE_GEOMETRY by
-// frontend/src/pages/InvitationRecipientPage.jsx) uses to actually solve the puzzle.
-// Board/grid can no longer drift apart between "what Studio shows" and "what the
-// recipient solves" — both read from one definition.
-const { board: BOARD, grid: GRID } = BUSINESS_PUZZLE_GEOMETRY;
+// Business's difficulty-picker/hero preview of the SOLVING experience — built from the
+// SAME authoritative CONSUMER_PUZZLE_GEOMETRY (frontend/src/puzzle/puzzle-geometry.js)
+// that the real recipient PuzzlePlayer (frontend/src/pages/ReceivePage.jsx, invoked with
+// geometry=CONSUMER_PUZZLE_GEOMETRY by frontend/src/pages/InvitationRecipientPage.jsx)
+// uses to actually solve the puzzle, per the locked product requirement that Business
+// solving looks and plays exactly like consumer Receive. This is NOT the Business final
+// revealed-invitation card's shape (that's 4:5 — see invitationCardGeometry.js and
+// SolvedInvitationFrame) — this component only ever previews the puzzle itself. Board/
+// grid can no longer drift apart between "what Studio shows here" and "what the recipient
+// actually solves" — both read from one definition.
+const { board: BOARD, grid: GRID } = CONSUMER_PUZZLE_GEOMETRY;
 
 export default function BusinessPuzzle({ className = '', finalPiece = 4, label, imageUrl = null, mysteryMode = false, pieceCount = 18 }) {
   const clipId = `jzb-puzzle-image-${useId().replace(/:/g, '')}`;
@@ -35,7 +39,7 @@ export default function BusinessPuzzle({ className = '', finalPiece = 4, label, 
   // tabs land entirely within a neighbor's own cell. So the assembled outline never
   // extends past the board rectangle and needs no outer clearance margin — a viewBox
   // exactly matching the board fills its container edge-to-edge with zero letterboxing,
-  // at the board's exact aspect ratio (3:2 for Business).
+  // at the board's exact aspect ratio (9:16, same as consumer Receive).
   const viewBox = `0 0 ${BOARD.width} ${BOARD.height}`;
 
   return (

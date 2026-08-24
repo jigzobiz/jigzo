@@ -1,144 +1,76 @@
 /* Shared "arrival scene" + "solved puzzle becomes the invitation" presentation, used by
    both the real Business recipient page (frontend/src/pages/InvitationRecipientPage.jsx)
-   and the Business Studio phone preview (BusinessCampaignStudioPage.jsx), so the
-   owner's preview and the guest's real experience never visually drift apart. Warm
-   cream / near-black JIGZO palette; gold stays reserved for the piece-solved reveal
-   moment elsewhere and is intentionally not used here. */
+   and the Business Studio final-invitation preview (BusinessCampaignStudioPage.jsx), so
+   the owner's preview and the guest's real experience never visually drift apart. Warm
+   cream / near-black JIGZO palette; gold is not used here — the locked recipient spec
+   (Claude Design, revision 2) is intentionally neutral so the photograph sets the mood. */
 
-/* ---- Arrival scene ---- */
-.jzj-arrival{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px}
-.jzj-arrival__scene{width:min(100%,320px);aspect-ratio:320/220;overflow:visible}
-.jzj-arrival__envelope-body{fill:#17140f}
-.jzj-arrival__envelope-flap{fill:#2c2a25;stroke:#4a4740;stroke-width:1;stroke-linejoin:round}
+/* ---- Arrival scene: near-black stage, envelope arriving from depth, teaser copy ---- */
+.jzj-arrival{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:56px;width:100%;min-height:100%;padding:0 32px;background:#050505;color:#faf8ec;text-align:center;overflow:hidden;transition:opacity .5s ease}
+.jzj-arrival--opening{opacity:0}
+.jzj-arrival__copy{display:flex;flex-direction:column;gap:10px;max-width:34ch}
+.jzj-arrival__title{margin:0;font-size:clamp(18px,5vw,21px);font-weight:500;line-height:1.28;letter-spacing:-.01em;color:#faf8ec}
+.jzj-arrival__subtitle{margin:0;font-size:13px;line-height:1.5;color:rgba(250,248,236,.58)}
+.jzj-arrival__stage{position:relative;width:min(100%,300px);aspect-ratio:300/210;display:flex;align-items:center;justify-content:center}
+.jzj-arrival__ghost{position:absolute;width:82%;height:78%;border:1px solid rgba(250,248,236,.08);border-radius:12px}
+.jzj-arrival__ghost--far{transform:scale(1.26)}
+.jzj-arrival__ghost--near{border-color:rgba(250,248,236,.14);transform:scale(1.12)}
+.jzj-arrival__envelope{position:relative;width:64%;height:66%;border-radius:12px;overflow:hidden;background:linear-gradient(160deg,rgba(250,248,236,.92),rgba(214,208,180,.5));box-shadow:0 26px 58px rgba(0,0,0,.6)}
+.jzj-arrival__envelope-flap{position:absolute;inset:0 0 auto;height:38%;background:#050505;opacity:.72;clip-path:polygon(0 0,100% 0,50% 100%)}
+.jzj-arrival__mark{position:absolute;left:50%;top:52%;width:30px;height:30px;transform:translate(-50%,-50%);border-radius:50%}
+.jzj-arrival__cta{appearance:none;border:none;font:inherit;cursor:pointer;width:100%;text-align:center}
+.jzj-arrival__cta:focus-visible{outline:2px solid rgba(250,248,236,.6);outline-offset:4px;border-radius:4px}
+
+/* Pieces spilling out on tap: real piece silhouettes (buildEdgeMap/piecePath, the same
+   shared geometry module every other puzzle surface uses) so the handover into the real
+   scattered board reads as unmistakably JIGZO rather than generic confetti. Default state
+   is already fully spilled/settled (also the reduced-motion state) — the fall-in motion
+   is layered on only for interactive mode without a reduced-motion preference, and the
+   fly-out-on-open motion only plays for the tap itself. */
+.jzj-arrival__pieces{position:absolute;inset:0;overflow:visible;pointer-events:none}
 .jzj-arrival__piece path{fill:#4b3d2a;stroke:rgba(250,248,236,.18);stroke-width:1}
-.jzj-arrival__teaser{margin:0;max-width:34ch;font-size:15px;line-height:1.5;color:#1c1913}
-.jzj-arrival__cta{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 28px;border:none;border-radius:999px;background:#1c1913;color:#faf8ec;font-family:"Archia",sans-serif;font-weight:650;font-size:14px;cursor:pointer;transition:transform .2s ease}
-.jzj-arrival__cta:hover{transform:translateY(-1px)}
-.jzj-arrival__cta:focus-visible{outline:3px solid #e6c67f;outline-offset:2px}
-
-/* Default state (also the reduced-motion / static state): pieces and envelope already
-   settled, no animation. Motion is layered on only for interactive mode when the visitor
-   hasn't asked for reduced motion. */
-.jzj-arrival__envelope,.jzj-arrival__piece{opacity:1}
+.jzj-arrival__piece{opacity:1}
 @media (prefers-reduced-motion: no-preference) {
-  .jzj-arrival--interactive .jzj-arrival__envelope{animation:jzj-envelope-in .5s cubic-bezier(.22,1,.36,1) both}
   .jzj-arrival--interactive .jzj-arrival__piece{animation:jzj-piece-fall .5s cubic-bezier(.22,1,.36,1) both;animation-delay:var(--jzj-delay,.3s)}
+  .jzj-arrival--opening .jzj-arrival__piece{animation:jzj-piece-spill .6s cubic-bezier(.4,0,.6,1) both}
+  .jzj-arrival--opening .jzj-arrival__envelope-flap{animation:jzj-flap-open .35s ease both}
 }
-@keyframes jzj-envelope-in{from{opacity:0;transform:translate(100px,8px) translateY(-36px) scale(.94)}to{opacity:1;transform:translate(100px,48px)}}
 @keyframes jzj-piece-fall{from{opacity:0;transform:translate(var(--jzj-x),var(--jzj-y)) translateY(-30px) rotate(calc(var(--jzj-rot) - 20deg))}to{opacity:1;transform:translate(var(--jzj-x),var(--jzj-y)) rotate(var(--jzj-rot))}}
-
-/* Compact variant used inside the Studio phone preview's arrival scene. */
-.jzj-arrival--compact{gap:8px}
-.jzj-arrival--compact .jzj-arrival__scene{max-width:180px}
-.jzj-arrival--compact .jzj-arrival__teaser{font-size:11.5px;line-height:1.4;color:var(--ink-500,#4a4740)}
+@keyframes jzj-piece-spill{from{opacity:1;transform:translate(var(--jzj-x),var(--jzj-y)) rotate(var(--jzj-rot))}to{opacity:0;transform:translate(var(--jzj-x),var(--jzj-y)) translateY(60px) scale(.7) rotate(calc(var(--jzj-rot) + 30deg))}}
+@keyframes jzj-flap-open{from{clip-path:polygon(0 0,100% 0,50% 100%)}to{clip-path:polygon(0 0,100% 0,50% 130%)}}
 
 /* ---- Solved puzzle / invitation frame ---- */
-.jzj-solved{position:relative;width:100%;aspect-ratio:3/2;border-radius:0;overflow:hidden;background:#17140f}
+.jzj-solved{container-type:inline-size;display:flex;flex-direction:column;width:100%}
+.jzj-solved__kicker{margin:0 0 10px;text-align:center;font-size:clamp(9px,2.6cqw,10px);font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-400,#8c8474)}
+.jzj-solved__frame{position:relative;width:100%;aspect-ratio:4/5;border-radius:16px;overflow:hidden;background:linear-gradient(168deg,#7c7566 0%,#4a4740 34%,#2c2a25 68%,#15140f 100%);box-shadow:0 8px 24px rgba(5,5,5,.12)}
 .jzj-solved__image{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-.jzj-solved__scrim{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(5,5,5,0) 30%,rgba(5,5,5,.72) 78%)}
-.jzj-solved__panel{position:absolute;inset-inline:0;bottom:0;max-height:78%;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:8px;color:#faf8ec}
-.jzj-solved__kicker{margin:0;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#e6dcc4}
-.jzj-solved__title{margin:0;font-family:"Playfair Display",serif;font-size:clamp(20px,3vw,28px);font-weight:500;line-height:1.15;letter-spacing:-.01em}
-.jzj-solved__meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:8px 0;border-top:1px solid rgba(250,248,236,.18);border-bottom:1px solid rgba(250,248,236,.18)}
-.jzj-solved__meta span{display:block;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#c9c4b4}
-.jzj-solved__meta b{display:block;margin-top:2px;font-size:13px;font-weight:400}
-.jzj-solved__message{margin:0;font-size:13px;line-height:1.5;color:#f1eedc;white-space:pre-line}
-.jzj-solved__deadline{margin:0;font-size:11px;color:#c9c4b4}
-.jzj-solved__rsvp-row{margin-top:2px}
-.jzj-solved__guest-q{margin:0 0 8px;font-size:12.5px;color:#e6dcc4}
-.jzj-solved__choices{display:flex;flex-wrap:wrap;gap:8px}
-.jzj-solved__btn{min-height:40px;padding:0 18px;border:1px solid #faf8ec;border-radius:999px;background:#faf8ec;color:#17140f;font-family:"Archia",sans-serif;font-weight:600;font-size:13px;cursor:pointer}
-.jzj-solved__btn--ghost{background:transparent;color:#faf8ec}
-.jzj-solved__btn--gold{background:#e6c67f;border-color:#e6c67f;color:#17140f}
-.jzj-solved__btn:disabled{cursor:default;opacity:.9}
-.jzj-solved__confirm{display:grid;justify-items:start;gap:4px}
-.jzj-solved__confirm-icon{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:rgba(250,248,236,.16);font-size:14px}
-.jzj-solved__confirm strong{font-family:"Playfair Display",serif;font-size:16px;font-weight:500}
-.jzj-solved__confirm small{color:#c9c4b4;font-size:12px}
-.jzj-solved__ghost-btn{margin-top:4px;height:30px;padding:0 14px;border:1px solid rgba(250,248,236,.4);border-radius:999px;background:transparent;color:#faf8ec;font-size:11.5px}
+.jzj-solved__scrim{position:absolute;inset:0;background:linear-gradient(to top,rgba(5,5,5,.8) 0%,rgba(5,5,5,.5) 24%,rgba(5,5,5,.1) 50%,rgba(5,5,5,0) 68%)}
+.jzj-solved__overlay{position:absolute;inset-inline:0;bottom:0;padding:0 6.4cqw 7cqw}
+.jzj-solved__rule{width:26px;height:1px;background:rgba(250,248,236,.55)}
+.jzj-solved__title{margin:14px 0 0;font-family:"Archia",sans-serif;font-size:clamp(18px,7.3cqw,25px);font-weight:600;line-height:1.16;letter-spacing:-.02em;color:#faf8ec}
+.jzj-solved__meta{margin-top:11px;display:flex;flex-direction:column;gap:3px;font-size:clamp(11px,3.7cqw,12.5px);font-weight:500;letter-spacing:.02em;line-height:1.4;color:rgba(250,248,236,.82)}
+.jzj-solved__message{margin:13px 0 0;font-size:clamp(11px,3.7cqw,12.5px);font-weight:400;line-height:1.6;color:rgba(250,248,236,.74);white-space:pre-line}
 
-/* Compact variant for the Studio phone preview's reveal scene — same structure, smaller
-   type/spacing so it reads clearly inside the phone's body width. */
-.jzj-solved--compact .jzj-solved__panel{padding:10px 12px;gap:5px}
-.jzj-solved--compact .jzj-solved__kicker{font-size:8px}
-.jzj-solved--compact .jzj-solved__title{font-size:13px;line-height:1.2}
-.jzj-solved--compact .jzj-solved__meta{gap:6px;padding:5px 0}
-.jzj-solved--compact .jzj-solved__meta span{font-size:7.5px}
-.jzj-solved--compact .jzj-solved__meta b{font-size:10px}
-.jzj-solved--compact .jzj-solved__message{font-size:10px;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
-.jzj-solved--compact .jzj-solved__deadline{font-size:8.5px}
-.jzj-solved--compact .jzj-solved__btn{min-height:26px;padding:0 10px;font-size:10px}
-.jzj-solved--compact .jzj-solved__choices{gap:5px}
+/* ---- Reply section: below the frame, never over it ---- */
+.jzj-solved__reply{margin-top:20px;padding-top:20px;border-top:1px solid var(--border-hairline,rgba(28,25,19,.1))}
+.jzj-solved__prompt{margin:0;font-size:clamp(12px,3.9cqw,13.5px);font-weight:500;line-height:1.3;color:var(--ink-900,#1c1913)}
+.jzj-solved__choices{margin-top:13px;display:flex;gap:10px}
+.jzj-solved__choices--stack{flex-direction:column;gap:8px}
+.jzj-solved__btn{min-height:38px;flex:1;padding:0 16px;border-radius:999px;font-family:"Archia",sans-serif;font-weight:600;font-size:13.5px;cursor:pointer;transition:opacity .15s ease}
+.jzj-solved__btn:hover{opacity:.88}
+.jzj-solved__btn--primary{border:none;background:var(--ink-900,#1c1913);color:var(--cream-100,#faf8ec)}
+.jzj-solved__btn--secondary{border:1px solid var(--border-strong,rgba(28,25,19,.32));background:transparent;color:var(--ink-900,#1c1913)}
+.jzj-solved__btn--ghost{border:none;background:transparent;color:var(--ink-500,#4a4740)}
+.jzj-solved__replying{margin:11px 0 0;font-size:11.5px;line-height:1.5;color:var(--ink-400,#8c8474)}
 
-/* ---- Studio phone preview: ONE continuous animated journey inside the shared
-   .jzs-phone shell (business-studio.css) — envelope arrival/open, ALL selected pieces
-   spill/pile, those SAME pieces assemble onto their real Business grid slots (already
-   the completed puzzle — no separate component swapped in), reveal transition into
-   SolvedInvitationFrame, RSVP hold, then loop. Every element below shares the SAME 8s
-   timeline (0%-100% maps to 0-8s) so motion stays in sync without JS-driven scene
-   swapping. Each piece is two nested groups: the outer (.jzj-anim-piece, positioned via
-   an SVG transform attribute in PhoneJourneyAnimation.jsx, not CSS) sits statically at
-   the piece's TRUE final grid position — required so its image clip always samples the
-   right slice of the photo — while the inner .jzj-anim-piece__move is what actually
-   animates, traveling spawn -> pile -> (0,0), i.e. back to that static final spot.
-   Reduced motion is handled in JS (a static frame renders instead of this markup at
-   all), not by neutralizing these keyframes. */
-.jzj-anim{display:flex;flex-direction:column;align-items:center;gap:8px}
-.jzj-anim-stage{position:relative;width:100%;aspect-ratio:3/2;border-radius:0;overflow:hidden;background:#100e0a}
-.jzj-anim-stage>*{position:absolute;inset:0;width:100%;height:100%}
-.jzj-anim-envelope{z-index:4;animation:jzj-anim-envelope 8s ease-in-out infinite}
-.jzj-anim-envelope__group .jzj-arrival__envelope-flap{transform-box:fill-box;transform-origin:50% 0%;animation:jzj-anim-flap 8s ease-in-out infinite}
-.jzj-anim-pieces{z-index:3}
-.jzj-anim-piece__move{animation:jzj-anim-piece 8s ease-in-out infinite}
-.jzj-anim-piece__fill{fill:#4b3d2a;stroke:rgba(250,248,236,.18);stroke-width:1}
-.jzj-anim-reveal{z-index:5;animation:jzj-anim-reveal 8s ease-in-out infinite}
-.jzj-anim-reveal .jzj-solved{aspect-ratio:auto;height:100%}
-.jzj-anim-teaser{margin:6px 0 0;max-width:30ch;text-align:center;font-size:11px;line-height:1.4;color:var(--ink-500,#4a4740);animation:jzj-anim-teaser 8s ease-in-out infinite}
-.jzj-anim--reduced .jzj-anim-stage{background:#17140f}
-.jzj-anim-teaser--static{animation:none}
+.jzj-solved__confirm{margin-top:13px;display:grid;justify-items:start;gap:4px}
+.jzj-solved__confirm-icon{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:var(--cream-200,#f1eedc);color:var(--ink-900,#1c1913);font-size:14px}
+.jzj-solved__confirm strong{font-family:"Archia",sans-serif;font-size:15px;font-weight:600;color:var(--ink-900,#1c1913)}
+.jzj-solved__confirm small{color:var(--ink-400,#8c8474);font-size:12px}
+.jzj-solved__ghost-btn{margin-top:4px;height:30px;padding:0 14px;border:1px solid var(--border-hairline,rgba(28,25,19,.16));border-radius:999px;background:transparent;color:var(--ink-700,#4a4740);font-size:11.5px;cursor:pointer}
 
-@keyframes jzj-anim-envelope{
-  0%{opacity:0;transform:translateY(22px) scale(.55)}
-  9%{opacity:1}
-  10%,15%{opacity:1;transform:translateY(0) scale(1)}
-  22%{opacity:1}
-  27.5%{opacity:0;transform:translateY(-4px) scale(1.02)}
-  100%{opacity:0;transform:translateY(22px) scale(.55)}
-}
-@keyframes jzj-anim-flap{
-  0%,10%{transform:scaleY(.14)}
-  15%,27.5%{transform:scaleY(1)}
-  100%{transform:scaleY(1)}
-}
-/* Spawn (hidden, at the envelope) -> pile (fallen/scattered) -> (0,0) i.e. the piece's
-   own static final-grid position, held through the completed-puzzle pause, then faded
-   as SolvedInvitationFrame takes over — the pieces resolve INTO the completed puzzle,
-   they are never replaced by a separately-rendered one. */
-@keyframes jzj-anim-piece{
-  0%,14%{opacity:0;transform:translate(var(--spawn-x),var(--spawn-y)) scale(.3) rotate(0deg)}
-  18%{opacity:1}
-  27.5%,37.5%{opacity:1;transform:translate(var(--pile-x),var(--pile-y)) scale(1) rotate(var(--pile-rot))}
-  60%,67%{opacity:1;transform:translate(0,0) scale(1) rotate(0deg)}
-  73%{opacity:0}
-  100%{opacity:0;transform:translate(var(--spawn-x),var(--spawn-y)) scale(.3) rotate(0deg)}
-}
-@keyframes jzj-anim-reveal{
-  0%,64%{opacity:0}
-  73%,96%{opacity:1}
-  100%{opacity:0}
-}
-@keyframes jzj-anim-teaser{
-  0%{opacity:0}
-  4%,35%{opacity:1}
-  40%{opacity:0}
-  100%{opacity:0}
-}
+[dir=rtl] .jzj-solved__frame,[dir=rtl] .jzj-solved__reply{text-align:right}
+
 @media (prefers-reduced-motion: reduce) {
-  .jzj-anim-envelope,.jzj-anim-envelope__group .jzj-arrival__envelope-flap,.jzj-anim-piece__move,.jzj-anim-reveal,.jzj-anim-teaser{animation:none}
+  .jzj-arrival--interactive .jzj-arrival__piece,.jzj-arrival--opening .jzj-arrival__piece,.jzj-arrival--opening .jzj-arrival__envelope-flap{animation:none}
 }
-
-@media (max-width: 900px) {
-  .jzj-solved__meta{grid-template-columns:1fr}
-}
-
-[dir=rtl] .jzj-solved__panel{text-align:start}

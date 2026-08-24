@@ -232,7 +232,7 @@ export default function ReceivePage() {
   return <PuzzlePlayer data={puzzleData} setData={setPuzzleData} publicId={publicId} rIndex={resolvedRIndex} startTimeRef={startTimeRef} />;
 }
 
-export function PuzzlePlayer({ data, setData, publicId, rIndex, startTimeRef, onSolved, geometry = CONSUMER_PUZZLE_GEOMETRY }) {
+export function PuzzlePlayer({ data, setData, publicId, rIndex, startTimeRef, onSolved, geometry = CONSUMER_PUZZLE_GEOMETRY, headerCopy }) {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
   const g = geometry.grid[data.pieceCount] || { cols: 3, rows: 6 };
@@ -897,17 +897,25 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
         {/* above the puzzle — heading + live piece counter */}
         {!showReveal && (
           <div ref={headerRef} style={{ textAlign: "center", marginBottom: 12 }}>
-            <h1 style={{ fontSize: 19, fontWeight: 600, margin: "0 0 4px", letterSpacing: "-0.015em", color: "#050505" }}>
-              {t('receive.heading')}
-            </h1>
-            <p style={{ fontSize: 13, color: "rgba(5,5,5,0.6)", margin: "0 0 8px" }}>
-              {t('receive.subheading')}
-            </p>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#B8935A", letterSpacing: "0.04em" }}>
-              {placedCount === 1
-                ? t('receive.piecesPlaced_one')
-                : t('receive.piecesPlaced_other', { count: placedCount, total: homes.length })}
-            </div>
+            {headerCopy ? (() => {
+              const hc = headerCopy(placedCount, homes.length);
+              return <>
+                <h1 style={{ fontSize: 19, fontWeight: 600, margin: "0 0 4px", letterSpacing: "-0.015em", color: "#050505" }}>{hc.title}</h1>
+                <p style={{ fontSize: 13, color: "rgba(5,5,5,0.6)", margin: 0 }}>{hc.subtitle}</p>
+              </>;
+            })() : <>
+              <h1 style={{ fontSize: 19, fontWeight: 600, margin: "0 0 4px", letterSpacing: "-0.015em", color: "#050505" }}>
+                {t('receive.heading')}
+              </h1>
+              <p style={{ fontSize: 13, color: "rgba(5,5,5,0.6)", margin: "0 0 8px" }}>
+                {t('receive.subheading')}
+              </p>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#B8935A", letterSpacing: "0.04em" }}>
+                {placedCount === 1
+                  ? t('receive.piecesPlaced_one')
+                  : t('receive.piecesPlaced_other', { count: placedCount, total: homes.length })}
+              </div>
+            </>}
           </div>
         )}
 

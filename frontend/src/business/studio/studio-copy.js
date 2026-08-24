@@ -54,7 +54,7 @@ export const studioCopy = {
       headers: { guest: 'Guest', contact: 'Contact', opened: 'Opened', solved: 'Solved', reply: 'Reply', time: 'Solve time' },
       yes: 'Yes', notYet: 'Not yet', goingPlus: 'Going, plus one', going: 'Going', notGoing: 'Not going', waitingReply: 'Waiting'
     },
-    preview: { label: 'What {{name}} receives', nextGuest: 'Next guest', madeFor: 'Made for {{name}}', solved: 'Solved', invitation: 'You’re invited', when: 'When', where: 'Where', going: 'Going', notGoing: 'Not going', guest: 'Going, plus one', personal: 'Personalized for', select: 'your guest' },
+    preview: { label: 'What {{name}} receives', nextGuest: 'Next guest', madeFor: 'For {{name}}', solved: 'Solved', invitation: 'You’re invited', prompt: 'Will you join us?', when: 'When', where: 'Where', going: 'Going', goingPlus: 'Going +1', notGoing: 'Not going', guest: 'Going, plus one', personal: 'Personalized for', select: 'your guest' },
     common: { on: 'On', off: 'Off', next: 'Next area', nextTo: 'Next: {{area}}', previous: 'Previous', previousTo: 'Previous: {{area}}', complete: 'Complete', incomplete: 'In progress' }
   },
   ar: {
@@ -112,7 +112,7 @@ export const studioCopy = {
       headers: { guest: 'الضيف', contact: 'التواصل', opened: 'فُتحت', solved: 'حُلّت', reply: 'الرد', time: 'وقت الحل' },
       yes: 'نعم', notYet: 'ليس بعد', goingPlus: 'سيحضر مع مرافق', going: 'سيحضر', notGoing: 'لن يحضر', waitingReply: 'بالانتظار'
     },
-    preview: { label: 'ما سيصل إلى {{name}}', nextGuest: 'الضيف التالي', madeFor: 'خصيصاً لـ {{name}}', solved: 'تم الحل', invitation: 'أنت مدعو', when: 'متى', where: 'أين', going: 'سأحضر', notGoing: 'لن أحضر', guest: 'سأحضر مع مرافق', personal: 'نسخة شخصية لـ', select: 'ضيفك' },
+    preview: { label: 'ما سيصل إلى {{name}}', nextGuest: 'الضيف التالي', madeFor: 'إلى {{name}}', solved: 'تم الحل', invitation: 'أنت مدعو', prompt: 'هل ستنضم إلينا؟', when: 'متى', where: 'أين', going: 'سأحضر', goingPlus: 'سأحضر +1', notGoing: 'لن أحضر', guest: 'سأحضر مع مرافق', personal: 'نسخة شخصية لـ', select: 'ضيفك' },
     common: { on: 'مفعّل', off: 'متوقف', next: 'المنطقة التالية', nextTo: 'التالي: {{area}}', previous: 'السابق', previousTo: 'السابق: {{area}}', complete: 'مكتمل', incomplete: 'قيد الإعداد' }
   }
 };

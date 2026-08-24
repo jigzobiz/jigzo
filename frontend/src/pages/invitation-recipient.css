@@ -15,11 +15,10 @@
 }
 
 .jzi-page > header {
-  height: 64px;
+  height: 56px;
   padding: 0 clamp(20px, 5vw, 64px);
   display: flex;
   align-items: center;
-  justify-content: space-between;
   border-bottom: 1px solid rgba(28, 25, 19, 0.12);
   background: transparent;
 }
@@ -30,15 +29,13 @@
   font-size: 20px;
 }
 
-.jzi-page > header small {
-  color: #765827;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
+/* Arrival phase is a full-bleed near-black stage (ArrivalScene owns its own layout) —
+   no page chrome/padding on top of it. */
+.jzi-page--arrival {
+  display: flex;
 }
 
-/* 1. Reveal Moment Transition */
+/* Reveal moment transition */
 .jzi-puzzle-wrapper {
   transition: opacity 1.6s cubic-bezier(0.25, 1, 0.5, 1), transform 1.6s cubic-bezier(0.25, 1, 0.5, 1);
   transform-origin: center;
@@ -67,17 +64,6 @@
   }
 }
 
-/* Arrival moment (before the puzzle) and the solved-puzzle invitation frame (after) —
-   see business/journey/business-journey.css for the .jzj-* rules themselves. These just
-   center/pad the shared component within this page's layout. */
-.jzi-arrival-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: calc(100dvh - 64px);
-  padding: clamp(24px, 6vw, 64px) 20px;
-}
-
 .jzi-solved-wrapper {
   display: flex;
   flex-direction: column;
@@ -88,264 +74,11 @@
 }
 
 .jzi-solved-wrapper .jzj-solved {
-  width: min(560px, 100%);
+  width: min(420px, 100%);
+}
+
+.jzi-solved-wrapper .jzj-solved__frame {
   box-shadow: 0 32px 64px rgba(28, 25, 19, 0.12), 0 12px 24px rgba(28, 25, 19, 0.06);
-}
-
-/* 2. Premium Invitation Card */
-.jzi-invitation-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: clamp(24px, 6vw, 82px) 16px;
-  width: 100%;
-}
-
-.jzi-invitation {
-  width: min(680px, 100%);
-  padding: clamp(38px, 8vw, 76px) clamp(24px, 6vw, 64px);
-  text-align: center;
-  background: #ffffff;
-  border: 1px solid rgba(28, 25, 19, 0.07);
-  box-shadow:
-    0 32px 64px rgba(28, 25, 19, 0.05),
-    0 12px 24px rgba(28, 25, 19, 0.03);
-  transform: rotate(-0.5deg);
-  position: relative;
-}
-
-.jzi-invitation::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 1px solid rgba(118, 88, 39, 0.12);
-  pointer-events: none;
-  margin: 12px;
-}
-
-/* Personal Greeting */
-.jzi-greeting {
-  margin-bottom: 34px;
-}
-
-.jzi-eyebrow {
-  display: block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-  color: #765827;
-  margin-bottom: 6px;
-}
-
-.jzi-recipient-name {
-  font-family: "Playfair Display", serif;
-  font-size: clamp(28px, 5vw, 42px);
-  font-weight: 500;
-  margin: 0;
-  line-height: 1.1;
-}
-
-/* JIGZO geometry divider */
-.jzi-badge-mark {
-  width: 32px;
-  height: 32px;
-  margin: 0 auto 34px;
-  background: #765827;
-  clip-path: polygon(0 0, 35% 0, 35% 9%, 42% 18%, 50% 21%, 58% 18%, 65% 9%, 65% 0, 100% 0, 100% 35%, 91% 35%, 82% 42%, 79% 50%, 82% 58%, 91% 65%, 100% 65%, 100% 100%, 65% 100%, 65% 91%, 58% 82%, 50% 79%, 42% 82%, 35% 91%, 35% 100%, 0 100%, 0 65%, 9% 65%, 18% 58%, 21% 50%, 18% 42%, 9% 35%, 0 35%);
-  opacity: 0.8;
-}
-
-.jzi-kicker {
-  text-transform: uppercase;
-  letter-spacing: .18em;
-  font-size: 11px;
-  font-weight: 750;
-  color: #765827;
-  margin: 0 0 14px;
-}
-
-.jzi-title {
-  font-family: "Playfair Display", serif;
-  font-size: clamp(38px, 7vw, 76px);
-  font-weight: 400;
-  line-height: 1.02;
-  letter-spacing: -.03em;
-  margin: 0 0 38px;
-}
-
-/* Details Grid */
-.jzi-meta-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 28px;
-  margin: 0 0 38px;
-  padding: 24px 0;
-  border-block: 1px solid rgba(28, 25, 19, 0.1);
-  text-align: center;
-}
-
-.jzi-meta-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  justify-content: center;
-}
-
-.jzi-meta-item:first-child {
-  border-inline-end: 1px solid rgba(28, 25, 19, 0.10);
-}
-
-.jzi-meta-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: #765827;
-}
-
-.jzi-meta-value {
-  font-size: 14px;
-  font-weight: 650;
-  margin: 0;
-}
-
-.jzi-meta-tz {
-  font-size: 10px;
-  color: rgba(28, 25, 19, 0.55);
-}
-
-/* Invitation message body */
-.jzi-message {
-  font-family: "Playfair Display", serif;
-  font-size: clamp(18px, 2.5vw, 24px);
-  font-style: italic;
-  line-height: 1.6;
-  max-width: 48ch;
-  margin: 0 auto 38px;
-  color: rgba(28, 25, 19, 0.85);
-  white-space: pre-line;
-}
-
-.jzi-deadline {
-  display: inline-block;
-  padding: 6px 14px;
-  border: 1px dashed rgba(118, 88, 39, 0.28);
-  font-size: 11px;
-  color: rgba(28, 25, 19, 0.6);
-  margin-bottom: 24px;
-}
-
-/* 3. RSVP Choices */
-.jzi-rsvp-section {
-  margin-top: 38px;
-  padding-top: 30px;
-  border-top: 1px solid rgba(28, 25, 19, 0.08);
-}
-
-.jzi-guest-title {
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 18px;
-}
-
-.jzi-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: center;
-}
-
-.jzi-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 52px;
-  padding: 0 32px;
-  border: 1px solid #1c1913;
-  border-radius: 999px;
-  background: #1c1913;
-  color: #faf8ec;
-  font-family: "Archia", sans-serif;
-  font-weight: 650;
-  font-size: 14px;
-  cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
-}
-
-.jzi-btn:hover {
-  transform: translateY(-1px);
-}
-
-.jzi-btn:focus-visible {
-  outline: 3px solid #e6c67f;
-  outline-offset: 2px;
-}
-
-.jzi-btn--ghost {
-  background: transparent;
-  color: #1c1913;
-}
-
-.jzi-btn--ghost:hover {
-  background: rgba(28, 25, 19, 0.05);
-}
-
-.jzi-btn--gold {
-  background: #e6c67f;
-  color: #1c1913;
-  border-color: #e6c67f;
-}
-
-.jzi-btn--gold:hover {
-  background: #d9b872;
-}
-
-.jzi-btn--small {
-  min-height: 38px;
-  padding: 0 18px;
-  font-size: 12px;
-}
-
-/* 4. Confirmation */
-.jzi-confirm {
-  display: grid;
-  gap: 12px;
-  justify-items: center;
-  animation: jzi-confirm-in 0.4s ease both;
-}
-
-@keyframes jzi-confirm-in {
-  from {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-}
-
-.jzi-confirm__icon {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: rgba(40, 103, 72, 0.1);
-  color: #286748;
-  font-size: 20px;
-  font-weight: bold;
-  margin-bottom: 8px;
-}
-
-.jzi-confirm h3 {
-  font-family: "Playfair Display", serif;
-  font-size: 26px;
-  font-weight: 500;
-  margin: 0;
-}
-
-.jzi-confirm__helper {
-  font-size: 13px;
-  color: rgba(28, 25, 19, 0.6);
-  margin: 0 0 14px;
 }
 
 .jzi-error {
@@ -354,40 +87,6 @@
   font-size: 12px;
 }
 
-/* Responsive Layout */
-@media (max-width: 600px) {
-  .jzi-invitation {
-    border-radius: 0;
-    transform: none;
-    padding: clamp(28px, 6vw, 42px) 20px;
-  }
-
-  .jzi-invitation::before {
-    margin: 6px;
-  }
-
-  .jzi-meta-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .jzi-meta-item:first-child {
-    border-inline-end: 0;
-    border-bottom: 1px solid rgba(28, 25, 19, 0.1);
-    padding-bottom: 16px;
-  }
-
-  .jzi-actions {
-    display: grid;
-    width: 100%;
-  }
-
-  .jzi-btn {
-    width: 100%;
-  }
-}
-
-/* 5. Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
   .jzi-puzzle-wrapper {
     transition: none !important;
@@ -395,28 +94,5 @@
 
   .jzi-reveal {
     animation: none !important;
-  }
-
-  .jzi-confirm {
-    animation: none !important;
-  }
-}
-
-/* RTL Arabic Styles */
-[dir=rtl] .jzi-recipient-name,
-[dir=rtl] .jzi-title,
-[dir=rtl] .jzi-message,
-[dir=rtl] .jzi-confirm h3 {
-  font-family: "Noto Naskh Arabic", serif;
-  line-height: 1.25;
-}
-
-[dir=rtl] .jzi-meta-item:first-child {
-  border-inline-end: 0;
-}
-
-@media (min-width: 601px) {
-  [dir=rtl] .jzi-meta-item:first-child {
-    border-inline-start: 1px solid rgba(28, 25, 19, 0.10);
   }
 }
