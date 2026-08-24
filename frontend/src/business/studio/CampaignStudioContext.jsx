@@ -7,7 +7,11 @@ const initialState = {
   studio: { activeArea: 0, visitedAreas: [0], selectedRecipientId: null, previewRecipient: null, saveState: 'loading', saveError: '' },
   campaign: { name: 'The Atelier Opening', experienceType: 'invitation' },
   puzzle: { imagePreviewUrl: null, difficultyId: 'classic', mysteryMode: false },
-  experience: { eventTitle: 'An evening at The Atelier', dateTime: '2026-10-24T19:30', timezone: 'Asia/Bahrain', location: 'The Atelier, Manama', rsvpDeadline: '2026-10-18', message: 'Sara, we would love you to join us for an intimate evening of art, conversation and a little surprise.', rsvpEnabled: true, allowPlusOneDefault: false },
+  // This message is COMMON text shared by every recipient — never a specific guest's
+  // name. Each recipient's own salutation is rendered separately (from their real
+  // displayName), never typed into this field. See SolvedInvitationFrame's
+  // `recipientName` prop.
+  experience: { eventTitle: 'An evening at The Atelier', dateTime: '2026-10-24T19:30', timezone: 'Asia/Bahrain', location: 'The Atelier, Manama', rsvpDeadline: '2026-10-18', message: 'We would love you to join us for an intimate evening of art, conversation and a little surprise.', rsvpEnabled: true, allowPlusOneDefault: false },
   recipients: { entitiesById: {}, orderedIds: [], loading: true },
   delivery: { channel: 'whatsapp' },
   schedule: { mode: 'now', date: '', time: '', scheduledSendAt: null },

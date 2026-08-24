@@ -76,7 +76,7 @@ test('persisted image drives the main workspace hero and the Studio final-invita
   const page = fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
   const puzzle = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
   // Main workspace hero (PuzzleArea).
-  assert.match(page, /BusinessPuzzle finalPiece=\{7\} pieceCount=\{pieceCount\} imageUrl=\{state\.puzzle\.imagePreviewUrl\}/);
+  assert.match(page, /BusinessPuzzle pieceCount=\{pieceCount\} imageUrl=\{state\.puzzle\.imagePreviewUrl\}/);
   // The final-invitation Studio preview hands the live image/mystery state straight
   // through to the SAME SolvedInvitationFrame component the real recipient sees —
   // mystery-gated exactly once, at the call site, not re-derived inside the frame.
@@ -267,8 +267,10 @@ test('consumer PuzzlePlayer defaults to CONSUMER_PUZZLE_GEOMETRY and stays 9:16 
   const receive = fs.readFileSync(path.resolve('src/pages/ReceivePage.jsx'), 'utf8');
   assert.match(receive, /import \{ CONSUMER_PUZZLE_GEOMETRY \} from '\.\.\/puzzle\/puzzle-geometry';/);
   assert.match(receive, /geometry = CONSUMER_PUZZLE_GEOMETRY/);
-  assert.match(receive, /const g = geometry\.grid\[data\.pieceCount\] \|\| \{ cols: 3, rows: 6 \};/);
-  assert.match(receive, /const BW = geometry\.board\.width, BH = geometry\.board\.height, PAD = 46;/);
+  // The board/grid resolution formula (`geometry.grid[pieceCount] || {cols:3,rows:6}`,
+  // BW/BH/PAD derivation) now lives once in puzzle-layout.js's computeLayout(), not
+  // inlined here — see the shared-layout tests in business-journey.test.js.
+  assert.match(receive, /const layout = useMemo\(\(\) => computeLayout\(geometry, data\.pieceCount\), \[geometry, data\.pieceCount\]\);/);
   // The consumer route (/p/:publicId, /receive.html) calls PuzzlePlayer without a
   // geometry override, so it gets the default above — unchanged, byte-for-byte.
   assert.match(receive, /<PuzzlePlayer data=\{puzzleData\} setData=\{setPuzzleData\} publicId=\{publicId\} rIndex=\{resolvedRIndex\} startTimeRef=\{startTimeRef\} \/>/);
@@ -304,7 +306,9 @@ test('BusinessPuzzle Studio preview (the puzzle-solving preview, not the final-i
   // shape, in either file.
   const puzzle = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
   assert.match(puzzle, /import \{ CONSUMER_PUZZLE_GEOMETRY \} from '\.\.\/\.\.\/puzzle\/puzzle-geometry';/);
-  assert.match(puzzle, /const \{ board: BOARD, grid: GRID \} = CONSUMER_PUZZLE_GEOMETRY;/);
+  // Board/grid resolution is delegated to the shared computeLayout() (puzzle-layout.js),
+  // not a local `{board:BOARD, grid:GRID} = CONSUMER_PUZZLE_GEOMETRY` destructure.
+  assert.match(puzzle, /const layout = useMemo\(\(\) => computeLayout\(CONSUMER_PUZZLE_GEOMETRY, pieceCount\), \[pieceCount\]\);/);
   assert.doesNotMatch(puzzle, /const BOARD_W = \d/);
   assert.doesNotMatch(puzzle, /BUSINESS_PUZZLE_LAYOUTS|BUSINESS_PUZZLE_GEOMETRY/);
 });
@@ -327,9 +331,11 @@ test('two independent ratio tracks, never conflated: puzzle SOLVING is 9:16 (sam
   const boardMatch = geometry.match(/CONSUMER_PUZZLE_GEOMETRY = \{\s*board: \{ width: (\d+), height: (\d+) \}/);
   assert.ok(boardMatch, 'CONSUMER_PUZZLE_GEOMETRY board found');
   assert.equal(Number(boardMatch[1]) / Number(boardMatch[2]), 9 / 16);
-  assert.match(puzzle, /width=\{BOARD\.width\} height=\{BOARD\.height\} preserveAspectRatio="xMidYMid slice"/);
-  assert.match(css, /\.jzs-puzzle-hero svg\{width:100%;aspect-ratio:9\/16;display:block\}/);
-  assert.match(css, /\.jzs-difficulty-card__art\{[^}]*aspect-ratio:9\/16/);
+  assert.match(puzzle, /width=\{BW\} height=\{BH\} preserveAspectRatio="xMidYMid slice"/);
+  // The rendered stage includes PuzzlePlayer's own PAD (46px each side), so the CSS ratio
+  // is the literal 380x604 stage, not the bare 288x512 board rounded to 9:16.
+  assert.match(css, /\.jzs-puzzle-hero svg\{width:100%;aspect-ratio:380\/604;display:block\}/);
+  assert.match(css, /\.jzs-difficulty-card__art\{[^}]*aspect-ratio:380\/604/);
 
   // FINAL-INVITATION track — 4:5, BUSINESS_INVITATION_CARD, everywhere the revealed card
   // is cropped, previewed, or shown.
@@ -378,17 +384,19 @@ test('crop UI copy exists and stays parity-complete across EN/AR', () => {
   }
 });
 
-test('BusinessPuzzle fills its board exactly, no letterboxing margin around the assembled puzzle', () => {
-  // Root cause of the oversized main puzzle frame / phone puzzle card / difficulty
-  // thumbnails: the viewBox added a tabPad margin (0.46 * cell size) equally to width
-  // and height. Boundary edges are always flat (piecePath: dir=0 on every outer edge),
-  // so an assembled puzzle's silhouette never extends past the board rectangle — that
-  // margin was unnecessary, and because it was an equal *absolute* px added to a 3:2
-  // (non-square) board, it also distorted the SVG's own aspect ratio away from 3:2,
-  // which is what actually caused every 3:2 CSS container around it to letterbox.
+test('BusinessPuzzle\'s viewBox is the real padded solving STAGE, not the bare board — deliberately, so loose/scattered pieces (which overhang their home slot by tabPad, exactly like PuzzlePlayer) render fully on-canvas instead of clipping at the board edge', () => {
+  // Superseded regression: an earlier ASSEMBLED-poster version of this component had no
+  // tabPad margin because an assembled puzzle's silhouette never extends past the board
+  // rectangle. That's no longer true — this component now renders the loose/scattered
+  // starting state (see the "Studio puzzle preview faithfully represents..." tests in
+  // business-journey.test.js), where pieces legitimately sit anywhere within PAD of the
+  // board edge and carry the same tabPad overhang PuzzlePlayer's own pieces do.
   const puzzle = fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
-  assert.match(puzzle, /const viewBox = `0 0 \$\{BOARD\.width\} \$\{BOARD\.height\}`;/);
-  assert.doesNotMatch(puzzle, /tabPad/);
+  assert.match(puzzle, /viewBox=\{`0 0 \$\{stageW\} \$\{stageH\}`\}/);
+  // stageW/stageH/PAD are destructured from the shared computeLayout() result (see
+  // puzzle-layout.js), not recomputed locally — that's exactly what keeps them
+  // permanently in sync with PuzzlePlayer's own stage.
+  assert.match(puzzle, /const \{ cols, rows, BW, BH, PAD, stageW, stageH, pieceW, pieceH \} = layout;/);
 });
 
 test('puzzle-frame containers have small deliberate padding, not a giant presentation mat', () => {
@@ -396,7 +404,7 @@ test('puzzle-frame containers have small deliberate padding, not a giant present
   assert.match(css, /\.jzs-difficulty-card__art svg\{position:absolute;inset:5px\}/);
 });
 
-test('the puzzle-art frame is sharp-cornered and exactly 9:16 (same as consumer Receive — it previews SOLVING, not the final invitation) on every surface — main preview and difficulty cards', () => {
+test('the puzzle-art frame is sharp-cornered and exactly 380:604 — CONSUMER_PUZZLE_GEOMETRY board plus PuzzlePlayer\'s own PAD on every side, the real solving stage, not a rounded 9:16 approximation — on every surface: main preview and difficulty cards', () => {
   // Root cause: .jzs-difficulty-card__art (border-radius:10px) wrapped a sharp-cornered
   // assembled puzzle (BusinessPuzzle's pieces tile a plain rectangle — see
   // BusinessPuzzle.jsx) in a rounded outer frame, the same "rounded frame around sharp
@@ -404,17 +412,19 @@ test('the puzzle-art frame is sharp-cornered and exactly 9:16 (same as consumer 
   // outer selectable card) intentionally keeps its own --radius-md; only
   // .jzs-difficulty-card__art (the inner artwork area) goes sharp. This ratio has been
   // 3:2, then briefly 4:5 (wrongly, when a since-reverted round gave Business its own
-  // puzzle geometry), now 9:16 — matching CONSUMER_PUZZLE_GEOMETRY, since BusinessPuzzle's
-  // own viewBox is always BOARD.width x BOARD.height and would otherwise letterbox inside
-  // a stale-ratio container. This component previews the SOLVING experience; the 4:5
+  // puzzle geometry), then a rounded 9:16 (the board alone), now the literal 380:604
+  // padded stage — matching what BusinessPuzzle's viewBox actually is once it renders the
+  // real loose/scattered starting state (pieces need room to sit within PAD of the board
+  // edge), so it would otherwise letterbox inside a stale-ratio container. This component
+  // previews the SOLVING experience; the 4:5
   // final-invitation card lives only in SolvedInvitationFrame/business-journey.css and
   // the crop tool (.jzs-crop-frame below), never here. The Studio-phone-preview variant
   // of this frame (.jzs-phone__puzzle) no longer exists — the phone preview now renders
   // the final SolvedInvitationFrame directly.
   const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
   assert.match(css, /\.jzs-puzzle-hero\{[^}]*border-radius:0;/);
-  assert.match(css, /\.jzs-puzzle-hero svg\{width:100%;aspect-ratio:9\/16;/);
-  assert.match(css, /\.jzs-difficulty-card__art\{[^}]*aspect-ratio:9\/16;border-radius:0;/);
+  assert.match(css, /\.jzs-puzzle-hero svg\{width:100%;aspect-ratio:380\/604;/);
+  assert.match(css, /\.jzs-difficulty-card__art\{[^}]*aspect-ratio:380\/604;border-radius:0;/);
   assert.doesNotMatch(css, /\.jzs-phone__puzzle/, 'the old Studio-phone puzzle preview frame is fully retired, not left as dead CSS');
   // The final-invitation crop frame stays 4:5 — a genuinely different concern, correctly
   // NOT matching the puzzle-preview ratio above.
@@ -431,14 +441,15 @@ test('main puzzle frame has mathematically equal padding on all four sides, shar
   // inner area, so the svg content letterboxed on one axis only, producing visibly
   // unequal margins (and off-center content) despite the inset value itself being equal.
   // Fix: no aspect-ratio on the frame — its height is derived from content instead. The
-  // svg carries its own aspect-ratio (9:16, matching CONSUMER_PUZZLE_GEOMETRY — this
-  // previews the puzzle solve, not the final invitation card) sized to the padded width,
-  // and uniform `padding` + `display:grid;place-items:center` wraps it with truly equal
-  // spacing on every side; no separate top/right/bottom/left values to drift out of sync.
+  // svg carries its own aspect-ratio (380:604, the real padded solving stage — see
+  // BusinessPuzzle.jsx's stageW/stageH — not the final invitation card) sized to the
+  // padded width, and uniform `padding` + `display:grid;place-items:center` wraps it with
+  // truly equal spacing on every side; no separate top/right/bottom/left values to drift
+  // out of sync.
   const css = fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
   assert.match(css, /\.jzs-puzzle-hero\{[^}]*padding:12px;box-sizing:border-box;border-radius:0;[^}]*display:grid;place-items:center\}/);
   assert.doesNotMatch(css, /\.jzs-puzzle-hero\{[^}]*aspect-ratio:/);
-  assert.match(css, /\.jzs-puzzle-hero svg\{width:100%;aspect-ratio:9\/16;display:block\}/);
+  assert.match(css, /\.jzs-puzzle-hero svg\{width:100%;aspect-ratio:380\/604;display:block\}/);
   // The piece-count badge keeps its existing anchor.
   assert.match(css, /\.jzs-puzzle-hero__badge\{position:absolute;inset-inline-start:16px;bottom:16px/);
 });

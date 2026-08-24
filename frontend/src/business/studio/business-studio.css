@@ -232,24 +232,28 @@
    its content: the SVG carries its own exact aspect-ratio:3/2 sized to the padded
    width, and the frame (a grid with uniform padding) wraps it with mathematically
    equal spacing on all four sides, no per-side compensation needed. */
-/* Previews the SOLVING experience (9:16, same as consumer Receive — CONSUMER_PUZZLE_GEOMETRY),
-   not the 4:5 final-invitation card. Narrower cap than the old 4:5 hero since 9:16 is
-   taller per unit width. */
+/* Previews the SOLVING experience — the loose/scattered board a recipient actually sees,
+   not an assembled poster and not the 4:5 final-invitation card. The stage (board + the
+   46px pad pieces scatter into) is 380x604 — CONSUMER_PUZZLE_GEOMETRY's 288x512 board plus
+   PuzzlePlayer's own PAD=46 on every side (see BusinessPuzzle.jsx) — so the aspect-ratio
+   here is the literal stage PuzzlePlayer renders at, not a rounded approximation like 9:16. */
 .jzs-puzzle-hero{margin:22px auto 0;position:relative;width:min(100%,240px);padding:12px;box-sizing:border-box;border-radius:0;overflow:hidden;background:var(--cream-300);border:1px solid var(--border-hairline);display:grid;place-items:center}
-.jzs-puzzle-hero svg{width:100%;aspect-ratio:9/16;display:block}
+.jzs-puzzle-hero svg{width:100%;aspect-ratio:380/604;display:block}
 .jzs-puzzle-hero__badge{position:absolute;inset-inline-start:16px;bottom:16px;height:32px;padding:0 14px;border-radius:var(--radius-pill);background:rgba(5,5,5,.72);color:var(--cream-100);font-size:13px;display:flex;align-items:center;gap:8px}
 /* BusinessPuzzle (shared/landing/BusinessPuzzle.jsx) is rendered on this page too, but
    business-landing.css is never loaded here — without these rules the piece <path>s fall
-   back to the SVG default black fill and opaquely cover the clipped preview image. */
+   back to the SVG default black fill and opaquely cover the clipped preview image. Stroke
+   matches PuzzlePlayer's own per-piece outline exactly (rgba(5,5,5,.32) / 1.1) rather than
+   an independently-chosen value, so the piece silhouette itself — not just its shape data
+   — reads the same as what the recipient actually drags. */
 .jzb-puzzle{display:block;overflow:visible}
-.jzb-puzzle__piece{fill:url(#jzbPuzzleInk);stroke:rgba(5,5,5,.16);stroke-width:1.25;vector-effect:non-scaling-stroke}
-.jzb-puzzle__piece--final{fill:#e6c67f;transform-box:fill-box;transform-origin:center}
+.jzb-puzzle__frame{fill:rgba(5,5,5,.02);stroke:rgba(5,5,5,.16);stroke-width:1.5}
+.jzb-puzzle__piece{fill:url(#jzbPuzzleInk);stroke:rgba(5,5,5,.32);stroke-width:1.1;vector-effect:non-scaling-stroke}
 .jzb-puzzle--image .jzb-puzzle__piece{fill:none}
-.jzb-puzzle--image .jzb-puzzle__piece--final{fill:#e6c67f}
 .jzs-difficulty-grid{margin-top:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .jzs-difficulty-card{text-align:start;padding:12px;border-radius:var(--radius-md);background:var(--surface-card);border:1px solid var(--border-hairline)}
 .jzs-difficulty-card.is-active{border:1.5px solid var(--ink-900);background:var(--cream-200)}
-.jzs-difficulty-card__art{width:100%;aspect-ratio:9/16;border-radius:0;overflow:hidden;background:var(--cream-300);position:relative}
+.jzs-difficulty-card__art{width:100%;aspect-ratio:380/604;border-radius:0;overflow:hidden;background:var(--cream-300);position:relative}
 .jzs-difficulty-card__art svg{position:absolute;inset:5px}
 .jzs-difficulty-card__count{margin-top:12px;display:flex;align-items:baseline;gap:6px}
 .jzs-difficulty-card__count strong{font-size:20px;font-weight:600;color:var(--ink-900)}

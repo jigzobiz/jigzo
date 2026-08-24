@@ -66,8 +66,14 @@ function computeScheduleErrors(state, copy) {
 function RecipientJourneyPreview({ copy, isArabic }) {
   const { state, dispatch } = useCampaignStudio();
   const recipient = state.studio.previewRecipient || state.recipients.entitiesById[state.studio.selectedRecipientId];
-  const recipientName = recipient?.displayName || recipient?.name || '';
-  const firstName = recipientName ? recipientName.split(' ')[0] : copy.preview.select;
+  const recipientDisplayName = recipient?.displayName || recipient?.name || '';
+  // A real recipient's first name — empty string when none is selected. Used for the
+  // invitation-body salutation, where an empty value means "render no salutation at all"
+  // (SolvedInvitationFrame only renders it when truthy) rather than a fake stand-in name.
+  const recipientFirstName = recipientDisplayName ? recipientDisplayName.split(' ')[0] : '';
+  // Studio's own chrome (heading label, kicker) may still say "your guest" as a neutral
+  // placeholder — that text never enters the invitation body itself.
+  const firstName = recipientFirstName || copy.preview.select;
   const plusOne = recipient ? (recipient.plusOneOverride === 'allowed' || (recipient.plusOneOverride === 'inherit' && state.experience.allowPlusOneDefault)) : state.experience.allowPlusOneDefault;
   const cycle = () => {
     const ids = state.recipients.orderedIds; if (ids.length < 2) return;
@@ -89,6 +95,7 @@ function RecipientJourneyPreview({ copy, isArabic }) {
             mode="static"
             imageUrl={state.puzzle.mysteryMode ? null : state.puzzle.imagePreviewUrl}
             kicker={fillTemplate(copy.preview.madeFor, { name: firstName })}
+            recipientName={recipientFirstName}
             eventTitle={state.experience.eventTitle}
             whenDisplay={formatEventDateTime(state.experience.dateTime, isArabic)}
             location={state.experience.location}
@@ -162,14 +169,14 @@ function PuzzleArea({ copy, isArabic }) {
       <input ref={fileInput} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={selectImage} />
     </div>
     <div className="jzs-puzzle-hero">
-      <BusinessPuzzle finalPiece={7} pieceCount={pieceCount} imageUrl={state.puzzle.imagePreviewUrl} mysteryMode={state.puzzle.mysteryMode} label={hasImage ? undefined : copy.puzzle.mocked} />
+      <BusinessPuzzle pieceCount={pieceCount} imageUrl={state.puzzle.imagePreviewUrl} mysteryMode={state.puzzle.mysteryMode} label={hasImage ? undefined : copy.puzzle.mocked} />
       <div className="jzs-puzzle-hero__badge">{pieceCount} {copy.puzzle.pieces}</div>
     </div>
     {uploadState && <small className="jzs-help" style={{ display: 'block', marginTop: 8, color: 'var(--ink-500)', fontSize: 13 }}>{uploadState}</small>}
     <div className="jzs-label" style={{ marginTop: 24 }}>{copy.puzzle.difficulty}</div>
     <div className="jzs-difficulty-grid">
       {PIECE_OPTIONS.map((option) => <button type="button" key={option.id} className={`jzs-difficulty-card${state.puzzle.difficultyId === option.id ? ' is-active' : ''}`} onClick={() => dispatch({ type: 'SET_FIELD', section: 'puzzle', field: 'difficultyId', value: option.id })}>
-        <div className="jzs-difficulty-card__art"><BusinessPuzzle finalPiece={-1} pieceCount={option.count} /></div>
+        <div className="jzs-difficulty-card__art"><BusinessPuzzle pieceCount={option.count} /></div>
         <div className="jzs-difficulty-card__count"><strong>{option.count}</strong><span>{copy.puzzle.pieces}</span></div>
         <div className="jzs-difficulty-card__note">{copy.puzzle.difficultyNotes[option.id]}</div>
       </button>)}
@@ -274,6 +281,7 @@ function RecipientsArea({ copy, isArabic }) {
 function DeliveryArea({ copy, isArabic, validation, refreshDelivery, emailReadyCount, waReadyCount, waBlocked, goToRecipients }) {
   const { state, dispatch } = useCampaignStudio();
   const [testEmail, setTestEmail] = useState(''); const [message, setMessage] = useState('');
+  const [previewName, setPreviewName] = useState(''); const [previewState, setPreviewState] = useState('');
   const readyTotal = emailReadyCount + waReadyCount;
   const scheduleErrors = computeScheduleErrors(state, copy);
   const setSchedule = (field) => (e) => dispatch({ type: 'SET_FIELD', section: 'schedule', field, value: e.target.value });
@@ -282,6 +290,23 @@ function DeliveryArea({ copy, isArabic, validation, refreshDelivery, emailReadyC
     if (!recipientId) { setMessage(isArabic ? 'أضف مستلماً أولاً.' : 'Add a recipient first.'); return; }
     try { await businessApi.sendDeliveryTest(state.identity.campaignId, { recipientId, email: testEmail }, crypto.randomUUID()); setMessage(isArabic ? 'تمت جدولة رسالة الاختبار.' : 'Test email queued.'); await refreshDelivery(); }
     catch (e) { setMessage(e.response?.data?.error || 'Test send failed.'); }
+  };
+  // Opens the REAL /i journey (envelope -> shared PuzzlePlayer -> reveal -> RSVP) for a
+  // synthetic, per-campaign 'test' recipient — never a production recipient, never
+  // counted in results (see backend source:{$ne:'test'} filters). window.open() is called
+  // synchronously in the click handler (before the await) so browsers don't treat the
+  // later-arriving new-tab navigation as a blocked popup.
+  const previewAsGuest = async () => {
+    const win = window.open('', '_blank', 'noopener');
+    setPreviewState('loading');
+    try {
+      const result = await businessApi.previewRecipient(state.identity.campaignId, previewName.trim());
+      if (win) win.location.href = result.link; else window.open(result.link, '_blank', 'noopener');
+      setPreviewState('');
+    } catch (e) {
+      if (win) win.close();
+      setPreviewState(e.response?.data?.error || copy.delivery.previewFailed);
+    }
   };
   return <>
     <AreaIntro copy={copy} index={4} />
@@ -328,6 +353,15 @@ function DeliveryArea({ copy, isArabic, validation, refreshDelivery, emailReadyC
         <button type="button" className="jzs-action jzs-action--ghost jzs-action--sm" onClick={goToRecipients}>{copy.delivery.seeWho}</button>
       </div>
     </div>}
+    <div className="jzs-test-send">
+      <strong>{copy.delivery.previewTitle}</strong>
+      <p>{copy.delivery.previewBody}</p>
+      <div className="jzs-test-send__row">
+        <input type="text" dir="auto" value={previewName} onChange={e => setPreviewName(e.target.value)} placeholder={copy.delivery.previewNamePlaceholder} />
+        <button type="button" className="jzs-action jzs-action--sm" disabled={previewState === 'loading'} onClick={previewAsGuest}>{copy.delivery.previewButton}</button>
+      </div>
+      {previewState && previewState !== 'loading' && <small>{previewState}</small>}
+    </div>
     <div className="jzs-test-send">
       <strong>{copy.delivery.testTitle}</strong>
       <p>{copy.delivery.testBody}</p>

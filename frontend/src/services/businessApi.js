@@ -26,6 +26,7 @@ export const businessApi = {
   ,getDeliveryValidation: async (campaignId) => (await client.get(`/campaigns/${encodeURIComponent(campaignId)}/delivery-validation`)).data
   ,getDeliveryProgress: async (campaignId) => (await client.get(`/campaigns/${encodeURIComponent(campaignId)}/delivery-progress`)).data
   ,sendDeliveryTest: async (campaignId, value, idempotencyKey) => (await client.post(`/campaigns/${encodeURIComponent(campaignId)}/test-send`, value, { headers: { 'X-JIGZO-CSRF': csrfToken, 'Idempotency-Key': idempotencyKey } })).data
+  ,previewRecipient: async (campaignId, name) => (await client.post(`/campaigns/${encodeURIComponent(campaignId)}/preview-recipient`, { name }, { headers: { 'X-JIGZO-CSRF': csrfToken } })).data
   ,launchCampaign: async (campaignId) => (await client.post(`/campaigns/${encodeURIComponent(campaignId)}/launch`, {}, { headers: { 'X-JIGZO-CSRF': csrfToken } })).data
   ,scheduleCampaign: async (campaignId, scheduledSendAt) => (await client.post(`/campaigns/${encodeURIComponent(campaignId)}/schedule`, { scheduledSendAt }, { headers: { 'X-JIGZO-CSRF': csrfToken } })).data
   ,createConsumerTestPuzzle: async (value) => (await stagingTestClient.post('/reveals', value, { headers: { 'X-JIGZO-CSRF': csrfToken } })).data

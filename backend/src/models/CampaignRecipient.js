@@ -3,7 +3,11 @@ const schema = new mongoose.Schema({
   recipientId: { type: String, required: true, unique: true, index: true },
   organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
   campaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign', required: true, index: true },
-  source: { type: String, enum: ['manual', 'import'], required: true },
+  // 'test' recipients back the Studio "Preview as guest" action (see businessInvitations.js
+  // POST /:campaignId/preview-recipient) — a real CampaignRecipient so the real /i session/
+  // puzzle/RSVP pipeline runs unmodified, but excluded everywhere real recipients are
+  // counted, launched to, or aggregated into results (grep `source:{ $ne: 'test' }`).
+  source: { type: String, enum: ['manual', 'import', 'test'], required: true },
   importId: { type: mongoose.Schema.Types.ObjectId, ref: 'RecipientImport', default: null },
   importRowNumber: { type: Number, default: null },
   externalRef: { type: String, default: null, maxlength: 120 },

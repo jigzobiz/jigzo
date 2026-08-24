@@ -76,6 +76,7 @@ export default function InvitationRecipientPage(){
   const lang=session?.recipient?.language||'en';
   const c=COPY[lang];
   const jc=businessJourneyCopy[lang==='ar'?'ar':'en'];
+  const recipientFirstName=session?.recipient?.displayName?session.recipient.displayName.split(' ')[0]:'';
 
   useEffect(()=>{
     let active=true;
@@ -186,6 +187,7 @@ export default function InvitationRecipientPage(){
           mode="interactive"
           imageUrl={REVEALED_IMAGE_URL}
           kicker={c.kicker}
+          recipientName={recipientFirstName}
           eventTitle={invitation.eventTitle}
           whenDisplay={`${formattedDateTime} (${invitation.timezone})`}
           location={invitation.location}

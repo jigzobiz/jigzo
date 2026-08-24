@@ -68,7 +68,7 @@ async function listCampaigns({ organizationId, CampaignModel = Campaign, Recipie
   const campaignObjectIds = campaigns.map(c => c._id);
   const [recipientStats, deliveryStats] = await Promise.all([
     RecipientModel.aggregate([
-      { $match: { organizationId, campaignId: { $in: campaignObjectIds } } },
+      { $match: { organizationId, campaignId: { $in: campaignObjectIds }, source: { $ne: 'test' } } },
       { $group: { _id: '$campaignId', total: { $sum: 1 }, opened: { $sum: { $cond: [{ $ne: ['$firstOpenedAt', null] }, 1, 0] } }, solved: { $sum: { $cond: [{ $ne: ['$firstSolvedAt', null] }, 1, 0] } }, going: { $sum: { $cond: [{ $eq: ['$rsvpStatus', 'going'] }, 1, 0] } }, notGoing: { $sum: { $cond: [{ $eq: ['$rsvpStatus', 'not_going'] }, 1, 0] } }, rsvpPending: { $sum: { $cond: [{ $eq: ['$rsvpStatus', 'pending'] }, 1, 0] } } } }
     ]),
     DeliveryModel.aggregate([

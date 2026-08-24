@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../services/api';
-import { buildEdgeMap, piecePath, mulberry32 } from '../puzzle/puzzle-shape';
+import { piecePath } from '../puzzle/puzzle-shape';
+import { computeLayout, computeHomes, computeEdgeMap, computeScatter } from '../puzzle/puzzle-layout';
 import RevealBeat from '../components/RevealBeat';
 import LoaderOrbit from '../components/LoaderOrbit';
 import LanguageSwitcher from '../components/LanguageSwitcher';
@@ -235,41 +236,15 @@ export default function ReceivePage() {
 export function PuzzlePlayer({ data, setData, publicId, rIndex, startTimeRef, onSolved, geometry = CONSUMER_PUZZLE_GEOMETRY, headerCopy }) {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
-  const g = geometry.grid[data.pieceCount] || { cols: 3, rows: 6 };
-  const cols = g.cols, rows = g.rows;
-  const BW = geometry.board.width, BH = geometry.board.height, PAD = 46;
-  const stageW = BW + PAD * 2, stageH = BH + PAD * 2;
-  const pieceW = BW / cols, pieceH = BH / rows;
-  const tabPad = 0.46 * Math.max(pieceW, pieceH);
-  const bound = Math.min(tabPad, PAD);
-  const elemW = pieceW + tabPad * 2, elemH = pieceH + tabPad * 2;
-  const SNAP = Math.max(20, Math.min(pieceW, pieceH) * 0.36);
-  const edgeMap = useMemo(() => buildEdgeMap(cols, rows, 1337), [cols, rows]);
-
-  const homes = useMemo(() => {
-    const arr = [];
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        arr.push({ r, c, hx: PAD + c * pieceW, hy: PAD + r * pieceH });
-      }
-    }
-    return arr;
-  }, [cols, rows, pieceW, pieceH]);
-
-  const scatter = useCallback(() => {
-    const rand = mulberry32(4242 + (cols * 31 + rows) * 77);
-    const minX = bound, maxX = stageW - pieceW - bound;
-    const minY = bound, maxY = stageH - pieceH - bound;
-    return homes.map((h) => {
-      let x, y, tries = 0;
-      do {
-        x = minX + rand() * (maxX - minX);
-        y = minY + rand() * (maxY - minY);
-        tries++;
-      } while (tries < 8 && Math.hypot(x - h.hx, y - h.hy) < SNAP * 2);
-return { x, y, rot: (rand() - 0.5) * 2 * 9 };
-    });
-  }, [homes, cols, rows, bound, stageW, stageH, pieceW, pieceH, SNAP]);
+  // Board padding, piece sizing/tab-clearance, snap threshold and the deterministic
+  // starting scatter live in the shared puzzle-layout.js module (also consumed by
+  // Studio's static BusinessPuzzle preview) — this is a pure extraction, not a behavior
+  // change: same formulas, same seed, same output, just no longer inlined twice.
+  const layout = useMemo(() => computeLayout(geometry, data.pieceCount), [geometry, data.pieceCount]);
+  const { cols, rows, BW, BH, PAD, stageW, stageH, pieceW, pieceH, tabPad, bound, elemW, elemH, SNAP } = layout;
+  const edgeMap = useMemo(() => computeEdgeMap(layout), [layout]);
+  const homes = useMemo(() => computeHomes(layout), [layout]);
+  const scatter = useCallback(() => computeScatter(layout, homes), [layout, homes]);
 
   const [positions, setPositions] = useState(scatter);
   const [placed, setPlaced] = useState(() => homes.map(() => !!(data?.message && data.message.trim() !== '')));

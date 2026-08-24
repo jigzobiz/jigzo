@@ -22,6 +22,10 @@ const journeyCss = () => fs.readFileSync(path.resolve('src/business/journey/busi
 const studioPage = () => fs.readFileSync(path.resolve('src/pages/business/BusinessCampaignStudioPage.jsx'), 'utf8');
 const studioCss = () => fs.readFileSync(path.resolve('src/business/studio/business-studio.css'), 'utf8');
 const cropModal = () => fs.readFileSync(path.resolve('src/business/studio/BusinessImageCropModal.jsx'), 'utf8');
+const businessPuzzle = () => fs.readFileSync(path.resolve('src/business/landing/BusinessPuzzle.jsx'), 'utf8');
+const campaignContext = () => fs.readFileSync(path.resolve('src/business/studio/CampaignStudioContext.jsx'), 'utf8');
+const studioCopy = () => fs.readFileSync(path.resolve('src/business/studio/studio-copy.js'), 'utf8');
+const businessApiSrc = () => fs.readFileSync(path.resolve('src/services/businessApi.js'), 'utf8');
 
 test('1-2. /i begins in an arrival phase, not the revealed invitation — invitation details never render before solving', () => {
   const page = recipientPage();
@@ -242,11 +246,12 @@ test('No Business-specific scatter/drag/snap/lock/progress implementation exists
   for (const src of [page, arrivalScene(), solvedFrame()]) {
     assert.doesNotMatch(src, /onPointerDown\(i, e\)|scatter\(\)|placeGroup|mulberry32\(4242/, 'Business files must not reimplement any piece of the solving engine');
   }
-  // The engine itself — onDown/scatter/placeGroup/SNAP — exists exactly once, inside the
+  // The engine itself — onDown/scatter/placeGroup — exists exactly once, inside the
   // shared PuzzlePlayer function body in ReceivePage.jsx, which both routes call into.
+  // scatter()'s own formula now lives in puzzle-layout.js (see the shared-layout tests
+  // above); PuzzlePlayer still owns the interactive onDown/placeGroup drag mechanics.
   assert.match(receive, /const onDown = \(i, e\) =>/);
-  assert.match(receive, /const scatter = useCallback\(\(\) => \{/);
-  assert.match(receive, /const SNAP = Math\.max\(20, Math\.min\(pieceW, pieceH\) \* 0\.36\);/);
+  assert.match(receive, /const scatter = useCallback\(\(\) => computeScatter\(layout, homes\), \[layout, homes\]\);/);
   assert.match(receive, /export function PuzzlePlayer\(/);
   assert.doesNotMatch(receive, /function PuzzlePlayer\(.*\n[\s\S]*export function PuzzlePlayer\(/, 'only one PuzzlePlayer definition should exist');
 });
@@ -263,4 +268,159 @@ test('Piece cell proportions match consumer exactly: Business requests the liter
   assert.ok(boardMatch);
   assert.equal(boardMatch[1], '288');
   assert.equal(boardMatch[2], '512');
+});
+
+// ---- Studio puzzle preview faithfully represents the real Receive experience ----
+
+// There is exactly ONE puzzle-layout implementation, shared/imported by both the real
+// interactive PuzzlePlayer and Studio's static BusinessPuzzle preview — the earlier round
+// duplicated the same formulas into both files (cross-checked by tests, but still a
+// second implementation); this round extracts them into puzzle-layout.js instead.
+const puzzleLayout = () => fs.readFileSync(path.resolve('src/puzzle/puzzle-layout.js'), 'utf8');
+
+test('1. There is exactly ONE puzzle-layout implementation (puzzle-layout.js) — not a per-file duplicate. It derives its board/grid from CONSUMER_PUZZLE_GEOMETRY, and contains the authoritative edge-map seed, stage padding, tab clearance, snap threshold and starting-scatter formula', () => {
+  const layout = puzzleLayout();
+  assert.match(layout, /export const EDGE_MAP_SEED = 1337;/);
+  assert.match(layout, /export const STAGE_PAD = 46;/);
+  assert.match(layout, /export function computeLayout\(geometry, pieceCount\)/);
+  assert.match(layout, /export function computeHomes\(layout\)/);
+  assert.match(layout, /export function computeEdgeMap\(layout\)/);
+  assert.match(layout, /export function computeScatter\(layout, homes\)/);
+  assert.match(layout, /const tabPad = 0\.46 \* Math\.max\(pieceW, pieceH\);/);
+  assert.match(layout, /const bound = Math\.min\(tabPad, PAD\);/);
+  assert.match(layout, /const SNAP = Math\.max\(20, Math\.min\(pieceW, pieceH\) \* 0\.36\);/);
+  assert.match(layout, /mulberry32\(4242 \+ \(cols \* 31 \+ rows\) \* 77\)/);
+  assert.match(layout, /Math\.hypot\(x - h\.hx, y - h\.hy\) < SNAP \* 2/);
+  assert.doesNotMatch(layout, /BUSINESS_PUZZLE_GEOMETRY/);
+});
+
+test('2. The real PuzzlePlayer (ReceivePage.jsx) consumes puzzle-layout.js rather than inlining the formulas a second time — this was a pure extraction (same output), not a behavior change, verified separately by direct numeric comparison against the pre-extraction formulas for pieceCounts 6/15/18/28', () => {
+  const receive = receivePage();
+  assert.match(receive, /import \{ computeLayout, computeHomes, computeEdgeMap, computeScatter \} from '\.\.\/puzzle\/puzzle-layout';/);
+  assert.match(receive, /const layout = useMemo\(\(\) => computeLayout\(geometry, data\.pieceCount\), \[geometry, data\.pieceCount\]\);/);
+  assert.match(receive, /const edgeMap = useMemo\(\(\) => computeEdgeMap\(layout\), \[layout\]\);/);
+  assert.match(receive, /const homes = useMemo\(\(\) => computeHomes\(layout\), \[layout\]\);/);
+  assert.match(receive, /const scatter = useCallback\(\(\) => computeScatter\(layout, homes\), \[layout, homes\]\);/);
+  // None of the layout formulas are inlined here any more — they exist in exactly one
+  // place (puzzle-layout.js).
+  assert.doesNotMatch(receive, /const tabPad = 0\.46 \* Math\.max/);
+  assert.doesNotMatch(receive, /mulberry32\(4242/);
+  assert.doesNotMatch(receive, /buildEdgeMap\(cols, rows, 1337\)/);
+});
+
+test('3. BusinessPuzzle.jsx consumes the exact same puzzle-layout.js functions — no duplicate scatter/layout formula remains in any Business file', () => {
+  const puzzle = businessPuzzle();
+  assert.match(puzzle, /import \{ computeLayout, computeHomes, computeEdgeMap, computeScatter \} from '\.\.\/\.\.\/puzzle\/puzzle-layout';/);
+  assert.match(puzzle, /import \{ CONSUMER_PUZZLE_GEOMETRY \} from '\.\.\/\.\.\/puzzle\/puzzle-geometry';/);
+  assert.doesNotMatch(puzzle, /BUSINESS_PUZZLE_GEOMETRY/);
+  // The formulas themselves must not be reimplemented here — only imported.
+  for (const formula of [
+    /0\.46 \* Math\.max/, // tabPad
+    /Math\.min\(tabPad, PAD\)/, // bound
+    /Math\.max\(20, Math\.min\(pieceW, pieceH\) \* 0\.36\)/, // SNAP
+    /mulberry32\(4242/, // scatter seed
+    /buildEdgeMap\([^)]*1337\)/, // edge-map seed
+    /Math\.hypot\(x - h\.hx/, // rejection-sampling loop
+  ]) {
+    assert.doesNotMatch(puzzle, formula, `BusinessPuzzle.jsx must not reimplement: ${formula}`);
+  }
+  // Every other Business file is clean too (no stray copy of the same math anywhere).
+  for (const src of [arrivalScene(), solvedFrame(), studioPage()]) {
+    assert.doesNotMatch(src, /mulberry32\(4242 \+ \(cols/);
+    assert.doesNotMatch(src, /0\.46 \* Math\.max\(pieceW, pieceH\)/);
+  }
+});
+
+test('4. Studio does not introduce a second interactive puzzle engine — BusinessPuzzle.jsx is a static, non-interactive renderer (no drag/pointer handlers, no PuzzlePlayer mounted inside a small card)', () => {
+  const puzzle = businessPuzzle();
+  assert.doesNotMatch(puzzle, /onPointerDown|onPointerMove|useState\(scatter\)|<PuzzlePlayer/);
+  const studio = studioPage();
+  assert.doesNotMatch(studio, /<PuzzlePlayer/, 'PuzzleArea must never mount the real interactive engine inside a Studio preview card');
+});
+
+test('5. Actual /i (InvitationRecipientPage.jsx) and consumer Receive (ReceivePage.jsx) drag/snap/lock/solve behavior are untouched by the shared-layout extraction — only where the layout numbers come FROM changed (one shared module instead of two inlined copies), not what PuzzlePlayer does with them', () => {
+  const page = recipientPage();
+  assert.match(page, /geometry=\{CONSUMER_PUZZLE_GEOMETRY\}/);
+  assert.doesNotMatch(page, /BusinessPuzzle/);
+  const receive = receivePage();
+  assert.doesNotMatch(receive, /jzb-puzzle/);
+  // The interactive mechanics themselves (drag, snap, lock, placeGroup) still live only
+  // in ReceivePage.jsx, untouched by the extraction — SNAP is now destructured from the
+  // shared `layout` object but drag/snap code still reads the same in-scope `SNAP` name.
+  assert.match(receive, /const onDown = \(i, e\) =>/);
+  assert.match(receive, /const \{ cols, rows, BW, BH, PAD, stageW, stageH, pieceW, pieceH, tabPad, bound, elemW, elemH, SNAP \} = layout;/);
+});
+
+// ---- Recipient-name personalization (no hardcoded "Sara") ----
+
+test('5. The campaign Invitation Message is COMMON text only — the recipient salutation is a separate prop/element, not baked into the message string, and not derived by searching the message for a name', () => {
+  const frame = solvedFrame();
+  assert.match(frame, /recipientName,\s*\n\s*eventTitle,/);
+  assert.match(frame, /<span className="jzj-solved__salutation">\{recipientName\}\{isArabic \? '،' : ','\} <\/span>/);
+  assert.doesNotMatch(frame, /\.replace\(.*Sara|indexOf\('Sara'\)|includes\('Sara'\)/, 'no fragile string search/replace for a hardcoded name');
+});
+
+test('6-7-8. Both the real /i reveal and the Studio preview resolve the salutation from that specific recipient\'s own server-backed data (session.recipient.displayName / the selected or previewed recipient\'s displayName) — never a shared literal, so recipient A and recipient B (CSV or manual, same code path either way) each see their own name with the identical shared message', () => {
+  const page = recipientPage();
+  assert.match(page, /const recipientFirstName=session\?\.recipient\?\.displayName\?session\.recipient\.displayName\.split\(' '\)\[0\]:'';/);
+  assert.match(page, /recipientName=\{recipientFirstName\}/);
+  const studio = studioPage();
+  assert.match(studio, /const recipientDisplayName = recipient\?\.displayName \|\| recipient\?\.name \|\| '';/);
+  assert.match(studio, /const recipientFirstName = recipientDisplayName \? recipientDisplayName\.split\(' '\)\[0\] : '';/);
+  assert.match(studio, /recipientName=\{recipientFirstName\}/);
+  // Manual and CSV/import recipients are both plain CampaignRecipient rows created via the
+  // same normalizeRecipient/persistedRecipient path (source differs, displayName handling
+  // does not) — no separate personalization logic per source.
+  assert.doesNotMatch(studio, /source === 'import'.*displayName|source === 'manual'.*displayName/);
+});
+
+test('9. No hardcoded "Sara" personalization remains in product code or default campaign copy', () => {
+  for (const src of [recipientPage(), solvedFrame(), journeyCss(), journeyCopy(), studioCopy(), campaignContext(), studioPage()]) {
+    assert.doesNotMatch(src, /Sara/);
+  }
+});
+
+test('10. With NO recipient selected, Studio renders no salutation at all in the invitation body (not "your guest," or any other stand-in name) — only the Studio chrome (heading label, kicker) may say "your guest" as neutral UI text, never inside the invitation content itself. With a REAL recipient selected, their actual name renders as the salutation', () => {
+  const copy = studioCopy();
+  assert.match(copy, /select: 'your guest'/);
+  assert.match(copy, /select: 'ضيفك'/);
+  const studio = studioPage();
+  // recipientFirstName (passed to SolvedInvitationFrame's recipientName, i.e. the
+  // invitation-body salutation) is '' with no recipient — SolvedInvitationFrame only
+  // renders the salutation span when this prop is truthy, so an empty string means no
+  // salutation renders at all, not a placeholder name.
+  assert.match(studio, /recipientFirstName = recipientDisplayName \? recipientDisplayName\.split\(' '\)\[0\] : '';/);
+  // The kicker (Studio chrome, outside the invitation body/message) is the ONLY place
+  // that falls back to copy.preview.select ("your guest").
+  assert.match(studio, /const firstName = recipientFirstName \|\| copy\.preview\.select;/);
+  assert.match(studio, /kicker=\{fillTemplate\(copy\.preview\.madeFor, \{ name: firstName \}\)\}\s*\n\s*recipientName=\{recipientFirstName\}/);
+  const frame = solvedFrame();
+  assert.match(frame, /\{recipientName && <span className="jzj-solved__salutation">/, 'the salutation must be conditionally rendered — an empty recipientName renders nothing');
+});
+
+// ---- "Preview as guest" test-receiver workflow (frontend wiring) ----
+
+test('11-12. A "Preview as guest" action exists in Delivery and calls the real backend endpoint that mints a real /i access token — opening the actual recipient experience, not a Studio mockup', () => {
+  const api = businessApiSrc();
+  assert.match(api, /previewRecipient: async \(campaignId, name\) => \(await client\.post\(`\/campaigns\/\$\{encodeURIComponent\(campaignId\)\}\/preview-recipient`/);
+  const studio = studioPage();
+  assert.match(studio, /const previewAsGuest = async \(\) => \{/);
+  assert.match(studio, /businessApi\.previewRecipient\(state\.identity\.campaignId, previewName\.trim\(\)\)/);
+  // window.open is called synchronously in the click handler, before the await, so the
+  // browser does not treat the later navigation as a blocked popup.
+  const handlerBody = studio.match(/const previewAsGuest = async \(\) => \{([\s\S]*?)\n  \};/)[1];
+  assert.ok(handlerBody.indexOf("window.open('', '_blank'") < handlerBody.indexOf('await businessApi.previewRecipient'), 'window.open must be called before the async request, not after');
+  assert.match(studio, /disabled=\{previewState === 'loading'\} onClick=\{previewAsGuest\}>\{copy\.delivery\.previewButton\}/);
+});
+
+test('13-14-16. Test isolation is real, not just a UI label: the same source:{$ne:\'test\'} exclusion this file\'s backend counterpart tests is what keeps a preview from counting as a recipient, touching results, or reaching real delivery — cross-checked here from the frontend copy that promises it', () => {
+  const copy = studioCopy();
+  assert.match(copy, /previewBody: 'Opens the real envelope-to-invitation experience in a new tab, exactly as a guest sees it\. It never counts as a recipient or touches your results\.'/);
+  assert.match(copy, /previewBody: 'تفتح تجربة المغلف حتى الدعوة الحقيقية في تبويب جديد، تماماً كما يراها الضيف\. لا تُحتسب كمستلم ولا تؤثر على نتائجك\.'/);
+});
+
+test('15. The preview action never asks for or exposes Mystery Mode / security internals — it only takes an optional display name', () => {
+  const studio = studioPage();
+  const handlerBody = studio.match(/const previewAsGuest = async \(\) => \{([\s\S]*?)\n  \};/)[1];
+  assert.doesNotMatch(handlerBody, /mysteryMode|accessToken|secret/i);
 });

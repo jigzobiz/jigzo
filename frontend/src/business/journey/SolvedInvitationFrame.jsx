@@ -9,10 +9,17 @@ import React from 'react';
 // what the guest will see. Sizing is container-query driven (see business-journey.css)
 // so the identical markup reads correctly both inside Studio's narrow phone shell and
 // the full-width recipient page, with no separate "compact" prop/variant needed.
+//
+// `message` is the campaign-level COMMON text every recipient reads (never a specific
+// guest's name); `recipientName` is rendered as a separate salutation prefix, sourced
+// from that recipient's own real data (server-resolved displayName on the real reveal,
+// the selected/previewed recipient's name in Studio) — never baked into `message` by the
+// sender, and never derived by searching the message text for a name.
 export default function SolvedInvitationFrame({
   mode = 'interactive',
   imageUrl,
   kicker,
+  recipientName,
   eventTitle,
   whenDisplay,
   location,
@@ -65,7 +72,10 @@ export default function SolvedInvitationFrame({
           <span dir="auto">{whenDisplay || '—'}</span>
           <span dir="auto">{location || '—'}</span>
         </div>
-        {message && <p className="jzj-solved__message" dir="auto">{message}</p>}
+        {message && <p className="jzj-solved__message" dir="auto">
+          {recipientName && <span className="jzj-solved__salutation">{recipientName}{isArabic ? '،' : ','} </span>}
+          {message}
+        </p>}
       </div>
     </div>
     {rsvpEnabled && <div className="jzj-solved__reply">
