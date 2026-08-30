@@ -136,8 +136,8 @@ function DeliveryStatus() {
                 { key: 'openedAt', label: 'Opened', render: (r) => <TimeCell v={r.openedAt} /> },
                 { key: 'completedAt', label: 'Solved', render: (r) => <TimeCell v={r.completedAt} /> },
                 { key: 'completionSeconds', label: 'Duration', render: (r) => r.completionSeconds != null ? `${r.completionSeconds}s` : 'Not recorded' },
-                { key: 'manualLinkProvidedAt', label: 'Manual link', render: (r) => r.manualLinkProvidedAt ? <Badge tone="good">provided</Badge> : <span style={{ color: T.ink50 }}>—</span> },
-                { key: 'lastError', label: 'Last error', wrap: true, render: (r) => r.lastError ? <span style={{ color: T.red, fontSize: 12 }}>{r.lastError}</span> : <span style={{ color: T.ink50 }}>—</span> },
+                { key: 'manualLink', label: 'Manual link', render: (r) => r.manualLink ? <Button size="sm" onClick={() => navigator.clipboard.writeText(r.manualLink)}>Copy link</Button> : <span style={{ color: T.ink50 }}>—</span> },
+                { key: 'lastError', label: 'Last error', wrap: true, render: (r) => r.deliveryRestriction === 'meta_131049' ? <Badge tone="bad">Meta delivery restriction</Badge> : r.lastError ? <span style={{ color: T.red, fontSize: 12 }}>{r.lastError}</span> : <span style={{ color: T.ink50 }}>—</span> },
                 { key: 'retry', label: '', render: (r) => {
                   const key = `${r.puzzleId}-${r.recipientIndex}`;
                   const correctionKey = `correct-${key}`;
