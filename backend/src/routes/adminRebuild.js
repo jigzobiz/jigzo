@@ -19,6 +19,7 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
+const { getFrontendOrigin } = require('../utils/runtimeConfig');
 
 const Customer = require('../models/Customer');
 const Order = require('../models/Order');
@@ -465,8 +466,12 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
           openedAt: r.openedAt || r.whatsappReadAt || null,
           completedAt: r.completedAt || null,
           completionSeconds: r.completionSeconds != null ? r.completionSeconds : null,
+          manualLink: `${getFrontendOrigin()}/p/${p.publicId}?r=${i}`,
           manualLinkProvidedAt: r.manualLinkProvidedAt || null,
           manualLinkProvidedByUsername: r.manualLinkProvidedByUsername || '',
+          deliveryRestriction: String((message && message.lastErrorCode) || r.whatsappLastErrorCode || '') === '131049'
+            ? 'meta_131049'
+            : null,
           lastError: (message && message.lastErrorMessage) || r.whatsappLastErrorMessage || r.lastError || '',
           tapReference: order ? (order.providerChargeId || '') : '',
           conflicts

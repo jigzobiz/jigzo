@@ -41,7 +41,10 @@ class WhatsAppService {
   }
 
   isInitialPuzzleDeliveryCorrectable(messageRecord, recipient) {
-    return this.isCurrentTerminalPuzzleDeliveryFailure(messageRecord, recipient);
+    return Boolean(
+      this.isCurrentTerminalPuzzleDeliveryFailure(messageRecord, recipient) &&
+      String(messageRecord.lastErrorCode) !== '131049'
+    );
   }
 
   async correctPuzzleDeliveryRecipient({ puzzleId, recipientIndex, phone, adminId }) {

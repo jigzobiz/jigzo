@@ -1,5 +1,6 @@
 const assert = require('assert');
 const crypto = require('crypto');
+const fs = require('fs');
 
 // Mock setup for Mongoose models to allow fast database-free unit testing
 const mockDb = {
@@ -1363,7 +1364,8 @@ async function runAllTests() {
   assert.strictEqual(numericMsg.lastErrorCode, '131049');
   assert.strictEqual(numericMsg.lastErrorMessage, 'Meta delivery limit — WhatsApp error 131049. Do not retry for 24 hours; use the approved fallback channel.');
   assert.strictEqual(whatsappService.isInitialPuzzleDeliveryRetryable(numericMsg, mockDb.puzzles['failed-131049-numeric'].recipients[0]), false);
-  console.log('✓ Scenario 6.3d: Meta delivery limit - WhatsApp error 131049 (numeric) sets correct message and disables retry: Success');
+  assert.strictEqual(whatsappService.isInitialPuzzleDeliveryCorrectable(numericMsg, mockDb.puzzles['failed-131049-numeric'].recipients[0]), false);
+  console.log('✓ Scenario 6.3d: Meta delivery limit - WhatsApp error 131049 (numeric) disables retry and number correction: Success');
 
   // Scenario 6.3e: Meta delivery limit - WhatsApp error 131049 (string error code)
   const string131049Key = 'puzzle-delivery:failed-131049-string:0:jigzo_puzzle_delivery:v1';
@@ -1415,7 +1417,15 @@ async function runAllTests() {
   assert.strictEqual(stringMsg.lastErrorCode, '131049');
   assert.strictEqual(stringMsg.lastErrorMessage, 'Meta delivery limit — WhatsApp error 131049. Do not retry for 24 hours; use the approved fallback channel.');
   assert.strictEqual(whatsappService.isInitialPuzzleDeliveryRetryable(stringMsg, mockDb.puzzles['failed-131049-string'].recipients[0]), false);
-  console.log('✓ Scenario 6.3e: Meta delivery limit - WhatsApp error 131049 (string) sets correct message and disables retry: Success');
+  assert.strictEqual(whatsappService.isInitialPuzzleDeliveryCorrectable(stringMsg, mockDb.puzzles['failed-131049-string'].recipients[0]), false);
+
+  const deliveryApiSource = fs.readFileSync(require.resolve('../src/routes/adminRebuild'), 'utf8');
+  const deliveryCentreSource = fs.readFileSync(require.resolve('../../frontend/src/pages/admin/DeliveryCentre.jsx'), 'utf8');
+  assert.match(deliveryApiSource, /manualLink: `\$\{getFrontendOrigin\(\)\}\/p\/\$\{p\.publicId\}\?r=\$\{i\}`/);
+  assert.match(deliveryApiSource, /deliveryRestriction:[\s\S]*'131049'[\s\S]*'meta_131049'/);
+  assert.match(deliveryCentreSource, /Meta delivery restriction/);
+  assert.match(deliveryCentreSource, />Copy link<\/Button>/);
+  console.log('✓ Scenario 6.3e: Historical Meta 131049 rows expose their canonical Copy link and restriction label: Success');
 
   const sentThenFailedKey = 'puzzle-delivery:sent-then-failed:0:jigzo_puzzle_delivery:v1';
   const sentThenFailedMessage = new MockWhatsAppMessage({
