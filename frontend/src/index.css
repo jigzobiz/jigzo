@@ -12,6 +12,12 @@
 @font-face { font-family:"Archia"; src:url("/assets/fonts/Archia-Medium.otf") format("opentype"); font-weight:500; font-style:normal; font-display:swap; }
 @font-face { font-family:"Archia"; src:url("/assets/fonts/Archia-SemiBold.otf") format("opentype"); font-weight:600; font-style:normal; font-display:swap; }
 @font-face { font-family:"Archia"; src:url("/assets/fonts/Archia-Bold.otf") format("opentype"); font-weight:700; font-style:normal; font-display:swap; }
+@font-face { font-family:"FiraGO"; src:url("/assets/fonts/FiraGO/FiraGO-Thin.otf") format("opentype"); font-weight:100; font-style:normal; font-display:swap; }
+@font-face { font-family:"FiraGO"; src:url("/assets/fonts/FiraGO/FiraGO-Light.otf") format("opentype"); font-weight:300; font-style:normal; font-display:swap; }
+@font-face { font-family:"FiraGO"; src:url("/assets/fonts/FiraGO/FiraGO-Regular.otf") format("opentype"); font-weight:400; font-style:normal; font-display:swap; }
+@font-face { font-family:"FiraGO"; src:url("/assets/fonts/FiraGO/FiraGO-Medium.otf") format("opentype"); font-weight:500; font-style:normal; font-display:swap; }
+@font-face { font-family:"FiraGO"; src:url("/assets/fonts/FiraGO/FiraGO-SemiBold.otf") format("opentype"); font-weight:600; font-style:normal; font-display:swap; }
+@font-face { font-family:"FiraGO"; src:url("/assets/fonts/FiraGO/FiraGO-Bold.otf") format("opentype"); font-weight:700; font-style:normal; font-display:swap; }
 
 :root {
   --bg:#F4EDDF;
@@ -37,6 +43,7 @@
   --maxw:1080px;
   --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --serif:"Playfair Display", Georgia, serif;
+  --font-arabic:"FiraGO", sans-serif;
 }
 
 * { box-sizing:border-box; }
@@ -1910,22 +1917,17 @@ html[dir="rtl"] .create-page .package-accordion__trigger {
   .lang-switch { min-height:42px; padding:9px 13px; }
 }
 
-/* ---- Arabic typography (only when direction is rtl) ----
-   Per-glyph fallback keeps Latin brand words (JIGZO, WhatsApp, USD 5) in the
-   existing fonts while Arabic runs render in Noto. */
-html[dir="rtl"] body {
-  font-family:"Archia", "Noto Sans Arabic", sans-serif;
+/* ---- Arabic typography (only when Arabic is active) ---- */
+html[lang="ar"] body,
+html[lang="ar"] body * {
+  font-family:var(--font-arabic) !important;
 }
-html[dir="rtl"] .lang-switch,
-html[dir="rtl"] .btn {
-  font-family:"Archia", "Noto Sans Arabic", sans-serif;
-}
-/* Elegant Naskh for Arabic display/headline text. */
+/* Use the same supplied family for Arabic display/headline text. */
 html[dir="rtl"] .landing-page .hero__headline,
 html[dir="rtl"] .landing-page .sec__head h2,
 html[dir="rtl"] .landing-page .reveal-band__text h2,
 html[dir="rtl"] .landing-page .buy__inner h2 {
-  font-family:"Noto Naskh Arabic", "Playfair Display", "Archia", serif;
+  font-family:var(--font-arabic);
 }
 /* Arabic script needs no negative tracking and a little more leading. */
 html[dir="rtl"] .landing-page .hero__headline {
@@ -1933,6 +1935,11 @@ html[dir="rtl"] .landing-page .hero__headline {
   letter-spacing:normal !important;
   line-height:1.18 !important;
   max-width:none !important;
+}
+@media (min-width:761px) and (max-width:1023px) {
+  html[dir="rtl"] .landing-page .hero__headline {
+    font-size:44px !important;
+  }
 }
 html[dir="rtl"] .landing-page .sec__head h2,
 html[dir="rtl"] .landing-page .reveal-band__text h2,

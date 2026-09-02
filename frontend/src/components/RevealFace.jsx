@@ -6,8 +6,8 @@ export default function RevealFace({ photo, toName, fromName, message }) {
   const isAr = i18n.language === 'ar' || /[\u0600-\u06FF]/.test(message || "");
 
   const T = {
-    mono: isAr ? "'Noto Sans Arabic', sans-serif" : "'JetBrains Mono', ui-monospace, monospace",
-    serif: isAr ? "'Noto Naskh Arabic', serif" : "'Playfair Display', Georgia, serif",
+    mono: isAr ? "'FiraGO', sans-serif" : "'JetBrains Mono', ui-monospace, monospace",
+    serif: isAr ? "'FiraGO', sans-serif" : "'Playfair Display', Georgia, serif",
   };
 
   // Customize fonts size factors based on isAr (mirroring receiver changes)

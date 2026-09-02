@@ -720,7 +720,7 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
 
           const contentW = rules.contentW;
           ctx.font = isArabic
-            ? `400 ${rules.message.fontSize}px "Noto Naskh Arabic", serif`
+            ? `400 ${rules.message.fontSize}px "FiraGO", sans-serif`
             : `italic 400 ${rules.message.fontSize}px "Playfair Display", Georgia, serif`;
 
           const msgLines = [];
@@ -740,7 +740,7 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
             rows.push({
               type: "text",
               t: recipientName,
-              f: isArabic ? `500 ${rules.recipient.fontSize}px "Noto Sans Arabic", sans-serif` : `500 ${rules.recipient.fontSize}px "JetBrains Mono", monospace`,
+              f: isArabic ? `500 ${rules.recipient.fontSize}px "FiraGO", sans-serif` : `500 ${rules.recipient.fontSize}px "JetBrains Mono", monospace`,
               color: "#E6C67F",
               ls: isArabic ? 0 : 0.1 * rules.recipient.fontSize,
               lh: rules.recipient.lineHeight,
@@ -750,7 +750,7 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
           msgLines.forEach((ln, i) => rows.push({
             type: "text",
             t: ln,
-            f: isArabic ? `400 ${rules.message.fontSize}px "Noto Naskh Arabic", serif` : `italic 400 ${rules.message.fontSize}px "Playfair Display", Georgia, serif`,
+            f: isArabic ? `400 ${rules.message.fontSize}px "FiraGO", sans-serif` : `italic 400 ${rules.message.fontSize}px "Playfair Display", Georgia, serif`,
             color: "#F3ECDD",
             lh: rules.message.lineHeight,
             shadow: true,
@@ -761,7 +761,7 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
             rows.push({
               type: "text",
               t: data.senderName,
-              f: isArabic ? `500 ${rules.sender.fontSize}px "Noto Sans Arabic", sans-serif` : `500 ${rules.sender.fontSize}px "JetBrains Mono", monospace`,
+              f: isArabic ? `500 ${rules.sender.fontSize}px "FiraGO", sans-serif` : `500 ${rules.sender.fontSize}px "JetBrains Mono", monospace`,
               color: "rgba(238,232,220,0.82)",
               ls: isArabic ? 0 : 0.08 * rules.sender.fontSize,
               lh: rules.sender.lineHeight,
@@ -827,9 +827,9 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
 
       const fontList = isArabic
         ? [
-            '500 12.5px "Noto Sans Arabic"',
-            '400 20px "Noto Naskh Arabic"',
-            '500 12px "Noto Sans Arabic"',
+            '500 12.5px "FiraGO"',
+            '400 20px "FiraGO"',
+            '500 12px "FiraGO"',
           ]
         : [
             'italic 400 20px "Playfair Display"',
@@ -1104,7 +1104,7 @@ const RenderFallbackCard = ({ data, t, rules }) => {
             lineHeight: `${rules.recipient.lineHeight}px`,
             fontWeight: 500,
             letterSpacing: isArabic ? "normal" : `${0.1 * rules.recipient.fontSize}px`,
-            fontFamily: isArabic ? "'Noto Sans Arabic', sans-serif" : "'JetBrains Mono', monospace",
+            fontFamily: isArabic ? "'FiraGO', sans-serif" : "'JetBrains Mono', monospace",
             marginBottom: `${rules.recipient.gap}px`,
             textTransform: "uppercase"
           }}>
@@ -1119,7 +1119,7 @@ const RenderFallbackCard = ({ data, t, rules }) => {
             fontSize: `${rules.message.fontSize}px`,
             lineHeight: `${rules.message.lineHeight}px`,
             fontStyle: isArabic ? "normal" : "italic",
-            fontFamily: isArabic ? "'Noto Naskh Arabic', serif" : "'Playfair Display', Georgia, serif",
+            fontFamily: isArabic ? "'FiraGO', sans-serif" : "'Playfair Display', Georgia, serif",
             margin: `0 0 ${idx === msgLines.length - 1 ? rules.message.gap : 0}px 0`,
             textShadow: `0 ${2 * rules.S}px ${9 * rules.S}px rgba(5,5,5,0.92)`
           }}>
@@ -1143,7 +1143,7 @@ const RenderFallbackCard = ({ data, t, rules }) => {
             lineHeight: `${rules.sender.lineHeight}px`,
             fontWeight: 500,
             letterSpacing: isArabic ? "normal" : `${0.08 * rules.sender.fontSize}px`,
-            fontFamily: isArabic ? "'Noto Sans Arabic', sans-serif" : "'JetBrains Mono', monospace",
+            fontFamily: isArabic ? "'FiraGO', sans-serif" : "'JetBrains Mono', monospace",
             textTransform: "uppercase"
           }}>
             {data.senderName}
