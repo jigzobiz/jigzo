@@ -439,6 +439,14 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
         if (tracking === 'Failed') summary.failed++;
         if (reconciliationStatus === 'reconciliation_required') summary.reconciliationRequired++;
         if (r.manualLinkProvidedAt) summary.manuallyProvided++;
+        const isEmail = r.deliveryMethod === 'email';
+        const rowStatus = isEmail ? (r.deliveryStatus || 'pending') : ((message && message.status) || r.whatsappSendStatus || r.deliveryStatus || 'pending');
+        const rowProviderStatus = isEmail ? (r.deliveryStatus || 'pending') : ((message && message.providerStatus) || r.whatsappSendStatus || r.deliveryStatus || 'pending');
+        const rowProviderSendStatus = isEmail ? (r.deliveryStatus || 'pending') : ((message && (message.providerStatus || message.status)) || r.whatsappSendStatus || r.deliveryStatus || 'pending');
+        const rowSentAt = isEmail ? (r.sentAt || null) : (r.sentAt || r.whatsappSentAt || null);
+        const rowDeliveredAt = isEmail ? (r.deliveredAt || null) : (r.whatsappDeliveredAt || null);
+        const rowLastError = isEmail ? (r.lastError || '') : ((message && message.lastErrorMessage) || r.whatsappLastErrorMessage || r.lastError || '');
+
         rows.push({
           orderId: order ? order.orderId : null,
           orderPaid: order ? L.isCompletedPaidOrder(order) : false,
@@ -447,9 +455,9 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
           recipientName: r.name, recipientContact: recipientContact(r),
           deliveryMethod: r.deliveryMethod || 'whatsapp',
           state, deliveryTracking: tracking,
-          status: (message && message.status) || r.whatsappSendStatus || r.deliveryStatus || 'pending',
-          providerStatus: (message && message.providerStatus) || r.whatsappSendStatus || r.deliveryStatus || 'pending',
-          providerSendStatus: (message && (message.providerStatus || message.status)) || r.whatsappSendStatus || r.deliveryStatus || 'pending',
+          status: rowStatus,
+          providerStatus: rowProviderStatus,
+          providerSendStatus: rowProviderSendStatus,
           providerMessageId: (message && message.providerMessageId) || r.providerMessageId || '',
           canRetryInitialDelivery: whatsappService.isInitialPuzzleDeliveryRetryable(message, r),
           canCorrectInitialDelivery: whatsappService.isInitialPuzzleDeliveryCorrectable(message, r),
@@ -461,8 +469,8 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
             : '',
           reconciliationStatus,
           reconciliationRequiredSince: reconciliationStatus === 'reconciliation_required' ? message.acceptedAt : null,
-          sentAt: r.sentAt || r.whatsappSentAt || null,
-          deliveredAt: r.whatsappDeliveredAt || null,
+          sentAt: rowSentAt,
+          deliveredAt: rowDeliveredAt,
           openedAt: r.openedAt || r.whatsappReadAt || null,
           completedAt: r.completedAt || null,
           completionSeconds: r.completionSeconds != null ? r.completionSeconds : null,
@@ -472,7 +480,7 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
           deliveryRestriction: String((message && message.lastErrorCode) || r.whatsappLastErrorCode || '') === '131049'
             ? 'meta_131049'
             : null,
-          lastError: (message && message.lastErrorMessage) || r.whatsappLastErrorMessage || r.lastError || '',
+          lastError: rowLastError,
           tapReference: order ? (order.providerChargeId || '') : '',
           conflicts
         });

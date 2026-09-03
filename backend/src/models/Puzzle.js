@@ -21,6 +21,7 @@ const RecipientSchema = new mongoose.Schema({
 
   deliveryStatus: { type: String, default: 'pending' },
   sentAt: { type: Date, default: null },
+  deliveredAt: { type: Date, default: null },
   providerMessageId: { type: String, default: '' },
   lastError: { type: String, default: '' },
 
@@ -113,5 +114,6 @@ PuzzleSchema.index(
   { partialFilterExpression: { imageStorageId: { $type: 'objectId' } } }
 );
 PuzzleSchema.index({ organizationId: 1, businessCampaignId: 1 }, { unique: true, partialFilterExpression: { scope: 'business' } });
+PuzzleSchema.index({ 'recipients.providerMessageId': 1 }, { sparse: true });
 
 module.exports = mongoose.model('Puzzle', PuzzleSchema);

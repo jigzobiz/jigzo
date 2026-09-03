@@ -119,8 +119,9 @@ function getRecipientOperationalState(r, message) {
   if (hasCurrentTerminalProviderFailure(message) && !r.whatsappDeliveredAt && !r.whatsappReadAt) return 'failed';
   const ds = r.deliveryStatus || 'pending';
   if (ds === 'delivered') return 'delivered';
+  if (['failed', 'bounced', 'complained', 'suppressed'].includes(ds)) return 'failed';
   if (ds === 'sent' || r.sentAt) return 'sent';
-  if (ds === 'failed' || r.whatsappSendStatus === 'failed' || r.whatsappFailedAt) return 'failed';
+  if (r.deliveryMethod !== 'email' && (r.whatsappSendStatus === 'failed' || r.whatsappFailedAt)) return 'failed';
   return 'pending';
 }
 
@@ -163,8 +164,8 @@ function getDeliveryTracking(r, message) {
   }
   if (hasCurrentTerminalProviderFailure(message)) return 'Failed';
   if (r.whatsappReadAt) return 'Read';
-  if (r.deliveryStatus === 'delivered' || r.whatsappDeliveredAt) return 'Delivered';
-  if (r.whatsappSendStatus === 'failed' || r.whatsappFailedAt) return 'Failed';
+  if (r.deliveryStatus === 'delivered' || (r.deliveryMethod !== 'email' && r.whatsappDeliveredAt)) return 'Delivered';
+  if (['failed', 'bounced', 'complained', 'suppressed'].includes(r.deliveryStatus) || (r.deliveryMethod !== 'email' && (r.whatsappSendStatus === 'failed' || r.whatsappFailedAt))) return 'Failed';
   if (r.deliveryStatus === 'sent' || r.sentAt) return 'Sent';
   return 'Unconfirmed';
 }
