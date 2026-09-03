@@ -21,6 +21,7 @@ const RecipientSchema = new mongoose.Schema({
 
   deliveryStatus: { type: String, default: 'pending' },
   sentAt: { type: Date, default: null },
+  deliveredAt: { type: Date, default: null },
   providerMessageId: { type: String, default: '' },
   lastError: { type: String, default: '' },
 
@@ -109,5 +110,6 @@ PuzzleSchema.index(
   { imageDeletionDueAt: 1 },
   { partialFilterExpression: { imageStorageId: { $type: 'objectId' } } }
 );
+PuzzleSchema.index({ 'recipients.providerMessageId': 1 }, { sparse: true });
 
 module.exports = mongoose.model('Puzzle', PuzzleSchema);

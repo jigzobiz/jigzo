@@ -19,6 +19,7 @@ const adminRebuildRouter = require('./routes/adminRebuild');
 const { router: pricingRouter } = require('./routes/pricing');
 const testRouter = require('./routes/test');
 const whatsappWebhookRouter = require('./routes/webhooks/whatsapp');
+const resendWebhookRouter = require('./routes/webhooks/resend');
 const whatsappReconciliationRouter = require('./routes/internal/whatsappReconciliation');
 const imageCleanupRouter = require('./routes/internal/imageCleanup');
 const { isTestModeAllowed } = require('./utils/testModeGuard');
@@ -59,6 +60,20 @@ app.use(
     }
   },
   whatsappWebhookRouter
+);
+
+app.use(
+  '/api/webhooks/resend',
+  express.raw({ type: () => true, limit: '256kb' }),
+  async (req, res, next) => {
+    try {
+      await connectDB();
+      return next();
+    } catch {
+      return res.status(500).json({ error: 'Database connection failed' });
+    }
+  },
+  resendWebhookRouter
 );
 
 const limiter = rateLimit({
