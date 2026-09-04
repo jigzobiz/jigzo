@@ -42,19 +42,21 @@ export default function WhatsAppPreview({ senderName, showIdentity, receiverName
         </div>
       </div>
       <div style={{ padding: "16px 12px 18px", backgroundColor: "#E4DDD3", backgroundImage: doodle }}>
-        <div style={{ position: "relative", maxWidth: "86%", background: "#FFFFFF", borderRadius: isRtl ? "8px 0 8px 8px" : "0 8px 8px 8px",
-          padding: "7px 9px 6px 11px", boxShadow: "0 1px 0.5px rgba(0,0,0,0.13)", fontSize: 13.5, lineHeight: 1.4, color: "#111B21",
-          marginRight: isRtl ? 0 : 'auto', marginLeft: isRtl ? 'auto' : 0 }}>
-          <span style={{ position: "absolute", top: 0, left: isRtl ? "auto" : -7, right: isRtl ? -7 : "auto", width: 0, height: 0, borderStyle: "solid",
-            borderWidth: isRtl ? "0 0 8px 8px" : "0 8px 8px 0", borderColor: isRtl ? "transparent transparent transparent #FFFFFF" : "transparent #FFFFFF transparent transparent" }} />
-          <span style={{ whiteSpace: "pre-wrap" }}>
-            {t('whatsapp.deliveryMessage', { recipient: greetName, sender: who })}{" "}
-            <span style={{ color: "#0066cc", textDecoration: "underline", fontWeight: "600", cursor: "pointer" }}>
-              {t('whatsapp.cta')}
+        <div style={{ maxWidth: "86%", marginRight: isRtl ? 0 : 'auto', marginLeft: isRtl ? 'auto' : 0 }}>
+          <div style={{ position: "relative", background: "#FFFFFF", borderRadius: isRtl ? "8px 0 8px 8px" : "0 8px 8px 8px",
+            padding: "7px 9px 6px 11px", boxShadow: "0 1px 0.5px rgba(0,0,0,0.13)", fontSize: 13.5, lineHeight: 1.4, color: "#111B21" }}>
+            <span style={{ position: "absolute", top: 0, left: isRtl ? "auto" : -7, right: isRtl ? -7 : "auto", width: 0, height: 0, borderStyle: "solid",
+              borderWidth: isRtl ? "0 0 8px 8px" : "0 8px 8px 0", borderColor: isRtl ? "transparent transparent transparent #FFFFFF" : "transparent #FFFFFF transparent transparent" }} />
+            <span style={{ whiteSpace: "pre-wrap" }}>
+              {t('whatsapp.deliveryMessage', { recipient: greetName, sender: who })}
             </span>
-          </span>
-          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 3, marginTop: 4, fontSize: 11, color: "#667781" }}>
-            <span>{stamp}</span>
+            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 3, marginTop: 4, fontSize: 11, color: "#667781" }}>
+              <span>{stamp}</span>
+            </div>
+          </div>
+          <div style={{ marginTop: 2, padding: "9px 12px", borderRadius: 8, background: "#FFFFFF", boxShadow: "0 1px 0.5px rgba(0,0,0,0.13)",
+            color: "#008069", fontSize: 13.5, fontWeight: 600, lineHeight: 1.3, textAlign: "center" }}>
+            {t('whatsapp.cta')}
           </div>
         </div>
       </div>

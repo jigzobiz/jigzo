@@ -316,7 +316,6 @@ const en = {
     toName: 'Sofia',
     fromName: 'Zara',
     message: "Twelve years since this picture, and you're still one of the best parts of my life. Happy Birthday, my forever friend!",
-    whatsappText: "Hi Sofia, Zara left something special for you. There's a message waiting behind a little challenge. Solve the puzzle to uncover it. 🧩 Open your JIGZO",
     captions: [
       'Upload a photo',
       'Write your message',

@@ -10,7 +10,10 @@ export default function RevealMock() {
 
   const PHOTO = '/assets/demo-photo.png';
   const MESSAGE = t('demo.message');
-  const WA = t('demo.whatsappText');
+  const whatsappMessage = t('whatsapp.deliveryMessage', {
+    recipient: t('demo.toName'),
+    sender: t('demo.fromName')
+  });
 
   const COLS = 4, ROWS = 6, VW = 360, VH = 640, pw = VW / COLS, ph = VH / ROWS;
   const edgeMap = buildEdgeMap(COLS, ROWS, 1337);
@@ -148,10 +151,13 @@ export default function RevealMock() {
                 <div className="reveal-mock-wa-name"><span className="nm">JIGZO</span><span className="reveal-mock-wa-badge">✓</span></div>
               </div>
               <div className="reveal-mock-wa-body" style={{ backgroundImage: doodle }}>
-                <div className="reveal-mock-wa-bubble">
-                  <span className="reveal-mock-wa-tail"></span>
-                  {WA}
-                  <span className="reveal-mock-wa-time">{stamp}</span>
+                <div className="reveal-mock-wa-message">
+                  <div className="reveal-mock-wa-bubble">
+                    <span className="reveal-mock-wa-tail"></span>
+                    {whatsappMessage}
+                    <span className="reveal-mock-wa-time">{stamp}</span>
+                  </div>
+                  <div className="reveal-mock-wa-cta">{t('whatsapp.cta')}</div>
                 </div>
               </div>
             </div>

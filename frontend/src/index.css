@@ -375,11 +375,19 @@ a { color:inherit; text-decoration:none; }
 .reveal-mock-wa-badge { width:16px; height:16px; border-radius:50%; background:#25D366; flex:none;
   display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:700; line-height:1; }
 .reveal-mock-wa-body { padding:16px 12px 18px; background-color:#E4DDD3; }
-.reveal-mock-wa-bubble { position:relative; max-width:88%; background:#FFFFFF; border-radius:0 8px 8px 8px;
-  margin-left:0; margin-right:auto; padding:7px 9px 6px 11px; box-shadow:0 1px 0.5px rgba(0,0,0,0.13); font-size:12.5px; line-height:1.4; color:#111B21; }
+.reveal-mock-wa-message { max-width:88%; margin-left:0; margin-right:auto; }
+.reveal-mock-wa-bubble { position:relative; background:#FFFFFF; border-radius:0 8px 8px 8px;
+  padding:7px 9px 6px 11px; box-shadow:0 1px 0.5px rgba(0,0,0,0.13); font-size:12.5px; line-height:1.4; color:#111B21; }
 .reveal-mock-wa-tail { position:absolute; top:0; left:-7px; width:0; height:0; border-style:solid;
   border-width:0 8px 8px 0; border-color:transparent #FFFFFF transparent transparent; }
+.reveal-mock-wa-cta { margin-top:2px; padding:9px 12px; border-radius:8px; background:#FFFFFF;
+  box-shadow:0 1px 0.5px rgba(0,0,0,0.13); color:#008069; font-size:12.5px; font-weight:600; line-height:1.3; text-align:center; }
 .reveal-mock-wa-time { float:right; font-size:11px; color:#667781; margin:6px 0 0 8px; }
+
+[dir="rtl"] .reveal-mock-wa-message { margin-left:auto; margin-right:0; }
+[dir="rtl"] .reveal-mock-wa-bubble { border-radius:8px 0 8px 8px; }
+[dir="rtl"] .reveal-mock-wa-tail { left:auto; right:-7px; border-width:0 0 8px 8px;
+  border-color:transparent transparent transparent #FFFFFF; }
 
 /* Scene 4 — puzzle mid-solve, last pieces snapping in */
 .reveal-mock-s4 { background:#0b0a08; }
