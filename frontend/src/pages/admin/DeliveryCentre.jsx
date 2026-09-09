@@ -40,6 +40,7 @@ function DeliveryStatus() {
   const [channelF, setChannelF] = useState('all');
   const [busyKey, setBusyKey] = useState('');
   const [note, setNote] = useState('');
+  const [copiedKey, setCopiedKey] = useState('');
   const [reloadTick, setReloadTick] = useState(0);
   const { data, loading, error } = useDelivery(scope, reloadTick);
   const rows = useMemo(() => (data ? applyFilters(data.list, stateF, channelF) : []), [data, stateF, channelF]);
@@ -136,8 +137,29 @@ function DeliveryStatus() {
                 { key: 'openedAt', label: 'Opened', render: (r) => <TimeCell v={r.openedAt} /> },
                 { key: 'completedAt', label: 'Solved', render: (r) => <TimeCell v={r.completedAt} /> },
                 { key: 'completionSeconds', label: 'Duration', render: (r) => r.completionSeconds != null ? `${r.completionSeconds}s` : 'Not recorded' },
-                { key: 'manualLink', label: 'Manual link', render: (r) => r.manualLink ? <Button size="sm" onClick={() => navigator.clipboard.writeText(r.manualLink)}>Copy link</Button> : <span style={{ color: T.ink50 }}>—</span> },
-                { key: 'lastError', label: 'Last error', wrap: true, render: (r) => r.deliveryRestriction === 'meta_131049' ? <Badge tone="bad">Meta delivery restriction</Badge> : r.lastError ? <span style={{ color: T.red, fontSize: 12 }}>{r.lastError}</span> : <span style={{ color: T.ink50 }}>—</span> },
+                { key: 'manualLink', label: 'Manual link', render: (r) => {
+                  const isRestricted = Boolean(r.deliveryRestriction);
+                  return r.manualLink ? (
+                    <Button
+                      size="sm"
+                      tone={isRestricted ? "gold" : "default"}
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(r.manualLink);
+                          setNote(`Copied puzzle link for ${r.recipientName}: ${r.manualLink}`);
+                        } catch (e) {
+                          window.prompt('Copy puzzle link:', r.manualLink);
+                        }
+                      }}
+                    >Copy link</Button>
+                  ) : <span style={{ color: T.ink50 }}>—</span>;
+                } },
+                { key: 'lastError', label: 'Last error', wrap: true, render: (r) => {
+                  if (r.deliveryRestriction === 'meta_130472') return <Badge tone="bad">Meta experiment restriction</Badge>;
+                  if (r.deliveryRestriction === 'meta_131049') return <Badge tone="bad">Meta delivery restriction</Badge>;
+                  if (r.deliveryRestriction) return <Badge tone="bad">Meta delivery restriction</Badge>;
+                  return r.lastError ? <span style={{ color: T.red, fontSize: 12 }}>{r.lastError}</span> : <span style={{ color: T.ink50 }}>—</span>;
+                } },
                 { key: 'retry', label: '', render: (r) => {
                   const key = `${r.puzzleId}-${r.recipientIndex}`;
                   const correctionKey = `correct-${key}`;

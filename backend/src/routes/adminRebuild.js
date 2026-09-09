@@ -477,9 +477,17 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
           manualLink: `${getFrontendOrigin()}/p/${p.publicId}?r=${i}`,
           manualLinkProvidedAt: r.manualLinkProvidedAt || null,
           manualLinkProvidedByUsername: r.manualLinkProvidedByUsername || '',
-          deliveryRestriction: String((message && message.lastErrorCode) || r.whatsappLastErrorCode || '') === '131049'
-            ? 'meta_131049'
-            : null,
+          deliveryRestriction: (() => {
+            const errCode = String((message && message.lastErrorCode) || r.whatsappLastErrorCode || '');
+            const errMsg = String((message && message.lastErrorMessage) || r.whatsappLastErrorMessage || r.lastError || '');
+            if (errCode === '130472' || /130472/i.test(errMsg) || /part of an experiment/i.test(errMsg)) {
+              return 'meta_130472';
+            }
+            if (errCode === '131049' || /131049/i.test(errMsg) || /healthy ecosystem/i.test(errMsg)) {
+              return 'meta_131049';
+            }
+            return null;
+          })(),
           lastError: rowLastError,
           tapReference: order ? (order.providerChargeId || '') : '',
           conflicts

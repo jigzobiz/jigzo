@@ -83,7 +83,7 @@ async function persistNormalizedStatus(normalized) {
   if (providerStatus === 'failed') {
     const failure = normalized.failure;
     let errorMessage = failure.message;
-    if (String(failure.code) === '131049') {
+    if (String(failure.code) === '131049' || /healthy ecosystem/i.test(failure.message)) {
       errorMessage = "Meta delivery limit — WhatsApp error 131049. Do not retry for 24 hours; use the approved fallback channel.";
       console.error('[WhatsAppStatus] Meta 131049 delivery error detected:', {
         internalMessageId: String(messageRecord._id),
@@ -91,6 +91,16 @@ async function persistNormalizedStatus(normalized) {
         templateName: messageRecord.templateName || 'jigzo_puzzle_delivery',
         language: messageRecord.languageCode,
         errorCode: '131049',
+        recipientNumberMasked: messageRecord.retryDestinationMasked || messageRecord.destinationMasked
+      });
+    } else if (String(failure.code) === '130472' || /part of an experiment/i.test(failure.message)) {
+      errorMessage = "Meta experiment restriction — WhatsApp error 130472. Recipient is part of a Meta marketing experiment; use manual puzzle link.";
+      console.error('[WhatsAppStatus] Meta 130472 experiment error detected:', {
+        internalMessageId: String(messageRecord._id),
+        whatsappMessageId: messageRecord.providerMessageId,
+        templateName: messageRecord.templateName || 'jigzo_puzzle_delivery',
+        language: messageRecord.languageCode,
+        errorCode: '130472',
         recipientNumberMasked: messageRecord.retryDestinationMasked || messageRecord.destinationMasked
       });
     }
@@ -142,7 +152,7 @@ async function persistNormalizedStatus(normalized) {
       failedAt: failureSet.failedAt,
       errorCode: failure.code,
       errorTitle: failure.title,
-      errorMessage: failure.message,
+      errorMessage: errorMessage,
       errorDetails: failure.details
     });
 

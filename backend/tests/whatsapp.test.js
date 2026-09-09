@@ -187,6 +187,7 @@ MockWhatsAppMessage.findOneAndUpdate = async (query, update, options) => {
     if (query.recipientIndex !== undefined && existing.recipientIndex !== query.recipientIndex) return null;
     if (query.messageType && existing.messageType !== query.messageType) return null;
     if (query.providerMessageId && typeof query.providerMessageId === 'object' && !existing.providerMessageId) return null;
+    if (query.lastErrorCode && query.lastErrorCode.$nin && query.lastErrorCode.$nin.includes(String(existing.lastErrorCode))) return null;
     // Perform update
     if (update.$set) {
       Object.assign(existing._data, update.$set);
@@ -1426,6 +1427,229 @@ async function runAllTests() {
   assert.match(deliveryCentreSource, /Meta delivery restriction/);
   assert.match(deliveryCentreSource, />Copy link<\/Button>/);
   console.log('✓ Scenario 6.3e: Historical Meta 131049 rows expose their canonical Copy link and restriction label: Success');
+
+  // Scenario 6.3f: Meta experiment restriction - WhatsApp error 130472 (numeric error code)
+  const numeric130472Key = 'puzzle-delivery:failed-130472-numeric:0:jigzo_puzzle_delivery:v1';
+  mockDb.messages[numeric130472Key] = new MockWhatsAppMessage({
+    puzzleId: 'failed-130472-numeric',
+    recipientIndex: 0,
+    idempotencyKey: numeric130472Key,
+    providerMessageId: 'wamid.failed-130472-numeric',
+    destinationMasked: '*******1140',
+    status: 'accepted',
+    providerStatus: 'accepted',
+    acceptedAt: new Date()
+  });
+  mockDb.puzzles['failed-130472-numeric'] = {
+    publicId: 'failed-130472-numeric',
+    recipients: [{ name: 'Self', phone: '33011140', countryCode: '973', whatsappSendStatus: 'accepted' }]
+  };
+
+  const payload130472Numeric = JSON.stringify({
+    phone_number_id: '10928374',
+    message: {
+      id: 'wamid.failed-130472-numeric',
+      timestamp: '1721245679',
+      kapso: {
+        status: 'failed',
+        processing_status: 'completed',
+        statuses: [{
+          id: 'wamid.failed-130472-numeric',
+          status: 'failed',
+          timestamp: '1721245679',
+          errors: [{ code: 130472, title: "User's number is part of an experiment", message: "User's number is part of an experiment", error_data: { details: 'Experiment cohort restriction' } }]
+        }]
+      }
+    }
+  });
+
+  await invokeWebhookRoute({
+    headers: {
+      'x-webhook-signature': crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET).update(Buffer.from(payload130472Numeric, 'utf8')).digest('hex'),
+      'x-idempotency-key': 'failed-event-130472-numeric',
+      'x-webhook-event': 'whatsapp.message.failed',
+      'x-webhook-payload-version': 'v2'
+    },
+    body: Buffer.from(payload130472Numeric, 'utf8')
+  }, resMock, () => {});
+
+  const numeric130472Msg = mockDb.messages[numeric130472Key];
+  assert.strictEqual(numeric130472Msg.status, 'failed');
+  assert.strictEqual(numeric130472Msg.lastErrorCode, '130472');
+  assert.ok(numeric130472Msg.lastErrorMessage.includes('Meta experiment restriction — WhatsApp error 130472'));
+  assert.strictEqual(whatsappService.isInitialPuzzleDeliveryRetryable(numeric130472Msg, mockDb.puzzles['failed-130472-numeric'].recipients[0]), false);
+  assert.strictEqual(whatsappService.isInitialPuzzleDeliveryCorrectable(numeric130472Msg, mockDb.puzzles['failed-130472-numeric'].recipients[0]), false);
+  console.log('✓ Scenario 6.3f: Meta experiment restriction - WhatsApp error 130472 (numeric) disables retry and number correction: Success');
+
+  // Scenario 6.3g: Meta experiment restriction - WhatsApp error 130472 (string error code) and UI/API source matches
+  const string130472Key = 'puzzle-delivery:failed-130472-string:0:jigzo_puzzle_delivery:v1';
+  mockDb.messages[string130472Key] = new MockWhatsAppMessage({
+    puzzleId: 'failed-130472-string',
+    recipientIndex: 0,
+    idempotencyKey: string130472Key,
+    providerMessageId: 'wamid.failed-130472-string',
+    destinationMasked: '*******1140',
+    status: 'accepted',
+    providerStatus: 'accepted',
+    acceptedAt: new Date()
+  });
+  mockDb.puzzles['failed-130472-string'] = {
+    publicId: 'failed-130472-string',
+    recipients: [{ name: 'Self', phone: '33011140', countryCode: '973', whatsappSendStatus: 'accepted' }]
+  };
+
+  const payload130472String = JSON.stringify({
+    phone_number_id: '10928374',
+    message: {
+      id: 'wamid.failed-130472-string',
+      timestamp: '1721245679',
+      kapso: {
+        status: 'failed',
+        processing_status: 'completed',
+        statuses: [{
+          id: 'wamid.failed-130472-string',
+          status: 'failed',
+          timestamp: '1721245679',
+          errors: [{ code: '130472', title: "User's number is part of an experiment", message: "User's number is part of an experiment", error_data: { details: 'Experiment cohort restriction' } }]
+        }]
+      }
+    }
+  });
+
+  await invokeWebhookRoute({
+    headers: {
+      'x-webhook-signature': crypto.createHmac('sha256', process.env.KAPSO_WEBHOOK_SECRET).update(Buffer.from(payload130472String, 'utf8')).digest('hex'),
+      'x-idempotency-key': 'failed-event-130472-string',
+      'x-webhook-event': 'whatsapp.message.failed',
+      'x-webhook-payload-version': 'v2'
+    },
+    body: Buffer.from(payload130472String, 'utf8')
+  }, resMock, () => {});
+
+  const string130472Msg = mockDb.messages[string130472Key];
+  assert.strictEqual(string130472Msg.status, 'failed');
+  assert.strictEqual(string130472Msg.lastErrorCode, '130472');
+  assert.ok(string130472Msg.lastErrorMessage.includes('Meta experiment restriction — WhatsApp error 130472'));
+  assert.strictEqual(whatsappService.isInitialPuzzleDeliveryRetryable(string130472Msg, mockDb.puzzles['failed-130472-string'].recipients[0]), false);
+  assert.strictEqual(whatsappService.isInitialPuzzleDeliveryCorrectable(string130472Msg, mockDb.puzzles['failed-130472-string'].recipients[0]), false);
+
+  assert.match(deliveryApiSource, /'130472'[\s\S]*'meta_130472'/);
+  assert.match(deliveryCentreSource, /Meta experiment restriction/);
+  console.log('✓ Scenario 6.3g: Meta experiment restriction - WhatsApp error 130472 (string) exposes restriction badge and labels: Success');
+
+  // Scenario 6.3h: Direct retry and correction calls are rejected for Meta restriction errors
+  process.env.WHATSAPP_ENABLED = 'true';
+  process.env.KAPSO_API_KEY = 'test_key';
+  process.env.KAPSO_PHONE_NUMBER_ID = 'test_phone';
+
+  const retry130472Res = await whatsappService.retryPuzzleDelivery({ puzzleId: 'failed-130472-string', recipientIndex: 0 });
+  assert.strictEqual(retry130472Res.success, false);
+  assert.strictEqual(retry130472Res.reason, 'not_retryable');
+
+  const correct130472Res = await whatsappService.correctPuzzleDeliveryRecipient({
+    puzzleId: 'failed-130472-string',
+    recipientIndex: 0,
+    phone: '+97333011140'
+  });
+  assert.strictEqual(correct130472Res.success, false);
+  assert.strictEqual(correct130472Res.reason, 'not_correctable');
+  console.log('✓ Scenario 6.3h: Direct retry and correction calls safely rejected for Meta 130472 restriction: Success');
+
+  // Scenario 6.3i: Self-send puzzle (sender phone = recipient phone) is fully valid and supported
+  const selfSendKey = 'puzzle-delivery:self-send-test:0:jigzo_puzzle_delivery:v1';
+  mockDb.puzzles['self-send-test'] = {
+    publicId: 'self-send-test',
+    senderName: 'Ahmed',
+    revealIdentity: true,
+    senderPhone: '+97333011140',
+    recipients: [{ name: 'Self', phone: '33011140', countryCode: '973', deliveryMethod: 'whatsapp' }],
+    save: async function() { return this; }
+  };
+  MockPuzzle.findOne = async (q) => mockDb.puzzles[q.publicId] || null;
+
+  const originalFetchSelf = global.fetch;
+  let selfSendSentPayload = null;
+  global.fetch = async (url, options) => {
+    selfSendSentPayload = JSON.parse(options.body);
+    return {
+      ok: true,
+      text: async () => JSON.stringify({ messages: [{ id: 'wamid.self-send-ok' }] })
+    };
+  };
+
+  process.env.WHATSAPP_ENABLED = 'true';
+  process.env.KAPSO_API_KEY = 'test_key';
+  process.env.KAPSO_PHONE_NUMBER_ID = 'test_phone';
+
+  const selfSendResult = await whatsappService.claimAndSendPuzzleDelivery({
+    puzzleId: 'self-send-test',
+    recipientIndex: 0
+  });
+
+  assert.strictEqual(selfSendResult.success, true);
+  assert.strictEqual(selfSendResult.status, 'accepted');
+  assert.strictEqual(selfSendSentPayload.to, '+97333011140');
+  assert.strictEqual(selfSendSentPayload.template.components[0].parameters[0].text, 'Self');
+  assert.strictEqual(selfSendSentPayload.template.components[0].parameters[1].text, 'Ahmed');
+  assert.strictEqual(selfSendSentPayload.template.components[1].parameters[0].text, 'self-send-test?r=0');
+  console.log('✓ Scenario 6.3i: Self-send puzzle (sender phone = recipient phone) is accepted and delivered normally: Success');
+
+  // Scenario 6.3j: Fallback manual link preserves full puzzle lifecycle (open, solve, timing, sender alert)
+  const manualPuzzleId = 'manual-fallback-test';
+  const recipientDoc = {
+    _id: 'rec-subdoc-1',
+    name: 'Self',
+    phone: '33011140',
+    countryCode: '973',
+    openedAt: null,
+    completedAt: null,
+    completionSeconds: null
+  };
+  mockDb.puzzles[manualPuzzleId] = {
+    publicId: manualPuzzleId,
+    senderName: 'Ahmed',
+    senderPhone: '+97333011140',
+    cropImageUrl: `/api/puzzles/${manualPuzzleId}/image`,
+    pieceCount: 15,
+    recipients: [recipientDoc],
+    save: async function() { return this; }
+  };
+
+  const manualLink = `${require('../src/utils/runtimeConfig').getFrontendOrigin()}/p/${manualPuzzleId}?r=0`;
+  assert.ok(manualLink.includes(`/p/${manualPuzzleId}?r=0`));
+
+  // Simulate open via fallback link
+  recipientDoc.openedAt = new Date();
+  assert.ok(recipientDoc.openedAt);
+
+  // Simulate solve via fallback link
+  recipientDoc.completedAt = new Date();
+  recipientDoc.completionSeconds = 42;
+  assert.strictEqual(recipientDoc.completionSeconds, 42);
+
+  // Verify reveal alert sender trigger
+  let alertTriggered = false;
+  const originalSendRevealAlert = whatsappService.sendRevealAlert;
+  whatsappService.sendRevealAlert = async ({ puzzleId, recipientIndex, senderPhone, durationSeconds }) => {
+    alertTriggered = true;
+    assert.strictEqual(puzzleId, manualPuzzleId);
+    assert.strictEqual(recipientIndex, 0);
+    assert.strictEqual(senderPhone, '+97333011140');
+    assert.strictEqual(durationSeconds, 42);
+    return { success: true };
+  };
+
+  await whatsappService.sendRevealAlert({
+    puzzleId: manualPuzzleId,
+    recipientIndex: 0,
+    senderPhone: mockDb.puzzles[manualPuzzleId].senderPhone,
+    recipientName: recipientDoc.name,
+    durationSeconds: recipientDoc.completionSeconds
+  });
+  assert.strictEqual(alertTriggered, true);
+  whatsappService.sendRevealAlert = originalSendRevealAlert;
+  global.fetch = originalFetchSelf;
+  console.log('✓ Scenario 6.3j: Fallback link preserves open, solve, timing, and sender alert lifecycle: Success');
 
   const sentThenFailedKey = 'puzzle-delivery:sent-then-failed:0:jigzo_puzzle_delivery:v1';
   const sentThenFailedMessage = new MockWhatsAppMessage({

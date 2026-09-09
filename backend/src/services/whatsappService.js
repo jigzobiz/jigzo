@@ -31,19 +31,29 @@ class WhatsAppService {
     );
   }
 
+  isMetaRestrictionError(messageRecord) {
+    if (!messageRecord) return false;
+    const code = String(messageRecord.lastErrorCode || '');
+    const msg = String(messageRecord.lastErrorMessage || '');
+    return code === '131049' ||
+      code === '130472' ||
+      /part of an experiment/i.test(msg) ||
+      /healthy ecosystem/i.test(msg);
+  }
+
   isInitialPuzzleDeliveryRetryable(messageRecord, recipient) {
     return Boolean(
       this.isCurrentTerminalPuzzleDeliveryFailure(messageRecord, recipient) &&
       messageRecord.status === 'failed' &&
       messageRecord.providerStatus === 'failed' &&
-      String(messageRecord.lastErrorCode) !== '131049'
+      !this.isMetaRestrictionError(messageRecord)
     );
   }
 
   isInitialPuzzleDeliveryCorrectable(messageRecord, recipient) {
     return Boolean(
       this.isCurrentTerminalPuzzleDeliveryFailure(messageRecord, recipient) &&
-      String(messageRecord.lastErrorCode) !== '131049'
+      !this.isMetaRestrictionError(messageRecord)
     );
   }
 
@@ -68,6 +78,11 @@ class WhatsAppService {
     }
 
     const idempotencyKey = `puzzle-delivery:${puzzleId}:${recipientIndex}:jigzo_puzzle_delivery:v1`;
+    const existingCheck = await WhatsAppMessage.findOne({ idempotencyKey });
+    if (existingCheck && this.isMetaRestrictionError(existingCheck)) {
+      return { success: false, reason: 'not_correctable' };
+    }
+
     const correctionTime = new Date();
     const messageRecord = await WhatsAppMessage.findOneAndUpdate(
       {
@@ -78,6 +93,7 @@ class WhatsAppService {
         status: { $in: ['failed', 'sent', 'accepted'] },
         providerStatus: 'failed',
         providerMessageId: { $type: 'string', $gt: '' },
+        lastErrorCode: { $nin: ['131049', '130472'] },
         deliveredAt: null,
         readAt: null
       },
@@ -315,7 +331,8 @@ class WhatsAppService {
             messageType: 'puzzle_delivery',
             status: 'failed',
             providerStatus: 'failed',
-            providerMessageId: { $type: 'string', $gt: '' }
+            providerMessageId: { $type: 'string', $gt: '' },
+            lastErrorCode: { $nin: ['131049', '130472'] }
           },
           {
             $set: {
@@ -330,6 +347,14 @@ class WhatsAppService {
 
         if (!existing) {
           const current = await WhatsAppMessage.findOne({ idempotencyKey });
+          if (current && this.isMetaRestrictionError(current)) {
+            return {
+              success: false,
+              reason: 'not_retryable',
+              status: current.status,
+              error: 'Delivery cannot be retried due to a Meta platform restriction.'
+            };
+          }
           const alreadyClaimed = current && ['claimed', 'sending', 'correcting'].includes(current.status);
           return {
             success: false,
@@ -526,7 +551,13 @@ class WhatsAppService {
         return { success: true, status: 'accepted', providerMessageId };
       } else {
         const errCode = resJson.error?.code || 'API_ERROR';
-        const errMsg = resJson.error?.message || 'Failed to send template message';
+        let errMsg = resJson.error?.message || 'Failed to send template message';
+
+        if (String(errCode) === '130472' || /part of an experiment/i.test(errMsg)) {
+          errMsg = "Meta experiment restriction — WhatsApp error 130472. Recipient is part of a Meta marketing experiment; use manual puzzle link.";
+        } else if (String(errCode) === '131049' || /healthy ecosystem/i.test(errMsg)) {
+          errMsg = "Meta delivery limit — WhatsApp error 131049. Do not retry for 24 hours; use the approved fallback channel.";
+        }
 
         messageRecord.status = 'failed';
         messageRecord.providerStatus = 'failed';
