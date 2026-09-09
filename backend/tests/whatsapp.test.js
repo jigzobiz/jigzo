@@ -6,7 +6,8 @@ const fs = require('fs');
 const mockDb = {
   puzzles: {},
   messages: {},
-  webhookEvents: {}
+  webhookEvents: {},
+  orders: {}
 };
 
 function maskPhone(phone) {
@@ -25,15 +26,34 @@ const MockPuzzle = {
 };
 
 const MockOrder = {
-  findOne: async () => ({
-    puzzleId: 'puz-check-status',
-    paymentStatus: 'pending',
-    providerChargeId: 'chg-123',
-    paymentAttempts: [{ providerChargeId: 'chg-123', providerStatus: 'CAPTURED' }],
-    total: 10,
-    currency: 'USD',
-    save: async () => {}
-  })
+  findOne: function(q) {
+    const puzzleId = q && q.puzzleId;
+    if (mockDb.orders && puzzleId && mockDb.orders[puzzleId] !== undefined) {
+      const res = mockDb.orders[puzzleId];
+      if (res && q && q.paymentStatus && res.paymentStatus !== q.paymentStatus) {
+        return Promise.resolve(null);
+      }
+      const p = Promise.resolve(res);
+      p.sort = () => p;
+      return p;
+    }
+    const res = {
+      orderId: puzzleId ? `ord_${puzzleId}` : 'ord_test_default',
+      puzzleId: puzzleId || 'puz-check-status',
+      paymentStatus: 'paid',
+      providerChargeId: 'chg-123',
+      paymentAttempts: [{ providerChargeId: 'chg-123', providerStatus: 'CAPTURED' }],
+      total: 10,
+      currency: 'USD',
+      save: async () => {}
+    };
+    if (res && q && q.paymentStatus && res.paymentStatus !== q.paymentStatus) {
+      return Promise.resolve(null);
+    }
+    const p = Promise.resolve(res);
+    p.sort = () => p;
+    return p;
+  }
 };
 
 const MockPaymentService = {
@@ -379,6 +399,7 @@ function resetMocks() {
   mockDb.puzzles = {};
   mockDb.messages = {};
   mockDb.webhookEvents = {};
+  mockDb.orders = {};
   process.env.WHATSAPP_ENABLED = 'false';
   process.env.KAPSO_API_KEY = 'mock_api_key_123';
   process.env.KAPSO_PHONE_NUMBER_ID = '10928374';
@@ -454,12 +475,15 @@ async function runAllTests() {
   console.log('✓ Scenario 2.2: Recipient 1 suffix correctly formatted with ?r=1: Success');
 
   assert.strictEqual(payload0.template.components[0].parameters[0].text, 'Sam');
+  assert.strictEqual(payload0.template.components[0].parameters[1].text, 'ord_puz-temp');
+  assert.strictEqual(payload0.template.components[0].parameters[2].text, 'Zahra');
   assert.ok(!payload0.template.components[0].parameters[0].text.includes('Yazan'));
-  assert.strictEqual(payload0.template.name, 'jigzo_puzzle_delivery');
-  assert.strictEqual(payload0.template.language.code, 'en_US');
-  assert.strictEqual(mockDb.messages['puzzle-delivery:puz-temp:0:jigzo_puzzle_delivery:v1'].languageCode, 'en_US');
+  assert.strictEqual(payload0.template.name, 'jigzo_puzzle_delivery_v2');
+  assert.strictEqual(payload0.template.language.code, 'en');
+  assert.strictEqual(mockDb.messages['puzzle-delivery:puz-temp:0:jigzo_puzzle_delivery:v1'].languageCode, 'en');
+  assert.strictEqual(mockDb.messages['puzzle-delivery:puz-temp:0:jigzo_puzzle_delivery:v1'].templateName, 'jigzo_puzzle_delivery_v2');
   console.log('✓ Scenario 2.3: Recipient 0 payload contains no Recipient 1 data: Success');
-  console.log('✓ Scenario 2.4: English delivery uses and persists en_US: Success');
+  console.log('✓ Scenario 2.4: English delivery uses jigzo_puzzle_delivery_v2 and persists en: Success');
 
   mockDb.puzzles['puz-ar'] = {
     publicId: 'puz-ar',
@@ -470,10 +494,110 @@ async function runAllTests() {
   };
   await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-ar', recipientIndex: 0 });
   const arabicPayload = JSON.parse(lastFetchParams.options.body);
-  assert.strictEqual(arabicPayload.template.name, 'jigzo_puzzle_delivery');
+  assert.strictEqual(arabicPayload.template.name, 'jigzo_arabic_puzzle_delivery_v2');
   assert.strictEqual(arabicPayload.template.language.code, 'ar');
+  assert.strictEqual(arabicPayload.template.components[0].parameters[0].text, 'Sam');
+  assert.strictEqual(arabicPayload.template.components[0].parameters[1].text, 'ord_puz-ar');
+  assert.strictEqual(arabicPayload.template.components[0].parameters[2].text, 'Zahra');
   assert.strictEqual(mockDb.messages['puzzle-delivery:puz-ar:0:jigzo_puzzle_delivery:v1'].languageCode, 'ar');
-  console.log('✓ Scenario 2.5: Arabic delivery uses jigzo_puzzle_delivery and persists ar: Success');
+  assert.strictEqual(mockDb.messages['puzzle-delivery:puz-ar:0:jigzo_puzzle_delivery:v1'].templateName, 'jigzo_arabic_puzzle_delivery_v2');
+  console.log('✓ Scenario 2.5: Arabic delivery uses jigzo_arabic_puzzle_delivery_v2 and persists ar: Success');
+
+  // Scenario 2.6: Missing order reference fails safely without fallback to puzzleId
+  mockDb.puzzles['puz-no-order'] = {
+    publicId: 'puz-no-order',
+    senderName: 'Zahra',
+    revealIdentity: true,
+    experienceLanguage: 'en',
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }]
+  };
+  mockDb.orders['puz-no-order'] = null; // Explicitly no order in database
+  let noOrderFetches = 0;
+  const originalFetchCheck = global.fetch;
+  global.fetch = async () => { noOrderFetches++; return { ok: true, text: async () => '{}' }; };
+  const noOrderResult = await whatsappService.claimAndSendPuzzleDelivery({
+    puzzleId: 'puz-no-order',
+    recipientIndex: 0
+  });
+  global.fetch = originalFetchCheck;
+  assert.strictEqual(noOrderResult.success, false);
+  assert.strictEqual(noOrderResult.reason, 'missing_order_reference');
+  console.log('✓ Scenario 2.6: Missing order reference safely fails without fallback to puzzleId or provider call: Success');
+
+  // Scenario 2.6b: Unpaid order (pending/failed) is NEVER selected and fails safely
+  mockDb.puzzles['puz-unpaid-order'] = {
+    publicId: 'puz-unpaid-order',
+    senderName: 'Zahra',
+    revealIdentity: true,
+    experienceLanguage: 'en',
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }]
+  };
+  mockDb.orders['puz-unpaid-order'] = {
+    orderId: 'ord_unpaid_pending_123',
+    puzzleId: 'puz-unpaid-order',
+    paymentStatus: 'pending' // Unpaid order
+  };
+  let unpaidFetches = 0;
+  const originalFetchUnpaid = global.fetch;
+  global.fetch = async () => { unpaidFetches++; return { ok: true, text: async () => '{}' }; };
+  const unpaidResult = await whatsappService.claimAndSendPuzzleDelivery({
+    puzzleId: 'puz-unpaid-order',
+    recipientIndex: 0
+  });
+  global.fetch = originalFetchUnpaid;
+  assert.strictEqual(unpaidResult.success, false);
+  assert.strictEqual(unpaidResult.reason, 'missing_order_reference');
+  assert.strictEqual(unpaidFetches, 0, 'Provider must not be called for an unpaid order');
+
+  // Also test paymentStatus: 'failed'
+  mockDb.orders['puz-unpaid-order'].paymentStatus = 'failed';
+  const failedOrderResult = await whatsappService.claimAndSendPuzzleDelivery({
+    puzzleId: 'puz-unpaid-order',
+    recipientIndex: 0
+  });
+  assert.strictEqual(failedOrderResult.success, false);
+  assert.strictEqual(failedOrderResult.reason, 'missing_order_reference');
+  console.log('✓ Scenario 2.6b: Unpaid order (pending/failed) is NEVER selected and fails safely without provider call: Success');
+
+  // Scenario 2.7: Mystery sender produces localized anonymous sender in 3-parameter v2 payload
+  mockDb.puzzles['puz-anon-en'] = {
+    publicId: 'puz-anon-en',
+    senderName: 'Zahra',
+    revealIdentity: false, // Mystery sender
+    experienceLanguage: 'en',
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }]
+  };
+  await whatsappService.claimAndSendPuzzleDelivery({
+    puzzleId: 'puz-anon-en',
+    recipientIndex: 0,
+    orderId: 'ord_explicit_anon_123'
+  });
+  const anonEnPayload = JSON.parse(lastFetchParams.options.body);
+  assert.strictEqual(anonEnPayload.template.name, 'jigzo_puzzle_delivery_v2');
+  assert.strictEqual(anonEnPayload.template.language.code, 'en');
+  assert.strictEqual(anonEnPayload.template.components[0].parameters[0].text, 'Sam');
+  assert.strictEqual(anonEnPayload.template.components[0].parameters[1].text, 'ord_explicit_anon_123');
+  assert.strictEqual(anonEnPayload.template.components[0].parameters[2].text, 'Someone');
+
+  mockDb.puzzles['puz-anon-ar'] = {
+    publicId: 'puz-anon-ar',
+    senderName: 'Zahra',
+    revealIdentity: false, // Mystery sender
+    experienceLanguage: 'ar',
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973', whatsappSendStatus: 'pending' }]
+  };
+  await whatsappService.claimAndSendPuzzleDelivery({
+    puzzleId: 'puz-anon-ar',
+    recipientIndex: 0,
+    orderId: 'ord_explicit_anon_ar_456'
+  });
+  const anonArPayload = JSON.parse(lastFetchParams.options.body);
+  assert.strictEqual(anonArPayload.template.name, 'jigzo_arabic_puzzle_delivery_v2');
+  assert.strictEqual(anonArPayload.template.language.code, 'ar');
+  assert.strictEqual(anonArPayload.template.components[0].parameters[0].text, 'Sam');
+  assert.strictEqual(anonArPayload.template.components[0].parameters[1].text, 'ord_explicit_anon_ar_456');
+  assert.strictEqual(anonArPayload.template.components[0].parameters[2].text, 'شخص ما');
+  console.log('✓ Scenario 2.7: Mystery sender correctly formats Someone (EN) and شخص ما (AR) in v2 payload: Success');
 
   // ==========================================
   // Group 3: API Outcomes
@@ -592,7 +716,7 @@ async function runAllTests() {
   assert.strictEqual(arabicRetry.success, true);
   assert.strictEqual(arabicRetry.status, 'accepted');
   assert.strictEqual(retryFetchCount, 1);
-  assert.strictEqual(arabicRetryPayload.template.name, 'jigzo_puzzle_delivery');
+  assert.strictEqual(arabicRetryPayload.template.name, 'jigzo_arabic_puzzle_delivery_v2');
   assert.strictEqual(arabicRetryPayload.template.language.code, 'ar');
   assert.strictEqual(arabicRetrySeed.message.providerMessageId, 'wamid.new-ar');
   assert.strictEqual(arabicRetrySeed.message.attemptCount, 2);
@@ -628,9 +752,10 @@ async function runAllTests() {
   };
   const englishRetry = await whatsappService.retryPuzzleDelivery({ puzzleId: 'retry-en', recipientIndex: 0 });
   assert.strictEqual(englishRetry.success, true);
-  assert.strictEqual(JSON.parse(lastFetchParams.options.body).template.language.code, 'en_US');
-  assert.strictEqual(englishRetrySeed.message.languageCode, 'en_US');
-  console.log('✓ Scenario 3.7: Failed English initial delivery retries with en_US: Success');
+  assert.strictEqual(JSON.parse(lastFetchParams.options.body).template.name, 'jigzo_puzzle_delivery_v2');
+  assert.strictEqual(JSON.parse(lastFetchParams.options.body).template.language.code, 'en');
+  assert.strictEqual(englishRetrySeed.message.languageCode, 'en');
+  console.log('✓ Scenario 3.7: Failed English initial delivery retries with en: Success');
 
   resetMocks();
   process.env.WHATSAPP_ENABLED = 'true';
@@ -748,7 +873,7 @@ async function runAllTests() {
   assert.strictEqual(correctedRetry.success, true);
   assert.strictEqual(correctionProviderSends, 1);
   assert.strictEqual(correctedPayload.to, '+97333424124');
-  assert.strictEqual(correctedPayload.template.name, 'jigzo_puzzle_delivery');
+  assert.strictEqual(correctedPayload.template.name, 'jigzo_arabic_puzzle_delivery_v2');
   assert.strictEqual(correctedPayload.template.language.code, 'ar');
   assert.strictEqual(correctionSeed.message.destinationMasked.slice(-4), '4124');
   assert.strictEqual(correctionSeed.message.retryHistory.length, 1);
@@ -1589,8 +1714,11 @@ async function runAllTests() {
   assert.strictEqual(selfSendResult.success, true);
   assert.strictEqual(selfSendResult.status, 'accepted');
   assert.strictEqual(selfSendSentPayload.to, '+97333011140');
+  assert.strictEqual(selfSendSentPayload.template.name, 'jigzo_puzzle_delivery_v2');
+  assert.strictEqual(selfSendSentPayload.template.language.code, 'en');
   assert.strictEqual(selfSendSentPayload.template.components[0].parameters[0].text, 'Self');
-  assert.strictEqual(selfSendSentPayload.template.components[0].parameters[1].text, 'Ahmed');
+  assert.strictEqual(selfSendSentPayload.template.components[0].parameters[1].text, 'ord_self-send-test');
+  assert.strictEqual(selfSendSentPayload.template.components[0].parameters[2].text, 'Ahmed');
   assert.strictEqual(selfSendSentPayload.template.components[1].parameters[0].text, 'self-send-test?r=0');
   console.log('✓ Scenario 6.3i: Self-send puzzle (sender phone = recipient phone) is accepted and delivered normally: Success');
 
@@ -2014,7 +2142,7 @@ async function runAllTests() {
       durationSeconds: 155
     });
     assert.strictEqual(arabicAlertRes.success, true);
-    assert.strictEqual(capturedPayload.template.name, 'jigzo_puzzle_solved');
+    assert.strictEqual(capturedPayload.template.name, 'jigzo_puzzle_solved_v2');
     assert.strictEqual(capturedPayload.template.language.code, 'ar');
     assert.strictEqual(mockDb.messages['puzzle-solved:lc-ar:0:jigzo_puzzle_solved:v1'].languageCode, 'ar');
     assert.strictEqual(capturedPayload.template.components[0].parameters.length, 5);
@@ -2383,7 +2511,7 @@ async function runAllTests() {
   global.fetch = originalFetchAr;
 
   assert.ok(interceptedArabicPayload);
-  assert.strictEqual(interceptedArabicPayload.template.name, 'jigzo_puzzle_solved');
+  assert.strictEqual(interceptedArabicPayload.template.name, 'jigzo_puzzle_solved_v2');
   assert.strictEqual(interceptedArabicPayload.template.language.code, 'ar');
 
   const arParams = interceptedArabicPayload.template.components[0].parameters;

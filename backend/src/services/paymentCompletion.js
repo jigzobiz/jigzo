@@ -102,7 +102,8 @@ async function markOrderAndPuzzlePaid(order, providerChargeId, transactionRefere
           try {
             await whatsappService.claimAndSendPuzzleDelivery({
               puzzleId: puzzle.publicId,
-              recipientIndex: i
+              recipientIndex: i,
+              orderId: order.orderId
             });
           } catch (waError) {
             console.error('[PaymentCompletion] WhatsApp delivery error:', waError.message);

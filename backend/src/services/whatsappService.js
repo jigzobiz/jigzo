@@ -1,6 +1,7 @@
 const { getFrontendOrigin } = require('../utils/runtimeConfig');
 const WhatsAppMessage = require('../models/WhatsAppMessage');
 const Puzzle = require('../models/Puzzle');
+const Order = require('../models/Order');
 const crypto = require('crypto');
 const { parsePhoneNumberFromString } = require('libphonenumber-js');
 const { normalizePhoneInput, validatePhone } = require('../utils/contactValidation');
@@ -273,7 +274,7 @@ class WhatsAppService {
   /**
    * Atomically claims and sends a puzzle template message to a specific recipient.
    */
-  async claimAndSendPuzzleDelivery({ puzzleId, recipientIndex, retryFailed = false }) {
+  async claimAndSendPuzzleDelivery({ puzzleId, recipientIndex, retryFailed = false, orderId }) {
     // Phase 1 check: Keep WHATSAPP_ENABLED false check first to prevent any DB claims
     const whatsappEnabled = process.env.WHATSAPP_ENABLED === 'true';
     if (!whatsappEnabled) {
@@ -289,6 +290,27 @@ class WhatsAppService {
     if (!rec) {
       throw new Error(`Recipient at index ${recipientIndex} not found on puzzle ${puzzleId}`);
     }
+
+    let resolvedOrderId = orderId;
+    if (!resolvedOrderId) {
+      const matchedOrder = await Order.findOne({ puzzleId: puzzle.publicId, paymentStatus: 'paid' });
+      if (matchedOrder && matchedOrder.orderId) {
+        resolvedOrderId = matchedOrder.orderId;
+      }
+    }
+
+    if (!resolvedOrderId) {
+      return {
+        success: false,
+        reason: 'missing_order_reference',
+        status: 'failed',
+        error: 'Order reference could not be resolved for delivery template.'
+      };
+    }
+
+    const isLangArabic = isArabic(puzzle.experienceLanguage);
+    const deliveryTemplateName = isLangArabic ? 'jigzo_arabic_puzzle_delivery_v2' : 'jigzo_puzzle_delivery_v2';
+    const deliveryLangCode = isLangArabic ? 'ar' : 'en';
 
     const phoneRaw = rec.phoneE164 || `${rec.countryCode || ''}${rec.phone}`;
     const destinationPhone = this.normalizePhone(phoneRaw, rec.countryCode);
@@ -309,6 +331,8 @@ class WhatsAppService {
         recipientSubdocumentId: rec._id,
         idempotencyKey,
         destinationMasked,
+        templateName: deliveryTemplateName,
+        languageCode: deliveryLangCode,
         status: 'pending',
         providerStatus: 'pending',
         createdAt: new Date(),
@@ -460,19 +484,17 @@ class WhatsAppService {
     messageRecord.requestStartedAt = new Date();
     await messageRecord.save();
 
-    const isLangArabic = isArabic(puzzle.experienceLanguage);
-    const langCode = isLangArabic ? 'ar' : 'en_US';
-
     const senderDisplayName = puzzle.revealIdentity
       ? (puzzle.senderName || '').trim()
-      : getAnonymousSender(langCode);
-    let finalSenderName = senderDisplayName || getAnonymousSender(langCode);
+      : getAnonymousSender(deliveryLangCode);
+    let finalSenderName = senderDisplayName || getAnonymousSender(deliveryLangCode);
     if (isLangArabic && finalSenderName === 'Someone') {
       finalSenderName = 'شخص ما';
     }
 
     const suffix = `${puzzleId}?r=${recipientIndex}`;
-    messageRecord.languageCode = langCode;
+    messageRecord.templateName = deliveryTemplateName;
+    messageRecord.languageCode = deliveryLangCode;
     await messageRecord.save();
 
     const payload = {
@@ -481,15 +503,16 @@ class WhatsAppService {
       to: destinationPhone,
       type: 'template',
       template: {
-        name: 'jigzo_puzzle_delivery',
+        name: deliveryTemplateName,
         language: {
-          code: langCode
+          code: deliveryLangCode
         },
         components: [
           {
             type: 'body',
             parameters: [
               { type: 'text', text: rec.name || '' },
+              { type: 'text', text: String(resolvedOrderId) },
               { type: 'text', text: finalSenderName }
             ]
           },
@@ -607,8 +630,9 @@ class WhatsAppService {
 
     const puzzle = await Puzzle.findOne({ publicId: puzzleId });
     const isLangArabic = isArabic(puzzle ? puzzle.experienceLanguage : 'en_US');
-    const langCode = isLangArabic ? 'ar' : 'en_US';
-    let senderDisplayName = puzzle && puzzle.senderName ? puzzle.senderName.trim() : getAnonymousSender(langCode);
+    const solvedTemplateName = isLangArabic ? 'jigzo_puzzle_solved_v2' : 'jigzo_puzzle_solved';
+    const solvedLangCode = isLangArabic ? 'ar' : 'en_US';
+    let senderDisplayName = puzzle && puzzle.senderName ? puzzle.senderName.trim() : getAnonymousSender(solvedLangCode);
     if (isLangArabic && senderDisplayName === 'Someone') {
       senderDisplayName = 'شخص ما';
     }
@@ -627,6 +651,8 @@ class WhatsAppService {
         recipientIndex,
         idempotencyKey,
         destinationMasked,
+        templateName: solvedTemplateName,
+        languageCode: solvedLangCode,
         status: 'pending',
         providerStatus: 'pending',
         createdAt: new Date(),
@@ -707,7 +733,8 @@ class WhatsAppService {
       completedAt = puzzle.recipients[recipientIndex].completedAt || new Date();
     }
 
-    messageRecord.languageCode = langCode;
+    messageRecord.templateName = solvedTemplateName;
+    messageRecord.languageCode = solvedLangCode;
     await messageRecord.save();
 
     let parameters;
@@ -781,9 +808,9 @@ class WhatsAppService {
       to: destinationPhone,
       type: 'template',
       template: {
-        name: 'jigzo_puzzle_solved',
+        name: solvedTemplateName,
         language: {
-          code: langCode
+          code: solvedLangCode
         },
         components: [
           {
@@ -860,8 +887,8 @@ class WhatsAppService {
     }
   }
 
-  async retryPuzzleDelivery({ puzzleId, recipientIndex }) {
-    return this.claimAndSendPuzzleDelivery({ puzzleId, recipientIndex, retryFailed: true });
+  async retryPuzzleDelivery({ puzzleId, recipientIndex, orderId }) {
+    return this.claimAndSendPuzzleDelivery({ puzzleId, recipientIndex, retryFailed: true, orderId });
   }
 }
 
