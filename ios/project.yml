@@ -1,0 +1,26 @@
+name: JIGZOiOS
+options:
+  bundleIdPrefix: biz.jigzo
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  JIGZO:
+    type: application
+    platform: iOS
+    sources:
+      - path: JIGZO/JigzoApp.swift
+      - path: JIGZO/ContactPickerBridge.js
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: biz.jigzo.ios
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+    info:
+      path: JIGZO/Info.plist
+      properties:
+        CFBundleDisplayName: JIGZO
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
