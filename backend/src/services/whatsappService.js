@@ -15,14 +15,30 @@ function maskPhone(phone) {
 }
 
 class WhatsAppService {
+  puzzleDeliveryKey(puzzleId, recipientIndex) {
+    return `puzzle-delivery:${puzzleId}:${recipientIndex}:jigzo_puzzle_delivery:v1`;
+  }
+
+  utilityDeliveryKey(puzzleId, recipientIndex) {
+    return `puzzle-delivery:${puzzleId}:${recipientIndex}:utility:v1`;
+  }
+
+  hasDeliveryEvidence(messageRecord) {
+    return Boolean(messageRecord && (
+      messageRecord.deliveredAt || messageRecord.readAt ||
+      ['delivered', 'read'].includes(messageRecord.status) ||
+      (messageRecord.retryHistory || []).some(attempt =>
+        attempt.deliveredAt || attempt.readAt || ['delivered', 'read'].includes(attempt.status))
+    ));
+  }
+
   isCurrentTerminalPuzzleDeliveryFailure(messageRecord, recipient) {
     return Boolean(
       messageRecord &&
-      messageRecord.messageType === 'puzzle_delivery' &&
+      ['puzzle_delivery', 'puzzle_delivery_fallback'].includes(messageRecord.messageType) &&
       messageRecord.providerStatus === 'failed' &&
       messageRecord.providerMessageId &&
-      !messageRecord.deliveredAt &&
-      !messageRecord.readAt &&
+      !this.hasDeliveryEvidence(messageRecord) &&
       !['delivered', 'read'].includes(messageRecord.status) &&
       recipient &&
       !recipient.openedAt &&
@@ -45,6 +61,7 @@ class WhatsAppService {
   isInitialPuzzleDeliveryRetryable(messageRecord, recipient) {
     return Boolean(
       this.isCurrentTerminalPuzzleDeliveryFailure(messageRecord, recipient) &&
+      messageRecord.messageType === 'puzzle_delivery' &&
       messageRecord.status === 'failed' &&
       messageRecord.providerStatus === 'failed' &&
       !this.isMetaRestrictionError(messageRecord)
@@ -54,8 +71,24 @@ class WhatsAppService {
   isInitialPuzzleDeliveryCorrectable(messageRecord, recipient) {
     return Boolean(
       this.isCurrentTerminalPuzzleDeliveryFailure(messageRecord, recipient) &&
+      messageRecord.messageType === 'puzzle_delivery' &&
       !this.isMetaRestrictionError(messageRecord)
     );
+  }
+
+  manualRetryMode(marketing, utility, recipient) {
+    if (!marketing || !recipient || recipient.openedAt || recipient.completedAt ||
+        recipient.whatsappReadAt || recipient.whatsappDeliveredAt ||
+        this.hasDeliveryEvidence(marketing) || this.hasDeliveryEvidence(utility)) return null;
+    if (utility) {
+      return this.isCurrentTerminalPuzzleDeliveryFailure(utility, recipient) &&
+        utility.status === 'failed' && utility.providerStatus === 'failed'
+        ? 'utility_retry' : null;
+    }
+    if (!this.isCurrentTerminalPuzzleDeliveryFailure(marketing, recipient) ||
+        marketing.status !== 'failed' || marketing.providerStatus !== 'failed') return null;
+    if (['131049', '130472'].includes(String(marketing.lastErrorCode))) return 'utility_fallback';
+    return this.isInitialPuzzleDeliveryRetryable(marketing, recipient) ? 'marketing_retry' : null;
   }
 
   async correctPuzzleDeliveryRecipient({ puzzleId, recipientIndex, phone, adminId }) {
@@ -74,13 +107,17 @@ class WhatsAppService {
     const puzzle = await Puzzle.findOne({ publicId: puzzleId });
     const recipient = puzzle && puzzle.recipients[recipientIndex];
     if (!recipient) return { success: false, reason: 'not_found' };
-    if (recipient.openedAt || recipient.completedAt || recipient.whatsappReadAt) {
+    if (recipient.openedAt || recipient.completedAt || recipient.whatsappReadAt || recipient.whatsappDeliveredAt) {
       return { success: false, reason: 'recipient_already_opened_or_solved' };
     }
 
-    const idempotencyKey = `puzzle-delivery:${puzzleId}:${recipientIndex}:jigzo_puzzle_delivery:v1`;
+    const utilityCheck = await WhatsAppMessage.findOne({ idempotencyKey: this.utilityDeliveryKey(puzzleId, recipientIndex) });
+    const idempotencyKey = utilityCheck
+      ? this.utilityDeliveryKey(puzzleId, recipientIndex)
+      : this.puzzleDeliveryKey(puzzleId, recipientIndex);
     const existingCheck = await WhatsAppMessage.findOne({ idempotencyKey });
-    if (existingCheck && this.isMetaRestrictionError(existingCheck)) {
+    if (existingCheck && (this.hasDeliveryEvidence(existingCheck) ||
+        (!utilityCheck && this.isMetaRestrictionError(existingCheck)))) {
       return { success: false, reason: 'not_correctable' };
     }
 
@@ -90,11 +127,11 @@ class WhatsAppService {
         idempotencyKey,
         puzzleId,
         recipientIndex,
-        messageType: 'puzzle_delivery',
+        messageType: utilityCheck ? 'puzzle_delivery_fallback' : 'puzzle_delivery',
         status: { $in: ['failed', 'sent', 'accepted'] },
         providerStatus: 'failed',
         providerMessageId: { $type: 'string', $gt: '' },
-        lastErrorCode: { $nin: ['131049', '130472'] },
+        lastErrorCode: { $nin: utilityCheck ? [] : ['131049', '130472'] },
         deliveredAt: null,
         readAt: null
       },
@@ -274,7 +311,7 @@ class WhatsAppService {
   /**
    * Atomically claims and sends a puzzle template message to a specific recipient.
    */
-  async claimAndSendPuzzleDelivery({ puzzleId, recipientIndex, retryFailed = false, orderId }) {
+  async claimAndSendPuzzleDelivery({ puzzleId, recipientIndex, retryFailed = false, orderId, deliveryRole = 'marketing' }) {
     // Phase 1 check: Keep WHATSAPP_ENABLED false check first to prevent any DB claims
     const whatsappEnabled = process.env.WHATSAPP_ENABLED === 'true';
     if (!whatsappEnabled) {
@@ -309,15 +346,29 @@ class WhatsAppService {
     }
 
     const isLangArabic = isArabic(puzzle.experienceLanguage);
-    const deliveryTemplateName = isLangArabic ? 'jigzo_arabic_puzzle_delivery_v2' : 'jigzo_puzzle_delivery_v2';
-    const deliveryLangCode = isLangArabic ? 'ar' : 'en';
+    const isUtility = deliveryRole === 'utility';
+    const deliveryTemplateName = isUtility
+      ? (isLangArabic ? 'jigzo_arabic_puzzle_delivery_v2' : 'jigzo_puzzle_delivery_v2')
+      : 'jigzo_puzzle_delivery';
+    const deliveryLangCode = isLangArabic ? 'ar' : (isUtility ? 'en' : 'en_US');
 
     const phoneRaw = rec.phoneE164 || `${rec.countryCode || ''}${rec.phone}`;
     const destinationPhone = this.normalizePhone(phoneRaw, rec.countryCode);
     const destinationMasked = maskPhone(destinationPhone);
 
-    const idempotencyKey = `puzzle-delivery:${puzzleId}:${recipientIndex}:jigzo_puzzle_delivery:v1`;
+    const idempotencyKey = isUtility
+      ? this.utilityDeliveryKey(puzzleId, recipientIndex)
+      : this.puzzleDeliveryKey(puzzleId, recipientIndex);
     let messageRecord;
+
+    if (isUtility) {
+      const marketing = await WhatsAppMessage.findOne({ idempotencyKey: this.puzzleDeliveryKey(puzzleId, recipientIndex) });
+      if (!marketing || this.hasDeliveryEvidence(marketing) ||
+          !this.isCurrentTerminalPuzzleDeliveryFailure(marketing, rec) ||
+          !['131049', '130472'].includes(String(marketing.lastErrorCode))) {
+        return { success: false, reason: 'not_retryable', status: 'not_retryable' };
+      }
+    }
 
     if (retryFailed && (rec.openedAt || rec.completedAt || rec.whatsappReadAt)) {
       return { success: false, reason: 'recipient_already_opened_or_solved', status: 'not_retryable' };
@@ -330,6 +381,9 @@ class WhatsAppService {
         recipientIndex,
         recipientSubdocumentId: rec._id,
         idempotencyKey,
+        messageType: isUtility ? 'puzzle_delivery_fallback' : 'puzzle_delivery',
+        attemptRole: deliveryRole,
+        parentIdempotencyKey: isUtility ? this.puzzleDeliveryKey(puzzleId, recipientIndex) : undefined,
         destinationMasked,
         templateName: deliveryTemplateName,
         languageCode: deliveryLangCode,
@@ -347,23 +401,66 @@ class WhatsAppService {
         }
 
         const claimTime = new Date();
+        const previous = await WhatsAppMessage.findOne({ idempotencyKey });
+        if (!previous || !previous.providerMessageId) {
+          return { success: false, reason: 'not_retryable', status: previous?.status || 'not_found' };
+        }
+        const archivedAttempt = {
+          attemptNumber: previous.attemptCount,
+          attemptRole: previous.attemptRole || deliveryRole,
+          templateName: previous.templateName,
+          providerMessageId: previous.providerMessageId,
+          destinationMasked: previous.destinationMasked,
+          status: previous.status,
+          providerStatus: previous.providerStatus,
+          languageCode: previous.languageCode,
+          claimedAt: previous.claimedAt,
+          requestStartedAt: previous.requestStartedAt,
+          acceptedAt: previous.acceptedAt,
+          sentAt: previous.sentAt,
+          deliveredAt: previous.deliveredAt,
+          readAt: previous.readAt,
+          failedAt: previous.failedAt,
+          errorCode: previous.lastErrorCode,
+          errorTitle: previous.lastErrorTitle,
+          errorMessage: previous.lastErrorMessage,
+          errorDetails: previous.lastErrorDetails,
+          providerFailureMetadata: previous.providerFailureMetadata,
+          payloadHash: previous.payloadHash
+        };
         const existing = await WhatsAppMessage.findOneAndUpdate(
           {
             idempotencyKey,
             puzzleId,
             recipientIndex,
-            messageType: 'puzzle_delivery',
+            messageType: isUtility ? 'puzzle_delivery_fallback' : 'puzzle_delivery',
             status: 'failed',
             providerStatus: 'failed',
-            providerMessageId: { $type: 'string', $gt: '' },
-            lastErrorCode: { $nin: ['131049', '130472'] }
+            providerMessageId: previous.providerMessageId,
+            lastErrorCode: { $nin: isUtility ? [] : ['131049', '130472'] }
           },
           {
+            $push: { retryHistory: archivedAttempt },
             $set: {
               status: 'claimed',
               providerStatus: 'claimed',
               retryStartedAt: claimTime,
+              destinationMasked,
               updatedAt: claimTime
+            },
+            $unset: {
+              providerMessageId: 1,
+              retryDestinationMasked: 1,
+              acceptedAt: 1,
+              sentAt: 1,
+              deliveredAt: 1,
+              readAt: 1,
+              failedAt: 1,
+              lastErrorCode: 1,
+              lastErrorTitle: 1,
+              lastErrorMessage: 1,
+              lastErrorDetails: 1,
+              providerFailureMetadata: 1
             }
           },
           { new: true }
@@ -387,46 +484,6 @@ class WhatsAppService {
           };
         }
 
-        // Archive the complete previous attempt before detaching its wamid.
-        // Webhook processing treats archived wamids as immutable history.
-        existing.retryHistory.push({
-          attemptNumber: existing.attemptCount,
-          providerMessageId: existing.providerMessageId,
-          destinationMasked: existing.destinationMasked,
-          status: 'failed',
-          providerStatus: 'failed',
-          languageCode: existing.languageCode,
-          claimedAt: existing.claimedAt,
-          requestStartedAt: existing.requestStartedAt,
-          acceptedAt: existing.acceptedAt,
-          sentAt: existing.sentAt,
-          deliveredAt: existing.deliveredAt,
-          readAt: existing.readAt,
-          failedAt: existing.failedAt,
-          errorCode: existing.lastErrorCode,
-          errorTitle: existing.lastErrorTitle,
-          errorMessage: existing.lastErrorMessage,
-          errorDetails: existing.lastErrorDetails,
-          providerFailureMetadata: existing.providerFailureMetadata,
-          payloadHash: existing.payloadHash
-        });
-        await existing.save();
-
-        existing.providerMessageId = undefined;
-        existing.destinationMasked = destinationMasked;
-        existing.retryDestinationMasked = undefined;
-        existing.claimedAt = claimTime;
-        existing.acceptedAt = undefined;
-        existing.sentAt = undefined;
-        existing.deliveredAt = undefined;
-        existing.readAt = undefined;
-        existing.failedAt = undefined;
-        existing.lastErrorCode = undefined;
-        existing.lastErrorTitle = undefined;
-        existing.lastErrorMessage = undefined;
-        existing.lastErrorDetails = undefined;
-        existing.providerFailureMetadata = undefined;
-        await existing.save();
         messageRecord = existing;
       } else {
         throw err;
@@ -438,6 +495,22 @@ class WhatsAppService {
     messageRecord.providerStatus = 'claimed';
     messageRecord.claimedAt = new Date();
     await messageRecord.save();
+
+    if (isUtility) {
+      const marketing = await WhatsAppMessage.findOne({ idempotencyKey: this.puzzleDeliveryKey(puzzleId, recipientIndex) });
+      const currentPuzzle = await Puzzle.findOne({ publicId: puzzleId });
+      const currentRecipient = currentPuzzle && currentPuzzle.recipients[recipientIndex];
+      if (!marketing || this.hasDeliveryEvidence(marketing) || !currentRecipient ||
+          currentRecipient.openedAt || currentRecipient.completedAt || currentRecipient.whatsappReadAt ||
+          currentRecipient.whatsappDeliveredAt) {
+        messageRecord.status = 'failed';
+        messageRecord.providerStatus = 'failed';
+        messageRecord.lastErrorCode = 'FALLBACK_CANCELLED';
+        messageRecord.failedAt = new Date();
+        await messageRecord.save();
+        return { success: false, reason: 'not_retryable', status: 'failed' };
+      }
+    }
 
     if (retryFailed) {
       const latestPuzzle = await Puzzle.findOne({ publicId: puzzleId });
@@ -512,7 +585,7 @@ class WhatsAppService {
             type: 'body',
             parameters: [
               { type: 'text', text: rec.name || '' },
-              { type: 'text', text: String(resolvedOrderId) },
+              ...(isUtility ? [{ type: 'text', text: String(resolvedOrderId) }] : []),
               { type: 'text', text: finalSenderName }
             ]
           },
@@ -888,6 +961,32 @@ class WhatsAppService {
   }
 
   async retryPuzzleDelivery({ puzzleId, recipientIndex, orderId }) {
+    const puzzle = await Puzzle.findOne({ publicId: puzzleId });
+    const recipient = puzzle && puzzle.recipients[recipientIndex];
+    if (!recipient || recipient.openedAt || recipient.completedAt || recipient.whatsappReadAt || recipient.whatsappDeliveredAt) {
+      return { success: false, reason: 'not_retryable', status: 'not_retryable' };
+    }
+    const [marketing, utility] = await Promise.all([
+      WhatsAppMessage.findOne({ idempotencyKey: this.puzzleDeliveryKey(puzzleId, recipientIndex) }),
+      WhatsAppMessage.findOne({ idempotencyKey: this.utilityDeliveryKey(puzzleId, recipientIndex) })
+    ]);
+    if (!marketing || this.hasDeliveryEvidence(marketing) || this.hasDeliveryEvidence(utility)) {
+      return { success: false, reason: 'not_retryable', status: 'not_retryable' };
+    }
+    if (utility) {
+      if (!this.isCurrentTerminalPuzzleDeliveryFailure(utility, recipient) ||
+          utility.status !== 'failed' || utility.providerStatus !== 'failed') {
+        return { success: false, reason: 'not_retryable', status: utility.status };
+      }
+      return this.claimAndSendPuzzleDelivery({ puzzleId, recipientIndex, retryFailed: true, orderId, deliveryRole: 'utility' });
+    }
+    if (this.isCurrentTerminalPuzzleDeliveryFailure(marketing, recipient) &&
+        ['131049', '130472'].includes(String(marketing.lastErrorCode))) {
+      return this.claimAndSendPuzzleDelivery({ puzzleId, recipientIndex, orderId, deliveryRole: 'utility' });
+    }
+    if (!this.isInitialPuzzleDeliveryRetryable(marketing, recipient)) {
+      return { success: false, reason: 'not_retryable', status: marketing.status };
+    }
     return this.claimAndSendPuzzleDelivery({ puzzleId, recipientIndex, retryFailed: true, orderId });
   }
 }

@@ -125,4 +125,35 @@ async function sendRevealEmail({ to, recipientName, senderName, revealLink, idem
   }
 }
 
-module.exports = { sendRevealEmail, isConfigured, EMAIL_FROM };
+async function sendBusinessMagicLinkEmail({ to, magicLink, idempotencyKey }) {
+  if (process.env.NODE_ENV === 'test') return { success: true, providerMessageId: 'test-not-sent', error: null };
+  if (!resend) return { success: false, providerMessageId: '', error: 'Email delivery is not configured on this environment.' };
+  const subject = 'Your JIGZO Business sign-in link';
+  const delivery = resolveEmailDelivery({ to, subject });
+  if (!delivery.ok) return { success: false, providerMessageId: '', error: delivery.error };
+  const safeLink = escapeHtml(magicLink);
+  try {
+    const result = await resend.emails.send({ from: EMAIL_FROM, to: [delivery.to], subject: delivery.subject, text: `Sign in to JIGZO Business:\n${magicLink}\n\nThis single-use link expires in 15 minutes.`, html: `<div style="font-family:Arial,sans-serif;padding:32px;color:#17140f"><h1>JIGZO Business</h1><p>Use this single-use link to sign in. It expires in 15 minutes.</p><p><a href="${safeLink}" style="display:inline-block;padding:13px 22px;background:#17140f;color:#f4eddf;text-decoration:none;border-radius:999px">Sign in securely</a></p></div>` }, idempotencyKey ? { idempotencyKey } : undefined);
+    if (result.error) return { success: false, providerMessageId: '', error: result.error.message || 'Email provider rejected the message.' };
+    return { success: true, providerMessageId: result.data?.id || '', error: null };
+  } catch (error) { return { success: false, providerMessageId: '', error: String(error.message || 'Email send failed').slice(0, 500) }; }
+}
+
+async function sendBusinessInvitationEmail({ to, recipientName, organizationName, eventTitle, eventDateTime, timezone = 'Asia/Bahrain', location, invitationLink, language = 'en', idempotencyKey }) {
+  if (!resend) return { success: false, providerMessageId: '', error: 'Email delivery is not configured on this environment.', code: 'NOT_CONFIGURED' };
+  const isArabic = language === 'ar';
+  const subject = isArabic ? `دعوة JIGZO: ${eventTitle}` : `A JIGZO invitation: ${eventTitle}`;
+  const delivery = resolveEmailDelivery({ to, subject });
+  if (!delivery.ok) return { success: false, providerMessageId: '', error: delivery.error, code: 'DELIVERY_BLOCKED' };
+  const safeName = escapeHtml(recipientName); const safeOrg = escapeHtml(organizationName || 'JIGZO'); const safeTitle = escapeHtml(eventTitle); const safeLocation = escapeHtml(location); const safeLink = escapeHtml(invitationLink);
+  const dateText = new Intl.DateTimeFormat(isArabic ? 'ar-BH' : 'en-GB', { dateStyle: 'long', timeStyle: 'short', timeZone: timezone }).format(new Date(eventDateTime));
+  const text = isArabic ? `${recipientName}،\n\nلديك دعوة من ${organizationName || 'JIGZO'}. افتح JIGZO وحل الأحجية للكشف عنها:\n${invitationLink}` : `Hi ${recipientName},\n\n${organizationName || 'Someone'} sent you an invitation through JIGZO. Solve the puzzle to reveal it:\n${invitationLink}`;
+  const html = `<div dir="${isArabic ? 'rtl' : 'ltr'}" style="margin:0;padding:36px 20px;background:#faf8ec;color:#1c1913;font-family:Arial,sans-serif"><div style="max-width:600px;margin:auto"><div style="font-weight:900;font-size:24px">JIGZO</div><p style="margin-top:42px;color:#80662e">${isArabic ? 'دعوة شخصية إلى' : 'A personal invitation to'}</p><h1 style="font-family:Georgia,serif;font-size:42px;line-height:1.05">${safeTitle}</h1><p>${dateText}<br>${safeLocation}</p><p>${safeName}</p><p style="margin:34px 0"><a href="${safeLink}" style="background:#1c1913;color:#faf8ec;text-decoration:none;padding:15px 24px;border-radius:999px;font-weight:700">${isArabic ? 'افتح JIGZO' : 'Open your JIGZO'}</a></p><small>${isArabic ? 'أرسلت بواسطة' : 'Sent by'} ${safeOrg}</small></div></div>`;
+  try {
+    const result = await resend.emails.send({ from: process.env.BUSINESS_EMAIL_FROM || EMAIL_FROM, to: [delivery.to], subject: delivery.subject, text, html }, idempotencyKey ? { idempotencyKey } : undefined);
+    if (result.error) return { success: false, providerMessageId: '', error: result.error.message || 'Provider rejected email.', code: 'PROVIDER_REJECTED' };
+    return { success: true, providerMessageId: result.data?.id || '', error: null };
+  } catch (error) { return { success: false, providerMessageId: '', error: String(error.message || 'Email send failed').slice(0, 500), code: 'NETWORK_OR_PROVIDER_ERROR' }; }
+}
+
+module.exports = { sendRevealEmail, sendBusinessMagicLinkEmail, sendBusinessInvitationEmail, isConfigured, EMAIL_FROM };

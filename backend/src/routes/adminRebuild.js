@@ -410,9 +410,13 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
 
     const orderByPuzzleId = new Map();
     for (const o of orders) { if (!orderByPuzzleId.has(o.puzzleId)) orderByPuzzleId.set(o.puzzleId, o); }
-    const whatsappByRecipient = new Map(
-      whatsappMessages.map((m) => [`${m.puzzleId}:${m.recipientIndex}`, m])
-    );
+    const whatsappByRecipient = new Map();
+    for (const m of whatsappMessages) {
+      const key = `${m.puzzleId}:${m.recipientIndex}`;
+      const pair = whatsappByRecipient.get(key) || {};
+      pair[m.messageType === 'puzzle_delivery_fallback' ? 'utility' : 'marketing'] = m;
+      whatsappByRecipient.set(key, pair);
+    }
     const paidPuzzleIds = new Set(orders.filter(L.isCompletedPaidOrder).map((o) => o.puzzleId));
     const abandonedPuzzleIds = new Set(orders.filter(L.isAbandonedCheckout).map((o) => o.puzzleId));
 
@@ -428,7 +432,41 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
       const order = orderByPuzzleId.get(p.publicId);
       for (let i = 0; i < (p.recipients || []).length; i++) {
         const r = p.recipients[i];
-        const message = whatsappByRecipient.get(`${p.publicId}:${i}`) || null;
+        const pair = whatsappByRecipient.get(`${p.publicId}:${i}`) || {};
+        const marketing = pair.marketing || null;
+        const utility = pair.utility || null;
+        const message = whatsappService.hasDeliveryEvidence(marketing) ? marketing : (utility || marketing);
+        const retryMode = whatsappService.manualRetryMode(marketing, utility, r);
+        const attempts = [marketing, utility].filter(Boolean).flatMap((m) => [
+          ...(m.retryHistory || []).map(a => ({
+            role: m.attemptRole || (m.messageType === 'puzzle_delivery_fallback' ? 'utility' : 'marketing'),
+            templateName: a.templateName || m.templateName,
+            languageCode: a.languageCode,
+            providerMessageId: a.providerMessageId,
+            status: a.status,
+            errorCode: a.errorCode,
+            claimedAt: a.claimedAt,
+            acceptedAt: a.acceptedAt,
+            sentAt: a.sentAt,
+            deliveredAt: a.deliveredAt,
+            readAt: a.readAt,
+            failedAt: a.failedAt
+          })),
+          {
+            role: m.attemptRole || (m.messageType === 'puzzle_delivery_fallback' ? 'utility' : 'marketing'),
+            templateName: m.templateName,
+            languageCode: m.languageCode,
+            providerMessageId: m.providerMessageId,
+            status: m.status,
+            errorCode: m.lastErrorCode,
+            claimedAt: m.claimedAt,
+            acceptedAt: m.acceptedAt,
+            sentAt: m.sentAt,
+            deliveredAt: m.deliveredAt,
+            readAt: m.readAt,
+            failedAt: m.failedAt
+          }
+        ]);
         const reconciliationStatus = message ? getReconciliationStatus(message) : 'not_required';
         const state = L.getRecipientOperationalState(r, message);
         const conflicts = L.detectRecipientConflicts(r, p);
@@ -459,11 +497,13 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
           providerStatus: rowProviderStatus,
           providerSendStatus: rowProviderSendStatus,
           providerMessageId: (message && message.providerMessageId) || r.providerMessageId || '',
-          canRetryInitialDelivery: whatsappService.isInitialPuzzleDeliveryRetryable(message, r),
-          canCorrectInitialDelivery: whatsappService.isInitialPuzzleDeliveryCorrectable(message, r),
-          retryable: whatsappService.isInitialPuzzleDeliveryRetryable(message, r),
-          correctable: whatsappService.isInitialPuzzleDeliveryCorrectable(message, r),
-          historicalAttemptCount: message && Array.isArray(message.retryHistory) ? message.retryHistory.length : 0,
+          canRetryInitialDelivery: Boolean(retryMode),
+          canCorrectInitialDelivery: Boolean(retryMode === 'marketing_retry' || retryMode === 'utility_retry'),
+          retryable: Boolean(retryMode),
+          correctable: Boolean(retryMode === 'marketing_retry' || retryMode === 'utility_retry'),
+          retryMode,
+          attempts,
+          historicalAttemptCount: attempts.length > 0 ? attempts.length - 1 : 0,
           currentDestinationEnding: message && (message.retryDestinationMasked || message.destinationMasked)
             ? String(message.retryDestinationMasked || message.destinationMasked).slice(-4)
             : '',

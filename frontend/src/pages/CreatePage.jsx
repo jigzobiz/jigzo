@@ -8,6 +8,7 @@ import { formatMoney, resolveVisitorCurrency, getActiveQuote, initializePricing 
 import { PACK_OPTIONS, UPGRADES } from '../config/packages';
 import { PIECE_OPTIONS, OCCASIONS, TONES, suggestedMessage } from '../config/difficulties';
 import WhatsAppPreview from '../components/WhatsAppPreview';
+import ContactPickerButton from '../components/ContactPickerButton';
 import RevealFace from '../components/RevealFace';
 import LoaderOrbit from '../components/LoaderOrbit';
 import RevealBeat from '../components/RevealBeat';
@@ -15,6 +16,7 @@ import { buildEdgeMap, piecePath, mulberry32 } from '../puzzle/puzzle-shape';
 import { analytics } from '../services/analytics';
 import { isValidPhoneNumber } from 'libphonenumber-js';
 import { normalizePhoneInput } from '../utils/phone';
+import { internationalPhone, recipientPhoneIdentity } from '../utils/contactPicker';
 import SiteFooter from '../components/SiteFooter';
 import SiteHeader from '../components/SiteHeader';
 
@@ -178,6 +180,7 @@ export default function CreatePage() {
   const [recipients, setRecipients] = useState([
     { name: "", phone: "", dial: "+973", dialEdited: false, deliveryMethod: "whatsapp", email: "" }
   ]);
+  const [contactPickerNotice, setContactPickerNotice] = useState('');
   const [revealIdentity, setRevealIdentity] = useState(true);
   const [pieceCount, setPieceCount] = useState(18);
   const [selectedUpgrades, setSelectedUpgrades] = useState([]);
@@ -233,7 +236,7 @@ export default function CreatePage() {
       try {
         const res = await api.getFeaturesStatus();
         setCheckoutEnabled(res.checkoutEnabled);
-        setIsTestModeEnabled(res.testRevealEnabled);
+        setIsTestModeEnabled(res.testRevealEnabled === true);
       } catch (err) {
         console.error('Error fetching features status:', err);
       }
@@ -344,6 +347,37 @@ export default function CreatePage() {
     });
   };
 
+  const addSelectedContacts = (selected) => {
+    const next = [...recipients];
+    const useEmptyFirst = next.length === 1 && !next[0].name.trim() && !next[0].phone.trim();
+    const existing = new Set(next.filter((_, i) => !(useEmptyFirst && i === 0))
+      .filter(row => row.deliveryMethod !== 'email' && (row.phone || row.dial))
+      .map(row => recipientPhoneIdentity(row.dial, row.phone)));
+    let added = 0;
+    let duplicates = 0;
+    let overLimit = 0;
+    for (const contact of selected) {
+      const parsed = internationalPhone(contact.phone);
+      const identity = parsed.e164 || parsed.raw;
+      if (identity && existing.has(identity)) { duplicates++; continue; }
+      if (next.length >= 50 && !(useEmptyFirst && added === 0)) { overLimit++; continue; }
+      const row = { name: contact.name || '', phone: parsed.national, dial: parsed.dial,
+        dialEdited: true, deliveryMethod: 'whatsapp', email: '', fromContact: true };
+      if (useEmptyFirst && added === 0) next[0] = row;
+      else next.push(row);
+      if (identity) existing.add(identity);
+      added++;
+    }
+    if (added) {
+      setRecipients(next);
+      if (useEmptyFirst) setPrimaryRecipientName(next[0].name);
+    }
+    const parts = [];
+    if (overLimit) parts.push(isAr ? 'يدعم JIGZO حتى 50 مستلمًا؛ تمت إضافة الأسماء التي تتسع لها القائمة فقط.' : 'JIGZO supports a maximum of 50 recipients. Only contacts that fit were added.');
+    if (duplicates) parts.push(isAr ? `تم تخطي ${duplicates} من الأرقام المكررة.` : `${duplicates} duplicate number(s) were skipped.`);
+    setContactPickerNotice(parts.join(' '));
+  };
+
   const currentPack = useMemo(() => {
     return packageForRecipientCount(recipients.length);
   }, [recipients.length]);
@@ -451,8 +485,9 @@ export default function CreatePage() {
         if (identitySet.has(id)) return false;
         identitySet.add(id);
       } else {
-        if (!phoneValid(r.dial, r.phone)) return false;
-        const id = "phone:" + (r.dial + r.phone);
+        if (!phoneValid(r.dial, r.phone) ||
+            (r.fromContact && !normalizePhoneInput(`${r.dial || ''}${r.phone || ''}`).startsWith('+'))) return false;
+        const id = "phone:" + recipientPhoneIdentity(r.dial, r.phone);
         if (identitySet.has(id)) return false;
         identitySet.add(id);
       }
@@ -1277,13 +1312,12 @@ export default function CreatePage() {
             </p>
 
             <div style={{ marginBottom: 18 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50, marginBottom: 6 }}>{t('create.recipient.recipientLabel')}</label>
+              <div className="recipient-heading-row"><label style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50 }}>{t('create.recipient.recipientLabel')}</label><strong>{t('create.recipient.recipientNote')}</strong></div>
               <input type="text" placeholder={t('create.recipient.recipientPlaceholder')} value={primaryRecipientName}
                 onChange={(e) => handlePrimaryRecipientNameChange(e.target.value)} style={inputStyle}
                 autoComplete="off" />
-              <div style={{ fontSize: 12.5, color: T.ink50, marginTop: 6, lineHeight: 1.4 }}>
-                {t('create.recipient.recipientNote')}
-              </div>
+              <ContactPickerButton onSelect={addSelectedContacts} isArabic={isAr} />
+              {contactPickerNotice && <div role="status" className="contact-picker-note">{contactPickerNotice}</div>}
             </div>
 
             <div style={{ marginBottom: 18 }}>
@@ -1371,12 +1405,14 @@ export default function CreatePage() {
               )}
             </div>
 
+            <ContactPickerButton onSelect={addSelectedContacts} isArabic={isAr} />
+            {contactPickerNotice && <div role="status" className="contact-picker-note">{contactPickerNotice}</div>}
             {/* Recipient Details List */}
             {recipients.map((rec, idx) => {
               const method = rec.deliveryMethod === "email" ? "email" : "whatsapp";
               const recValid = phoneValid(rec.dial, rec.phone);
               const fullPhone = rec.dial + rec.phone;
-              const isDuplicatePhone = rec.phone && recipients.some((r, i) => i !== idx && (r.deliveryMethod !== "email") && (r.dial + r.phone) === fullPhone);
+              const isDuplicatePhone = rec.phone && recipients.some((r, i) => i !== idx && (r.deliveryMethod !== "email") && recipientPhoneIdentity(r.dial, r.phone) === recipientPhoneIdentity(rec.dial, rec.phone));
               const normalizedEmail = String(rec.email || "").trim().toLowerCase();
               const recEmailValid = emailValid(rec.email);
               const isDuplicateEmail = normalizedEmail && recipients.some((r, i) => i !== idx && r.deliveryMethod === "email" && String(r.email || "").trim().toLowerCase() === normalizedEmail);
@@ -1487,11 +1523,13 @@ export default function CreatePage() {
                         />
                       </div>
 
-                      {rec.phone && (!recValid || isDuplicatePhone) && (
+                      {(rec.phone || rec.fromContact) && (!recValid || isDuplicatePhone || (rec.fromContact && !normalizePhoneInput(`${rec.dial || ''}${rec.phone || ''}`).startsWith('+'))) && (
                         <div style={{ marginTop: 8, fontSize: 12.5, color: T.goldDeep, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 4 }}>
                           <span>⚠️</span>
                           <span>
-                            {!recValid
+                            {rec.fromContact && !normalizePhoneInput(`${rec.dial || ''}${rec.phone || ''}`).startsWith('+')
+                              ? (isAr ? 'يجب أن يتضمن رقم جهة الاتصال رمز الدولة (مثل +973). يرجى تحديث الرقم.' : 'This contact must include the country code (for example +973). Please update the number.')
+                              : !recValid
                               ? t('create.delivery.phoneInvalid')
                               : t('create.delivery.phoneDuplicate')
                             }
@@ -1746,7 +1784,7 @@ export default function CreatePage() {
               </div>
             </div>
 
-            {!checkoutEnabled && (
+            {!checkoutEnabled && !isTestModeEnabled && (
               <div style={{ textAlign: 'center', padding: '20px', background: T.card, borderRadius: 16, border: '1.5px solid ' + T.ink15, margin: "20px 0" }}>
                 <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 6, color: T.ink }}>{t('create.review.launchingSoon')}</h2>
                 {interestRegistered ? (
@@ -1898,15 +1936,14 @@ export default function CreatePage() {
                   >
                     {isProcessing ? t('create.review.payment.submitting') : t('create.review.payAndSend')}
                   </PrimaryButton>
+                ) : isTestModeEnabled ? (
+                  <PrimaryButton onClick={handleCreateTestReveal} style={{ flex: 1, background: T.goldWarm, color: T.ink }}>
+                    {t('create.review.createTestReveal')}
+                  </PrimaryButton>
                 ) : (
                   <PrimaryButton disabled style={{ flex: 1 }}>{t('create.review.payAndSend')}</PrimaryButton>
                 )}
               </div>
-              {isTestModeEnabled && (
-                <PrimaryButton onClick={handleCreateTestReveal} style={{ width: '100%', background: T.goldWarm, color: T.ink }}>
-                  {t('create.review.createTestReveal')}
-                </PrimaryButton>
-              )}
             </div>
           </div>
         )}

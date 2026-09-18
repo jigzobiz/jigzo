@@ -91,6 +91,7 @@ const MockPuzzle = {
 // Inject mock models into require.cache for resendWebhookService
 require.cache[path.resolve(__dirname, '../src/models/DeliveryWebhookEvent.js')] = { exports: MockDeliveryWebhookEvent };
 require.cache[path.resolve(__dirname, '../src/models/Puzzle.js')] = { exports: MockPuzzle };
+require.cache[path.resolve(__dirname, '../src/models/EmailMessage.js')] = { exports: { findOne: async () => null } };
 
 const { sendRevealEmail } = require('../src/services/emailService');
 const {

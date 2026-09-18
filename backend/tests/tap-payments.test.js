@@ -675,6 +675,29 @@ test('actual POST /api/puzzles saves image to GridFS and creates a draft puzzle 
   storageService.saveImage = originalSaveImage;
 });
 
+test('consumer puzzle creation accepts 49 and 50 recipients and rejects 51', async () => {
+  const puzzlesRouter = require('../src/routes/puzzles');
+  const handler = puzzlesRouter.stack.find(s => s.route?.path === '/' && s.route.methods.post)?.route.stack[0]?.handle;
+  const storageService = require('../src/services/storageService');
+  const originalSaveImage = storageService.saveImage;
+  storageService.saveImage = async () => 'mock_image_id';
+  try {
+    for (const count of [49, 50, 51]) {
+      const req = makeMockReq({
+        cropData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        message: 'Hello', senderName: 'Zahra', senderPhone: '+97333333333',
+        recipients: Array.from({ length: count }, (_, index) => ({ name: `Guest ${index}`, deliveryMethod: 'email', email: `guest${index}@example.com` }))
+      });
+      const res = makeMockRes();
+      await handler(req, res, err => { if (err) throw err; });
+      assert.equal(res.statusCode, count > 50 ? 400 : 201, `count ${count}`);
+      if (count > 50) assert.equal(res.body.field, 'recipients');
+    }
+  } finally {
+    storageService.saveImage = originalSaveImage;
+  }
+});
+
 test('actual POST /api/orders handles Tap creation rejection with safe error logging and formatting', async () => {
   const puzzle = new Puzzle({
     publicId: 'puz_tap_error_test',
@@ -921,13 +944,13 @@ test('orders endpoint rejects orders with missing, invalid, or expired quotes', 
   assert.strictEqual(res3.statusCode, 400);
   assert.match(res3.body.error, /token has expired/);
 
-  // 4. Package mismatch
+  // 4. Recipient count cannot be changed after the puzzle was created.
   const req4 = makeMockReq({ puzzleId: 'puz_validation_tests', recipientCount: 1, hasRevealAlert: false, currency: 'USD' });
   req4.body.recipientCount = 10; // Package mismatch (single vs friends)
   const res4 = makeMockRes();
   await ordersPostHandler(req4, res4, () => {});
   assert.strictEqual(res4.statusCode, 400);
-  assert.match(res4.body.error, /package mismatch/i);
+  assert.match(res4.body.error, /Recipient count must match the consumer puzzle/i);
 
   // 5. Reveal Alert mismatch
   const req5 = makeMockReq({ puzzleId: 'puz_validation_tests', recipientCount: 1, hasRevealAlert: false, currency: 'USD' });

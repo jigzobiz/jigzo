@@ -33,6 +33,11 @@ const FILES = [
   'components/RevealFace.jsx',
   'components/LoaderOrbit.jsx',
   'components/RevealBeat.jsx',
+  'pages/business/BusinessLandingPage.jsx',
+  'business/landing/BusinessHeader.jsx',
+  'business/landing/BusinessHero.jsx',
+  'business/landing/BusinessRecipientJourney.jsx',
+  'business/landing/BusinessDemoModal.jsx',
 ];
 
 // ---- id sets used to expand dynamic `${...}` template keys -----------------
@@ -48,6 +53,9 @@ const pieceIds = ['extra_easy', 'easy', 'classic', 'challenging'];
 const occasionIds = ['love', 'birthday', 'anniversary', 'congrats', 'sorry', 'missyou', 'getwell', 'thankyou', 'newbaby', 'justbecause'];
 const toneIds = ['romantic', 'funny', 'deep', 'short', 'poetic', 'family', 'friendship', 'playful'];
 const landingOccasionIds = ['birthday', 'love', 'friendship', 'new-baby', 'congratulations', 'just-because'];
+const businessExperienceIds = ['reveal', 'invitation', 'challenge', 'reward'];
+const businessPersonIds = ['sara', 'omar', 'noor'];
+const businessStudioStepIds = ['experience', 'puzzle', 'audience', 'delivery'];
 
 // Sanity: the config really does declare the occasion/tone/difficulty ids we
 // expand against (guards against silent drift if config is renamed).
@@ -59,6 +67,10 @@ for (const id of [...occasionIds, ...toneIds, ...pieceIds]) {
 
 // Prefix -> id list, longest prefix first.
 const TEMPLATE_SETS = [
+  ['business.studio.steps.', businessStudioStepIds],
+  ['business.experiences.', businessExperienceIds],
+  ['business.personal.people.', businessPersonIds],
+  ['business.activity.items.', businessPersonIds],
   ['landing.occasions.items.', landingOccasionIds],
   ['occasions.', occasionIds],
   ['tones.', toneIds],

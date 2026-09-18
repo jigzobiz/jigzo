@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import { sanitizeRoutePath } from './services/analytics';
+import './services/invitationBootstrap';
 
 // Vercel Analytics URL redaction: the puzzle publicId is an access capability
 // and must never reach a third party. Every reported URL is reduced to a
@@ -39,6 +40,13 @@ import Growth from './pages/admin/Growth';
 import SystemSettings from './pages/admin/SystemSettings';
 import ScrollConceptPage from './pages/ScrollConceptPage';
 import PaymentResult from './pages/PaymentResult';
+const BusinessLandingPage = lazy(() => import('./pages/business/BusinessLandingPage'));
+const BusinessHomePage = lazy(() => import('./pages/business/BusinessHomePage'));
+const BusinessCampaignStudioPage = lazy(() => import('./pages/business/BusinessCampaignStudioPage'));
+const BusinessCampaignResultsPage = lazy(() => import('./pages/business/BusinessCampaignResultsPage'));
+const BusinessAuthVerifyPage = lazy(() => import('./pages/business/BusinessAuthVerifyPage'));
+const BusinessLoginPage = lazy(() => import('./pages/business/BusinessLoginPage'));
+const InvitationRecipientPage = lazy(() => import('./pages/InvitationRecipientPage'));
 import './i18n';
 import './index.css';
 
@@ -79,6 +87,10 @@ const router = createBrowserRouter([
         element: <ReceivePage />
       },
       {
+        path: '/i',
+        element: <Suspense fallback={null}><InvitationRecipientPage /></Suspense>
+      },
+      {
         path: '/terms',
         element: <TermsPage />
       },
@@ -89,6 +101,34 @@ const router = createBrowserRouter([
       {
         path: '/about',
         element: <AboutPage />
+      },
+      {
+        path: '/business',
+        element: <Suspense fallback={null}><BusinessLandingPage /></Suspense>
+      },
+      {
+        path: '/business/campaigns',
+        element: <Suspense fallback={null}><BusinessHomePage /></Suspense>
+      },
+      {
+        path: '/business/campaigns/new',
+        element: <Suspense fallback={null}><BusinessCampaignStudioPage /></Suspense>
+      },
+      {
+        path: '/business/campaigns/:campaignId',
+        element: <Suspense fallback={null}><BusinessCampaignStudioPage /></Suspense>
+      },
+      {
+        path: '/business/campaigns/:campaignId/results',
+        element: <Suspense fallback={null}><BusinessCampaignResultsPage /></Suspense>
+      },
+      {
+        path: '/business/login',
+        element: <Suspense fallback={null}><BusinessLoginPage /></Suspense>
+      },
+      {
+        path: '/business/auth/verify',
+        element: <Suspense fallback={null}><BusinessAuthVerifyPage /></Suspense>
       },
       {
         path: '/admin',

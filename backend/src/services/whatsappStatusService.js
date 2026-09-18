@@ -65,15 +65,42 @@ async function persistNormalizedStatus(normalized) {
 
   let messageRecord = await WhatsAppMessage.findOne({ providerMessageId });
   if (!messageRecord) {
-    return { updated: false, reason: 'unmatched_provider_message_id' };
+    messageRecord = await WhatsAppMessage.findOne({ 'retryHistory.providerMessageId': providerMessageId });
+    if (!messageRecord) return { updated: false, reason: 'unmatched_provider_message_id' };
+    const attempt = (messageRecord.retryHistory || []).find(item => item.providerMessageId === providerMessageId);
+    if (!attempt) return { updated: false, reason: 'unmatched_provider_message_id' };
+    const historicalPriority = STATUS_PRIORITY[attempt.status] || 0;
+    const receivedPriority = STATUS_PRIORITY[providerStatus] || 0;
+    if (providerStatus === 'failed') {
+      if (historicalPriority >= STATUS_PRIORITY.delivered) return { updated: false, reason: 'historical_already_delivered', messageRecord };
+      attempt.status = 'failed';
+      attempt.providerStatus = 'failed';
+      attempt.failedAt = occurredAt || new Date();
+      attempt.errorCode = normalized.failure?.code || 'PROVIDER_FAILED';
+      attempt.errorTitle = normalized.failure?.title || '';
+      attempt.errorMessage = normalized.failure?.message || '';
+      attempt.errorDetails = normalized.failure?.details || '';
+      attempt.providerFailureMetadata = normalized.failure?.metadata;
+    } else {
+      if (receivedPriority <= historicalPriority) return { updated: false, reason: 'historical_same_or_later_state', messageRecord };
+      attempt.status = providerStatus;
+      attempt.providerStatus = providerStatus;
+      attempt[providerStatus === 'sent' ? 'sentAt' : providerStatus === 'delivered' ? 'deliveredAt' : 'readAt'] = occurredAt || new Date();
+    }
+    messageRecord.updatedAt = new Date();
+    await messageRecord.save();
+    if (providerStatus === 'delivered' || providerStatus === 'read') {
+      await whatsappService.updateRecipientSnapshot(messageRecord.puzzleId, messageRecord.recipientIndex, {
+        status: providerStatus,
+        occurredAt
+      });
+    }
+    return { updated: true, reason: 'historical_attempt_updated', messageRecord, appliedStatus: providerStatus };
   }
   if (messageRecord.status === 'correcting') {
     return { updated: false, reason: 'correction_in_progress', messageRecord };
   }
   if (messageRecord.retryStartedAt && ['claimed', 'sending'].includes(messageRecord.status)) {
-    return { updated: false, reason: 'historical_provider_message_id', messageRecord };
-  }
-  if ((messageRecord.retryHistory || []).some((attempt) => attempt.providerMessageId === providerMessageId)) {
     return { updated: false, reason: 'historical_provider_message_id', messageRecord };
   }
 
@@ -155,6 +182,19 @@ async function persistNormalizedStatus(normalized) {
       errorMessage: errorMessage,
       errorDetails: failure.details
     });
+
+    // Only an authoritative final provider failure can initiate a Utility send.
+    // The distinct Utility idempotency key atomically limits automatic fallback
+    // to one, even if webhooks are replayed or reconciliation races the webhook.
+    if (messageRecord.messageType === 'puzzle_delivery' &&
+        messageRecord.status === 'failed' &&
+        ['131049', '130472'].includes(String(failure.code))) {
+      await whatsappService.claimAndSendPuzzleDelivery({
+        puzzleId: messageRecord.puzzleId,
+        recipientIndex: messageRecord.recipientIndex,
+        deliveryRole: 'utility'
+      });
+    }
 
     return { updated: true, messageRecord, appliedStatus: messageRecord.status };
   }

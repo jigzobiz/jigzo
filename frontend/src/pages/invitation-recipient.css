@@ -1,0 +1,98 @@
+.jzi-page,
+.jzi-state {
+  min-height: 100dvh;
+  background: #faf8ec;
+  color: #1c1913;
+  font-family: "Archia", sans-serif;
+  overflow-x: clip;
+}
+
+.jzi-state {
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 16px;
+}
+
+.jzi-page > header {
+  height: 56px;
+  padding: 0 clamp(20px, 5vw, 64px);
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid rgba(28, 25, 19, 0.12);
+  background: transparent;
+}
+
+.jzi-mark {
+  font-weight: 900;
+  letter-spacing: -.05em;
+  font-size: 20px;
+}
+
+/* Arrival phase is a full-bleed near-black stage (ArrivalScene owns its own layout) —
+   no page chrome/padding on top of it. */
+.jzi-page--arrival {
+  display: flex;
+}
+
+/* Reveal moment transition */
+.jzi-puzzle-wrapper {
+  transition: opacity 1.6s cubic-bezier(0.25, 1, 0.5, 1), transform 1.6s cubic-bezier(0.25, 1, 0.5, 1);
+  transform-origin: center;
+  opacity: 1;
+}
+
+.jzi-revealing .jzi-puzzle-wrapper {
+  opacity: 0;
+  transform: scale(0.96) translateY(-8px);
+}
+
+.jzi-reveal {
+  display: flex;
+  flex-direction: column;
+  animation: jzi-reveal-in 1.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes jzi-reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.jzi-solved-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: clamp(20px, 5vw, 56px) 16px;
+  width: 100%;
+}
+
+.jzi-solved-wrapper .jzj-solved {
+  width: min(420px, 100%);
+}
+
+.jzi-solved-wrapper .jzj-solved__frame {
+  box-shadow: 0 32px 64px rgba(28, 25, 19, 0.12), 0 12px 24px rgba(28, 25, 19, 0.06);
+}
+
+.jzi-error {
+  color: #8b2e24;
+  margin-top: 14px;
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jzi-puzzle-wrapper {
+    transition: none !important;
+  }
+
+  .jzi-reveal {
+    animation: none !important;
+  }
+}

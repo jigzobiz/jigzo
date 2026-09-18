@@ -67,7 +67,10 @@ router.post('/', async (req, res, next) => {
       });
     }
 
-    const count = parseInt(recipientCount) || puzzle.recipients.length || 1;
+    const count = puzzle.recipients.length;
+    if (count < 1 || count > 50 || (recipientCount != null && Number(recipientCount) !== count)) {
+      return res.status(400).json({ error: 'Recipient count must match the consumer puzzle and be between 1 and 50.', code: 'INVALID_RECIPIENT_COUNT' });
+    }
     const { packageId, basePrice, addOnPrice } = getPackageDetails(count);
     
     const addOns = hasRevealAlert ? addOnPrice : 0;

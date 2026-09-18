@@ -1,5 +1,7 @@
 const crypto = require('crypto');
 const DeliveryWebhookEvent = require('../models/DeliveryWebhookEvent');
+const EmailMessage = require('../models/EmailMessage');
+const CampaignDelivery = require('../models/CampaignDelivery');
 const Puzzle = require('../models/Puzzle');
 
 const RANK = {
@@ -124,6 +126,45 @@ async function processEvent(payload, eventId) {
   }
 
   const providerMessageId = payload.data?.email_id;
+
+  // Business campaign messages have their own provider ID record. Resolve this
+  // before the consumer lookup while retaining the newer consumer transitions.
+  const message = providerMessageId && await EmailMessage.findOne({ providerMessageId });
+  if (message) {
+    const at = payload.created_at ? new Date(payload.created_at) : new Date();
+    const { status, fields } = mapping(payload.type, at);
+    if (!(status in RANK)) {
+      event.processedAt = new Date();
+      event.matched = true;
+      await event.save();
+      return { matched: true, ignored: true };
+    }
+    if ((RANK[message.status] || 0) <= RANK[status]) {
+      const businessFields = { ...fields };
+      if (status === 'suppressed') businessFields.status = 'failed';
+      Object.assign(message, businessFields);
+      await message.save();
+      const deliverySet = { providerMetadata: { lastResendEvent: payload.type, lastEventAt: at } };
+      if (status === 'sent') Object.assign(deliverySet, { status: 'sent', sentAt: message.sentAt, retryEligible: false });
+      if (status === 'delivered') Object.assign(deliverySet, { status: 'delivered', deliveredAt: at, retryEligible: false });
+      if (status === 'opened') Object.assign(deliverySet, { status: 'opened', openedAt: at, retryEligible: false });
+      if (['failed', 'bounced', 'complained', 'suppressed'].includes(status)) {
+        Object.assign(deliverySet, {
+          status: status === 'suppressed' ? 'failed' : status,
+          failedAt: at,
+          retryEligible: false,
+          providerErrorCategory: status,
+          providerErrorCode: extractResendError(payload, status).slice(0, 100)
+        });
+      }
+      if (status === 'delayed') Object.assign(deliverySet, { providerMetadata: { lastResendEvent: payload.type, lastEventAt: at, delayed: true } });
+      await CampaignDelivery.updateOne({ _id: message.deliveryId }, { $set: deliverySet });
+    }
+    event.processedAt = new Date();
+    event.matched = true;
+    await event.save();
+    return { matched: true };
+  }
 
   // Consumer Reveal Puzzle Recipient Reconciliation
   if (providerMessageId) {

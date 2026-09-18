@@ -49,6 +49,9 @@ const RecipientSchema = new mongoose.Schema({
 });
 
 const PuzzleSchema = new mongoose.Schema({
+  scope: { type: String, enum: ['consumer', 'business'], default: 'consumer', index: true },
+  organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', default: null, index: true },
+  businessCampaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign', default: null, index: true },
   publicId: { type: String, required: true, unique: true, index: true },
   status: {
     type: String,
@@ -110,6 +113,7 @@ PuzzleSchema.index(
   { imageDeletionDueAt: 1 },
   { partialFilterExpression: { imageStorageId: { $type: 'objectId' } } }
 );
+PuzzleSchema.index({ organizationId: 1, businessCampaignId: 1 }, { unique: true, partialFilterExpression: { scope: 'business' } });
 PuzzleSchema.index({ 'recipients.providerMessageId': 1 }, { sparse: true });
 
 module.exports = mongoose.model('Puzzle', PuzzleSchema);

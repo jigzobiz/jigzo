@@ -46,7 +46,10 @@ function DeliveryStatus() {
   const rows = useMemo(() => (data ? applyFilters(data.list, stateF, channelF) : []), [data, stateF, channelF]);
 
   const retryDelivery = async (row) => {
-    if (!window.confirm(`Retry the failed WhatsApp delivery to ${row.recipientName}? This sends one new template attempt.`)) return;
+    const action = row.retryMode === 'utility_fallback' ? 'Send the one Utility fallback'
+      : row.retryMode === 'utility_retry' ? 'Retry the failed Utility attempt'
+        : 'Retry the failed Marketing attempt';
+    if (!window.confirm(`${action} to ${row.recipientName}? This sends one new template attempt.`)) return;
     const key = `${row.puzzleId}-${row.recipientIndex}`;
     setBusyKey(key);
     setNote('');
@@ -130,6 +133,17 @@ function DeliveryStatus() {
                 { key: 'deliveryMethod', label: 'Channel' },
                 { key: 'state', label: 'State', sortable: true, render: (r) => <Badge tone={stateTone(r.state)}>{r.state}</Badge> },
                 { key: 'providerSendStatus', label: 'Provider status', render: (r) => <span style={{ color: T.ink66 }}>{r.providerSendStatus}</span> },
+                { key: 'attempts', label: 'WhatsApp attempts', wrap: true, render: (r) =>
+                  r.deliveryMethod === 'whatsapp' && r.attempts?.length
+                    ? <div style={{ display: 'grid', gap: 4 }}>
+                        {r.attempts.map((a, index) => <div key={`${a.providerMessageId || index}-${index}`} style={{ fontSize: 11.5, lineHeight: 1.35 }}>
+                          <strong>{a.role === 'utility' ? 'Utility' : 'Marketing'}</strong>
+                          {' → '}{a.status || 'pending'}{a.errorCode ? ` (${a.errorCode})` : ''}
+                          <div style={{ color: T.ink50 }}>{a.templateName || 'Legacy template'} · {a.languageCode || '—'} · {a.providerMessageId || 'ID pending'}</div>
+                          <div style={{ color: T.ink50 }}>{a.failedAt ? `Failed ${formatDateTime(a.failedAt)}` : a.deliveredAt ? `Delivered ${formatDateTime(a.deliveredAt)}` : a.readAt ? `Read ${formatDateTime(a.readAt)}` : a.acceptedAt ? `Accepted ${formatDateTime(a.acceptedAt)}` : ''}</div>
+                        </div>)}
+                      </div>
+                    : <span style={{ color: T.ink50 }}>—</span> },
                 { key: 'reconciliationStatus', label: 'Reconciliation', render: (r) => r.reconciliationStatus === 'reconciliation_required' ? <Badge tone="bad">required</Badge> : <span style={{ color: T.ink50 }}>—</span> },
                 { key: 'deliveryTracking', label: 'Tracking', render: (r) => <span style={{ color: r.deliveryTracking === 'Failed' ? T.red : T.ink66 }}>{r.deliveryTracking}</span> },
                 { key: 'sentAt', label: 'Sent', render: (r) => <TimeCell v={r.sentAt} /> },
@@ -172,7 +186,7 @@ function DeliveryStatus() {
                       )}
                       {r.canRetryInitialDelivery && (
                         <Button size="sm" tone="danger" disabled={busyKey === key || !!busyKey} onClick={() => retryDelivery(r)}>
-                          {busyKey === key ? 'Retrying…' : 'Retry'}
+                          {busyKey === key ? 'Retrying…' : r.retryMode === 'utility_fallback' ? 'Send Utility fallback' : 'Retry'}
                         </Button>
                       )}
                     </div>

@@ -1,4 +1,6 @@
 require('dotenv').config();
+const { assertStagingSafety } = require('./utils/stagingSafety');
+assertStagingSafety();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -22,6 +24,13 @@ const whatsappWebhookRouter = require('./routes/webhooks/whatsapp');
 const resendWebhookRouter = require('./routes/webhooks/resend');
 const whatsappReconciliationRouter = require('./routes/internal/whatsappReconciliation');
 const imageCleanupRouter = require('./routes/internal/imageCleanup');
+const businessAuthRouter = require('./routes/businessAuth');
+const businessCampaignsRouter = require('./routes/businessCampaigns');
+const businessRecipientsRouter = require('./routes/businessRecipients');
+const businessInvitationsRouter = require('./routes/businessInvitations');
+const publicInvitationsRouter = require('./routes/publicInvitations');
+const businessDeliveriesRouter = require('./routes/businessDeliveries');
+const businessDeliveryWorkerRouter = require('./routes/internal/businessDelivery');
 const { isTestModeAllowed } = require('./utils/testModeGuard');
 
 
@@ -84,6 +93,14 @@ const limiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' }
 });
 
+const testRevealLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many test puzzles, please try again later.' }
+});
+
 app.use('/api/', limiter);
 
 // Increase body parser limit to support base64 image strings (15MB cap)
@@ -102,6 +119,7 @@ app.use(
     }
     return next();
   },
+  testRevealLimiter,
   async (req, res, next) => {
     try {
       await connectDB();
@@ -140,6 +158,13 @@ app.use('/api/admin', adminRouter);
 app.use('/api/pricing', pricingRouter);
 app.use('/api/internal/whatsapp/reconcile', whatsappReconciliationRouter);
 app.use('/api/internal/images/cleanup', imageCleanupRouter);
+app.use('/api/business/auth', businessAuthRouter);
+app.use('/api/business/campaigns', businessCampaignsRouter);
+app.use('/api/business/campaigns', businessRecipientsRouter);
+app.use('/api/business/campaigns', businessInvitationsRouter);
+app.use('/api/public/invitations', publicInvitationsRouter);
+app.use('/api/business/campaigns', businessDeliveriesRouter);
+app.use('/api/internal/business-delivery', businessDeliveryWorkerRouter);
 
 
 

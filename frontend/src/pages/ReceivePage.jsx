@@ -2,19 +2,14 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../services/api';
-import { buildEdgeMap, piecePath, mulberry32 } from '../puzzle/puzzle-shape';
+import { piecePath } from '../puzzle/puzzle-shape';
+import { computeLayout, computeHomes, computeEdgeMap, computeScatter } from '../puzzle/puzzle-layout';
 import RevealBeat from '../components/RevealBeat';
 import LoaderOrbit from '../components/LoaderOrbit';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import { analytics } from '../services/analytics';
 import { getDeviceWallpaperDimensions, getCompositionRules } from '../utils/wallpaperHelpers';
-
-const GRID_FOR = {
-  6: { cols: 2, rows: 3 },
-  15: { cols: 3, rows: 5 },
-  18: { cols: 3, rows: 6 },
-  28: { cols: 4, rows: 7 }
-};
+import { CONSUMER_PUZZLE_GEOMETRY } from '../puzzle/puzzle-geometry';
 
 const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
 
@@ -26,7 +21,7 @@ const SETTLE = "transform 0.28s cubic-bezier(0.25, 1, 0.2, 1), filter 0.24s ease
 export default function ReceivePage() {
   const { publicId } = useParams();
   const [searchParams] = useSearchParams();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const languageInitializedRef = useRef(false);
 
   const rQueryValue = searchParams.get("r");
@@ -235,47 +230,21 @@ export default function ReceivePage() {
     );
   }
 
-  return <Receiver data={puzzleData} setData={setPuzzleData} publicId={publicId} rIndex={resolvedRIndex} startTimeRef={startTimeRef} />;
+  return <PuzzlePlayer data={puzzleData} setData={setPuzzleData} publicId={publicId} rIndex={resolvedRIndex} startTimeRef={startTimeRef} />;
 }
 
-function Receiver({ data, setData, publicId, rIndex, startTimeRef }) {
+export function PuzzlePlayer({ data, setData, publicId, rIndex, startTimeRef, onSolved, geometry = CONSUMER_PUZZLE_GEOMETRY, headerCopy }) {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
-  const g = GRID_FOR[data.pieceCount] || { cols: 3, rows: 6 };
-  const cols = g.cols, rows = g.rows;
-  const BW = 288, BH = 512, PAD = 46;
-  const stageW = BW + PAD * 2, stageH = BH + PAD * 2;
-  const pieceW = BW / cols, pieceH = BH / rows;
-  const tabPad = 0.46 * Math.max(pieceW, pieceH);
-  const bound = Math.min(tabPad, PAD);
-  const elemW = pieceW + tabPad * 2, elemH = pieceH + tabPad * 2;
-  const SNAP = Math.max(20, Math.min(pieceW, pieceH) * 0.36);
-  const edgeMap = useMemo(() => buildEdgeMap(cols, rows, 1337), [cols, rows]);
-
-  const homes = useMemo(() => {
-    const arr = [];
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        arr.push({ r, c, hx: PAD + c * pieceW, hy: PAD + r * pieceH });
-      }
-    }
-    return arr;
-  }, [cols, rows, pieceW, pieceH]);
-
-  const scatter = useCallback(() => {
-    const rand = mulberry32(4242 + (cols * 31 + rows) * 77);
-    const minX = bound, maxX = stageW - pieceW - bound;
-    const minY = bound, maxY = stageH - pieceH - bound;
-    return homes.map((h) => {
-      let x, y, tries = 0;
-      do {
-        x = minX + rand() * (maxX - minX);
-        y = minY + rand() * (maxY - minY);
-        tries++;
-      } while (tries < 8 && Math.hypot(x - h.hx, y - h.hy) < SNAP * 2);
-return { x, y, rot: (rand() - 0.5) * 2 * 9 };
-    });
-  }, [homes, cols, rows, bound, stageW, stageH, pieceW, pieceH, SNAP]);
+  // Board padding, piece sizing/tab-clearance, snap threshold and the deterministic
+  // starting scatter live in the shared puzzle-layout.js module (also consumed by
+  // Studio's static BusinessPuzzle preview) — this is a pure extraction, not a behavior
+  // change: same formulas, same seed, same output, just no longer inlined twice.
+  const layout = useMemo(() => computeLayout(geometry, data.pieceCount), [geometry, data.pieceCount]);
+  const { cols, rows, BW, BH, PAD, stageW, stageH, pieceW, pieceH, tabPad, bound, elemW, elemH, SNAP } = layout;
+  const edgeMap = useMemo(() => computeEdgeMap(layout), [layout]);
+  const homes = useMemo(() => computeHomes(layout), [layout]);
+  const scatter = useCallback(() => computeScatter(layout, homes), [layout, homes]);
 
   const [positions, setPositions] = useState(scatter);
   const [placed, setPlaced] = useState(() => homes.map(() => !!(data?.message && data.message.trim() !== '')));
@@ -301,11 +270,11 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
           
           const runRecordComplete = async (attempt = 1) => {
             try {
-              const res = await api.recordComplete(publicId, rIndex, elapsed);
+              const res = onSolved ? await onSolved(elapsed) : await api.recordComplete(publicId, rIndex, elapsed);
               if (res && res.success) {
                 setData(prev => ({
                   ...prev,
-                  message: res.message,
+                  message: res.message || prev.message,
                   completedAt: res.completedAt,
                   completionRecorded: res.completionRecorded,
                   recipient: prev.recipient ? {
@@ -329,7 +298,7 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
           };
 
           runRecordComplete();
-          analytics.track('puzzle_completed', { puzzleId: publicId, recipientIndex: rIndex, durationSeconds: elapsed });
+          if (!onSolved) analytics.track('puzzle_completed', { puzzleId: publicId, recipientIndex: rIndex, durationSeconds: elapsed });
           startTimeRef.current = null;
         }
       } else {
@@ -339,7 +308,7 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
       setRevealState('idle');
       setLoaderRunning(false);
     }
-  }, [showReveal, publicId, rIndex, startTimeRef]);
+  }, [showReveal, publicId, rIndex, startTimeRef, onSolved]);
 
   const cachedBlobRef = useRef(null);
   const generationPromiseRef = useRef(null);
@@ -903,17 +872,25 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
         {/* above the puzzle — heading + live piece counter */}
         {!showReveal && (
           <div ref={headerRef} style={{ textAlign: "center", marginBottom: 12 }}>
-            <h1 style={{ fontSize: 19, fontWeight: 600, margin: "0 0 4px", letterSpacing: "-0.015em", color: "#050505" }}>
-              {t('receive.heading')}
-            </h1>
-            <p style={{ fontSize: 13, color: "rgba(5,5,5,0.6)", margin: "0 0 8px" }}>
-              {t('receive.subheading')}
-            </p>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#B8935A", letterSpacing: "0.04em" }}>
-              {placedCount === 1
-                ? t('receive.piecesPlaced_one')
-                : t('receive.piecesPlaced_other', { count: placedCount, total: homes.length })}
-            </div>
+            {headerCopy ? (() => {
+              const hc = headerCopy(placedCount, homes.length);
+              return <>
+                <h1 style={{ fontSize: 19, fontWeight: 600, margin: "0 0 4px", letterSpacing: "-0.015em", color: "#050505" }}>{hc.title}</h1>
+                <p style={{ fontSize: 13, color: "rgba(5,5,5,0.6)", margin: 0 }}>{hc.subtitle}</p>
+              </>;
+            })() : <>
+              <h1 style={{ fontSize: 19, fontWeight: 600, margin: "0 0 4px", letterSpacing: "-0.015em", color: "#050505" }}>
+                {t('receive.heading')}
+              </h1>
+              <p style={{ fontSize: 13, color: "rgba(5,5,5,0.6)", margin: "0 0 8px" }}>
+                {t('receive.subheading')}
+              </p>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#B8935A", letterSpacing: "0.04em" }}>
+                {placedCount === 1
+                  ? t('receive.piecesPlaced_one')
+                  : t('receive.piecesPlaced_other', { count: placedCount, total: homes.length })}
+              </div>
+            </>}
           </div>
         )}
 
@@ -993,7 +970,7 @@ return { x, y, rot: (rand() - 0.5) * 2 * 9 };
                       <g clipPath={`url(#rp-${i})`}>
                         <image href={data.cropImageUrl} x={-h.c * pieceW} y={-h.r * pieceH} width={BW} height={BH} preserveAspectRatio="xMidYMid slice" />
                       </g>
-                      <path d={d} fill="none" stroke="rgba(5,5,5,0.32)" strokeWidth="1.1" />
+                      <path d={d} fill={data.cropImageUrl ? "none" : "#1C1913"} stroke="rgba(5,5,5,0.32)" strokeWidth="1.1" />
                     </svg>
                   </div>
                 );

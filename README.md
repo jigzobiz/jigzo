@@ -66,3 +66,13 @@ The application launches on:
 
 ### Webhook Endpoints
 - `POST /api/webhooks/payment` — Verifies webhook callback signatures and triggers delivery of puzzle links to recipient phone numbers.
+
+### Invite-only Business beta provisioning
+
+Business owners and organizations are provisioned only from a trusted operator shell; there is no public signup endpoint. Configure the three `BUSINESS_*` secrets in `.env.example`, then run:
+
+```bash
+npm run business:provision --prefix backend -- --confirm-provision --email owner@example.com --organization "Example Co" --language en --timezone Asia/Bahrain
+```
+
+The command stores an encrypted email and keyed comparison hash, and prints only generated public identity and organization IDs. Magic-link and session tokens are never printed or persisted in plaintext.

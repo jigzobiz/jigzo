@@ -10,8 +10,13 @@ if (!cached) {
 }
 
 const connectDB = async () => {
-  if (cached.connection) {
+  if (cached.connection && mongoose.connection.readyState === 1) {
     return cached.connection;
+  }
+
+  if (cached.connection || (cached.promise && mongoose.connection.readyState === 0)) {
+    cached.connection = null;
+    cached.promise = null;
   }
 
   const connStr = process.env.MONGODB_URI;

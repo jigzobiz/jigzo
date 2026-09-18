@@ -32,11 +32,13 @@ async function runImageCleanup(options = {}) {
   const deps = {
     findDueBatch: options.findDueBatch || (async (now, limit) =>
       Puzzle.find({
+        scope: { $ne: 'business' },
         imageDeletionDueAt: { $lte: now },
         imageStorageId: { $ne: null }
       }).limit(limit)),
     countRemaining: options.countRemaining || (async (now) =>
       Puzzle.countDocuments({
+        scope: { $ne: 'business' },
         imageDeletionDueAt: { $lte: now },
         imageStorageId: { $ne: null }
       })),

@@ -186,6 +186,10 @@ const MockWhatsAppMessage = function(data) {
 };
 MockWhatsAppMessage.findOne = async (query) => {
   if (query.idempotencyKey) return mockDb.messages[query.idempotencyKey] || null;
+  if (query['retryHistory.providerMessageId']) {
+    return Object.values(mockDb.messages).find(m =>
+      m.retryHistory.some(attempt => attempt.providerMessageId === query['retryHistory.providerMessageId'])) || null;
+  }
   if (query.providerMessageId) {
     return Object.values(mockDb.messages).find(m => m.providerMessageId === query.providerMessageId) || null;
   }
@@ -207,6 +211,7 @@ MockWhatsAppMessage.findOneAndUpdate = async (query, update, options) => {
     if (query.recipientIndex !== undefined && existing.recipientIndex !== query.recipientIndex) return null;
     if (query.messageType && existing.messageType !== query.messageType) return null;
     if (query.providerMessageId && typeof query.providerMessageId === 'object' && !existing.providerMessageId) return null;
+    if (typeof query.providerMessageId === 'string' && existing.providerMessageId !== query.providerMessageId) return null;
     if (query.lastErrorCode && query.lastErrorCode.$nin && query.lastErrorCode.$nin.includes(String(existing.lastErrorCode))) return null;
     // Perform update
     if (update.$set) {
@@ -214,6 +219,11 @@ MockWhatsAppMessage.findOneAndUpdate = async (query, update, options) => {
     }
     if (update.$unset) {
       for (const key of Object.keys(update.$unset)) delete existing._data[key];
+    }
+    if (update.$push) {
+      for (const [key, value] of Object.entries(update.$push)) {
+        (existing._data[key] ||= []).push(value);
+      }
     }
     return existing;
   }
@@ -475,15 +485,14 @@ async function runAllTests() {
   console.log('✓ Scenario 2.2: Recipient 1 suffix correctly formatted with ?r=1: Success');
 
   assert.strictEqual(payload0.template.components[0].parameters[0].text, 'Sam');
-  assert.strictEqual(payload0.template.components[0].parameters[1].text, 'ord_puz-temp');
-  assert.strictEqual(payload0.template.components[0].parameters[2].text, 'Zahra');
+  assert.strictEqual(payload0.template.components[0].parameters[1].text, 'Zahra');
   assert.ok(!payload0.template.components[0].parameters[0].text.includes('Yazan'));
-  assert.strictEqual(payload0.template.name, 'jigzo_puzzle_delivery_v2');
-  assert.strictEqual(payload0.template.language.code, 'en');
-  assert.strictEqual(mockDb.messages['puzzle-delivery:puz-temp:0:jigzo_puzzle_delivery:v1'].languageCode, 'en');
-  assert.strictEqual(mockDb.messages['puzzle-delivery:puz-temp:0:jigzo_puzzle_delivery:v1'].templateName, 'jigzo_puzzle_delivery_v2');
+  assert.strictEqual(payload0.template.name, 'jigzo_puzzle_delivery');
+  assert.strictEqual(payload0.template.language.code, 'en_US');
+  assert.strictEqual(mockDb.messages['puzzle-delivery:puz-temp:0:jigzo_puzzle_delivery:v1'].languageCode, 'en_US');
+  assert.strictEqual(mockDb.messages['puzzle-delivery:puz-temp:0:jigzo_puzzle_delivery:v1'].templateName, 'jigzo_puzzle_delivery');
   console.log('✓ Scenario 2.3: Recipient 0 payload contains no Recipient 1 data: Success');
-  console.log('✓ Scenario 2.4: English delivery uses jigzo_puzzle_delivery_v2 and persists en: Success');
+  console.log('✓ Scenario 2.4: English Marketing delivery uses jigzo_puzzle_delivery and persists en_US: Success');
 
   mockDb.puzzles['puz-ar'] = {
     publicId: 'puz-ar',
@@ -494,14 +503,13 @@ async function runAllTests() {
   };
   await whatsappService.claimAndSendPuzzleDelivery({ puzzleId: 'puz-ar', recipientIndex: 0 });
   const arabicPayload = JSON.parse(lastFetchParams.options.body);
-  assert.strictEqual(arabicPayload.template.name, 'jigzo_arabic_puzzle_delivery_v2');
+  assert.strictEqual(arabicPayload.template.name, 'jigzo_puzzle_delivery');
   assert.strictEqual(arabicPayload.template.language.code, 'ar');
   assert.strictEqual(arabicPayload.template.components[0].parameters[0].text, 'Sam');
-  assert.strictEqual(arabicPayload.template.components[0].parameters[1].text, 'ord_puz-ar');
-  assert.strictEqual(arabicPayload.template.components[0].parameters[2].text, 'Zahra');
+  assert.strictEqual(arabicPayload.template.components[0].parameters[1].text, 'Zahra');
   assert.strictEqual(mockDb.messages['puzzle-delivery:puz-ar:0:jigzo_puzzle_delivery:v1'].languageCode, 'ar');
-  assert.strictEqual(mockDb.messages['puzzle-delivery:puz-ar:0:jigzo_puzzle_delivery:v1'].templateName, 'jigzo_arabic_puzzle_delivery_v2');
-  console.log('✓ Scenario 2.5: Arabic delivery uses jigzo_arabic_puzzle_delivery_v2 and persists ar: Success');
+  assert.strictEqual(mockDb.messages['puzzle-delivery:puz-ar:0:jigzo_puzzle_delivery:v1'].templateName, 'jigzo_puzzle_delivery');
+  console.log('✓ Scenario 2.5: Arabic Marketing delivery uses jigzo_puzzle_delivery and persists ar: Success');
 
   // Scenario 2.6: Missing order reference fails safely without fallback to puzzleId
   mockDb.puzzles['puz-no-order'] = {
@@ -573,11 +581,10 @@ async function runAllTests() {
     orderId: 'ord_explicit_anon_123'
   });
   const anonEnPayload = JSON.parse(lastFetchParams.options.body);
-  assert.strictEqual(anonEnPayload.template.name, 'jigzo_puzzle_delivery_v2');
-  assert.strictEqual(anonEnPayload.template.language.code, 'en');
+  assert.strictEqual(anonEnPayload.template.name, 'jigzo_puzzle_delivery');
+  assert.strictEqual(anonEnPayload.template.language.code, 'en_US');
   assert.strictEqual(anonEnPayload.template.components[0].parameters[0].text, 'Sam');
-  assert.strictEqual(anonEnPayload.template.components[0].parameters[1].text, 'ord_explicit_anon_123');
-  assert.strictEqual(anonEnPayload.template.components[0].parameters[2].text, 'Someone');
+  assert.strictEqual(anonEnPayload.template.components[0].parameters[1].text, 'Someone');
 
   mockDb.puzzles['puz-anon-ar'] = {
     publicId: 'puz-anon-ar',
@@ -592,12 +599,11 @@ async function runAllTests() {
     orderId: 'ord_explicit_anon_ar_456'
   });
   const anonArPayload = JSON.parse(lastFetchParams.options.body);
-  assert.strictEqual(anonArPayload.template.name, 'jigzo_arabic_puzzle_delivery_v2');
+  assert.strictEqual(anonArPayload.template.name, 'jigzo_puzzle_delivery');
   assert.strictEqual(anonArPayload.template.language.code, 'ar');
   assert.strictEqual(anonArPayload.template.components[0].parameters[0].text, 'Sam');
-  assert.strictEqual(anonArPayload.template.components[0].parameters[1].text, 'ord_explicit_anon_ar_456');
-  assert.strictEqual(anonArPayload.template.components[0].parameters[2].text, 'شخص ما');
-  console.log('✓ Scenario 2.7: Mystery sender correctly formats Someone (EN) and شخص ما (AR) in v2 payload: Success');
+  assert.strictEqual(anonArPayload.template.components[0].parameters[1].text, 'شخص ما');
+  console.log('✓ Scenario 2.7: Mystery sender correctly formats Someone (EN) and شخص ما (AR) in Marketing payload: Success');
 
   // ==========================================
   // Group 3: API Outcomes
@@ -716,7 +722,7 @@ async function runAllTests() {
   assert.strictEqual(arabicRetry.success, true);
   assert.strictEqual(arabicRetry.status, 'accepted');
   assert.strictEqual(retryFetchCount, 1);
-  assert.strictEqual(arabicRetryPayload.template.name, 'jigzo_arabic_puzzle_delivery_v2');
+  assert.strictEqual(arabicRetryPayload.template.name, 'jigzo_puzzle_delivery');
   assert.strictEqual(arabicRetryPayload.template.language.code, 'ar');
   assert.strictEqual(arabicRetrySeed.message.providerMessageId, 'wamid.new-ar');
   assert.strictEqual(arabicRetrySeed.message.attemptCount, 2);
@@ -738,7 +744,7 @@ async function runAllTests() {
       metadata: { status: 'failed' }
     }
   });
-  assert.strictEqual(lateOldStatus.updated, false);
+  assert.strictEqual(lateOldStatus.updated, true);
   assert.strictEqual(arabicRetrySeed.message.status, 'accepted');
   assert.strictEqual(arabicRetrySeed.message.providerMessageId, 'wamid.new-ar');
   console.log('✓ Scenario 3.6: Late old wamid webhook cannot alter the accepted retry attempt: Success');
@@ -752,9 +758,9 @@ async function runAllTests() {
   };
   const englishRetry = await whatsappService.retryPuzzleDelivery({ puzzleId: 'retry-en', recipientIndex: 0 });
   assert.strictEqual(englishRetry.success, true);
-  assert.strictEqual(JSON.parse(lastFetchParams.options.body).template.name, 'jigzo_puzzle_delivery_v2');
-  assert.strictEqual(JSON.parse(lastFetchParams.options.body).template.language.code, 'en');
-  assert.strictEqual(englishRetrySeed.message.languageCode, 'en');
+  assert.strictEqual(JSON.parse(lastFetchParams.options.body).template.name, 'jigzo_puzzle_delivery');
+  assert.strictEqual(JSON.parse(lastFetchParams.options.body).template.language.code, 'en_US');
+  assert.strictEqual(englishRetrySeed.message.languageCode, 'en_US');
   console.log('✓ Scenario 3.7: Failed English initial delivery retries with en: Success');
 
   resetMocks();
@@ -801,7 +807,7 @@ async function runAllTests() {
   let solvedFetches = 0;
   global.fetch = async () => { solvedFetches++; throw new Error('Provider must not be called'); };
   const solvedRetry = await whatsappService.retryPuzzleDelivery({ puzzleId: 'retry-solved', recipientIndex: 0 });
-  assert.strictEqual(solvedRetry.reason, 'recipient_already_opened_or_solved');
+  assert.strictEqual(solvedRetry.reason, 'not_retryable');
   assert.strictEqual(solvedSeed.message.status, 'failed');
   assert.strictEqual(solvedFetches, 0);
   console.log('✓ Scenario 3.10: Solved recipient cannot retry: Success');
@@ -873,7 +879,7 @@ async function runAllTests() {
   assert.strictEqual(correctedRetry.success, true);
   assert.strictEqual(correctionProviderSends, 1);
   assert.strictEqual(correctedPayload.to, '+97333424124');
-  assert.strictEqual(correctedPayload.template.name, 'jigzo_arabic_puzzle_delivery_v2');
+  assert.strictEqual(correctedPayload.template.name, 'jigzo_puzzle_delivery');
   assert.strictEqual(correctedPayload.template.language.code, 'ar');
   assert.strictEqual(correctionSeed.message.destinationMasked.slice(-4), '4124');
   assert.strictEqual(correctionSeed.message.retryHistory.length, 1);
@@ -941,7 +947,7 @@ async function runAllTests() {
   assert.strictEqual(secondCorrection.success, false);
   assert.strictEqual(secondCorrection.reason, 'already_in_progress');
   assert.strictEqual(racingRetry.success, false);
-  assert.strictEqual(racingRetry.reason, 'already_claimed');
+  assert.strictEqual(racingRetry.reason, 'not_retryable');
   assert.strictEqual(inFlightSends, 0);
   const correctionWebhook = await persistNormalizedStatus({
     providerMessageId: 'wamid.old-correct-in-flight',
@@ -952,6 +958,61 @@ async function runAllTests() {
   assert.strictEqual(correctionWebhook.reason, 'correction_in_progress');
   assert.strictEqual(inFlightCorrection.message.status, 'correcting');
   console.log('✓ Scenario 3.16: In-flight correction blocks concurrent correction, retry, and old-wamid callbacks: Success');
+
+  // A final provider failure is the only automatic Utility trigger. Keep both
+  // records and verify the two language payload contracts independently.
+  for (const [language, code, utilityName, utilityCode] of [
+    ['en', '131049', 'jigzo_puzzle_delivery_v2', 'en'],
+    ['ar', '130472', 'jigzo_arabic_puzzle_delivery_v2', 'ar']
+  ]) {
+    resetMocks();
+    process.env.WHATSAPP_ENABLED = 'true';
+    const puzzleId = `fallback-${language}`;
+    mockDb.puzzles[puzzleId] = {
+      publicId: puzzleId, senderName: 'Zahra', revealIdentity: true,
+      experienceLanguage: language,
+      recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973' }]
+    };
+    const sentPayloads = [];
+    global.fetch = async (_url, options) => {
+      sentPayloads.push(JSON.parse(options.body));
+      return { ok: true, text: async () => JSON.stringify({ messages: [{ id: `wamid.${puzzleId}.${sentPayloads.length}` }] }) };
+    };
+    await whatsappService.claimAndSendPuzzleDelivery({ puzzleId, recipientIndex: 0 });
+    assert.strictEqual(sentPayloads.length, 1);
+    const marketingId = `wamid.${puzzleId}.1`;
+    await persistNormalizedStatus({ providerMessageId: marketingId, providerStatus: 'failed', occurredAt: new Date(),
+      failure: { code, title: 'Marketing restriction', message: 'Marketing restriction', details: '', metadata: {} } });
+    assert.strictEqual(sentPayloads.length, 2);
+    const utility = sentPayloads[1];
+    assert.strictEqual(utility.template.name, utilityName);
+    assert.strictEqual(utility.template.language.code, utilityCode);
+    assert.deepStrictEqual(utility.template.components[0].parameters.map(p => p.text), ['Sam', `ord_${puzzleId}`, 'Zahra']);
+    assert.strictEqual(utility.template.components[1].parameters[0].text, `${puzzleId}?r=0`);
+    assert.strictEqual(mockDb.messages[whatsappService.puzzleDeliveryKey(puzzleId, 0)].lastErrorCode, code);
+    assert.strictEqual(mockDb.messages[whatsappService.utilityDeliveryKey(puzzleId, 0)].providerMessageId, `wamid.${puzzleId}.2`);
+    await persistNormalizedStatus({ providerMessageId: marketingId, providerStatus: 'failed', occurredAt: new Date(),
+      failure: { code, title: 'Replay', message: 'Replay', details: '', metadata: {} } });
+    assert.strictEqual(sentPayloads.length, 2, 'Replay must not send a second Utility attempt');
+    await persistNormalizedStatus({ providerMessageId: marketingId, providerStatus: 'delivered', occurredAt: new Date() });
+    const blockedRetry = await whatsappService.retryPuzzleDelivery({ puzzleId, recipientIndex: 0 });
+    assert.strictEqual(blockedRetry.success, false, 'Late Marketing delivery must block further sends');
+    assert.strictEqual(sentPayloads.length, 2);
+  }
+  for (const code of ['131026', 'UNEXPECTED_ERROR', 'TEMPLATE_ERROR']) {
+    resetMocks();
+    process.env.WHATSAPP_ENABLED = 'true';
+    const puzzleId = `no-fallback-${code}`;
+    mockDb.puzzles[puzzleId] = { publicId: puzzleId, senderName: 'Zahra', revealIdentity: true,
+      recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973' }] };
+    let sends = 0;
+    global.fetch = async () => ({ ok: true, text: async () => JSON.stringify({ messages: [{ id: `wamid.no-fallback-${++sends}` }] }) });
+    await whatsappService.claimAndSendPuzzleDelivery({ puzzleId, recipientIndex: 0 });
+    await persistNormalizedStatus({ providerMessageId: 'wamid.no-fallback-1', providerStatus: 'failed', occurredAt: new Date(),
+      failure: { code, title: 'Provider failure', message: 'Provider failure', details: '', metadata: {} } });
+    assert.strictEqual(sends, 1, `Error ${code} must not trigger Utility`);
+    assert.equal(mockDb.messages[whatsappService.utilityDeliveryKey(puzzleId, 0)], undefined);
+  }
 
   // ==========================================
   // Group 4: Webhook Security & Version checks
@@ -1662,14 +1723,14 @@ async function runAllTests() {
   assert.match(deliveryCentreSource, /Meta experiment restriction/);
   console.log('✓ Scenario 6.3g: Meta experiment restriction - WhatsApp error 130472 (string) exposes restriction badge and labels: Success');
 
-  // Scenario 6.3h: Direct retry and correction calls are rejected for Meta restriction errors
+  // Scenario 6.3h: Retry follows the Utility attempt; Marketing number correction stays blocked.
   process.env.WHATSAPP_ENABLED = 'true';
   process.env.KAPSO_API_KEY = 'test_key';
   process.env.KAPSO_PHONE_NUMBER_ID = 'test_phone';
 
   const retry130472Res = await whatsappService.retryPuzzleDelivery({ puzzleId: 'failed-130472-string', recipientIndex: 0 });
-  assert.strictEqual(retry130472Res.success, false);
-  assert.strictEqual(retry130472Res.reason, 'not_retryable');
+  assert.strictEqual(retry130472Res.success, true);
+  assert.ok(mockDb.messages[whatsappService.utilityDeliveryKey('failed-130472-string', 0)]);
 
   const correct130472Res = await whatsappService.correctPuzzleDeliveryRecipient({
     puzzleId: 'failed-130472-string',
@@ -1714,11 +1775,10 @@ async function runAllTests() {
   assert.strictEqual(selfSendResult.success, true);
   assert.strictEqual(selfSendResult.status, 'accepted');
   assert.strictEqual(selfSendSentPayload.to, '+97333011140');
-  assert.strictEqual(selfSendSentPayload.template.name, 'jigzo_puzzle_delivery_v2');
-  assert.strictEqual(selfSendSentPayload.template.language.code, 'en');
+  assert.strictEqual(selfSendSentPayload.template.name, 'jigzo_puzzle_delivery');
+  assert.strictEqual(selfSendSentPayload.template.language.code, 'en_US');
   assert.strictEqual(selfSendSentPayload.template.components[0].parameters[0].text, 'Self');
-  assert.strictEqual(selfSendSentPayload.template.components[0].parameters[1].text, 'ord_self-send-test');
-  assert.strictEqual(selfSendSentPayload.template.components[0].parameters[2].text, 'Ahmed');
+  assert.strictEqual(selfSendSentPayload.template.components[0].parameters[1].text, 'Ahmed');
   assert.strictEqual(selfSendSentPayload.template.components[1].parameters[0].text, 'self-send-test?r=0');
   console.log('✓ Scenario 6.3i: Self-send puzzle (sender phone = recipient phone) is accepted and delivered normally: Success');
 

@@ -93,9 +93,9 @@ router.post('/', async (req, res, next) => {
 
     // --- Recipient validation, normalization and de-duplication ---
     const incomingRecipients = Array.isArray(recipients) ? recipients : [];
-    if (incomingRecipients.length === 0) {
+    if (incomingRecipients.length < 1 || incomingRecipients.length > 50) {
       return res.status(400).json({
-        error: 'At least one recipient is required.',
+        error: 'Consumer puzzles require between 1 and 50 recipients.',
         field: 'recipients'
       });
     }

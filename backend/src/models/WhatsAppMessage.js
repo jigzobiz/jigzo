@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 
 const RetryAttemptSchema = new mongoose.Schema({
   attemptNumber: { type: Number, required: true },
+  attemptRole: { type: String },
+  templateName: { type: String },
   providerMessageId: { type: String },
   destinationMasked: { type: String },
   status: { type: String },
@@ -39,6 +41,8 @@ const WhatsAppMessageSchema = new mongoose.Schema({
   recipientIndex: { type: Number, required: true },
   recipientSubdocumentId: { type: mongoose.Schema.Types.ObjectId },
   messageType: { type: String, default: 'puzzle_delivery' },
+  attemptRole: { type: String, enum: ['marketing', 'utility'], default: 'marketing' },
+  parentIdempotencyKey: { type: String },
   templateName: { type: String, default: 'jigzo_puzzle_delivery' },
   languageCode: { type: String, default: 'en_US' },
   idempotencyKey: { type: String, required: true },
@@ -47,6 +51,7 @@ const WhatsAppMessageSchema = new mongoose.Schema({
     enum: [
       'pending',
       'claimed',
+      'correcting',
       'sending',
       'accepted',
       'sent',
@@ -119,6 +124,8 @@ WhatsAppMessageSchema.index(
 );
 
 WhatsAppMessageSchema.index({ status: 1, acceptedAt: 1 });
+WhatsAppMessageSchema.index({ puzzleId: 1, recipientIndex: 1, messageType: 1 });
+WhatsAppMessageSchema.index({ 'retryHistory.providerMessageId': 1 }, { sparse: true });
 
 WhatsAppMessageSchema.index(
   { providerMessageId: 1 },

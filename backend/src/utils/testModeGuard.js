@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { isNonProduction } = require('./runtimeConfig');
+const { assertStagingSafety } = require('./stagingSafety');
 
 /**
  * Parses and returns a clean, port-stripped hostname from the Request object.
@@ -41,9 +41,22 @@ function getCleanHost(req) {
  */
 
 
-function isTestModeAllowed(req) {
-  // 1. Authoritative Database check: if connected, must be connected to 'jigzo_test'
-  if (mongoose.connection && mongoose.connection.readyState !== 0 && mongoose.connection.name !== 'jigzo_test') {
+function isTestModeAllowed(req, env = process.env) {
+  // This bypass exists only for the isolated Vercel custom staging target.
+  if (env.VERCEL_TARGET_ENV !== 'staging') {
+    return false;
+  }
+
+  // Reuse the authoritative staging guard. It validates the URI/database,
+  // disabled payment/delivery flags, origin, and required isolated secrets.
+  try {
+    assertStagingSafety(env, { log() {}, error() {} });
+  } catch {
+    return false;
+  }
+
+  // Once connected, independently verify the actual selected database.
+  if (mongoose.connection && mongoose.connection.readyState !== 0 && mongoose.connection.name !== 'jigzo_staging') {
     return false;
   }
 
@@ -53,40 +66,8 @@ function isTestModeAllowed(req) {
     return false;
   }
 
-  // 3. Absolute blocklist check (production hosts & runtime configurations)
-  if (host === 'jigzo.biz' || host === 'www.jigzo.biz') {
-    return false;
-  }
-  if (process.env.VERCEL_ENV === 'production' || process.env.VERCEL_GIT_COMMIT_REF === 'master') {
-    return false;
-  }
-
-  // 4. Deployed Vercel environments: Preview targets on 'staging' branch only
-  if (process.env.VERCEL || process.env.VERCEL_ENV) {
-    if (process.env.VERCEL_ENV !== 'preview' || process.env.VERCEL_GIT_COMMIT_REF !== 'staging') {
-      return false;
-    }
-    
-    const vercelUrl = process.env.VERCEL_URL ? process.env.VERCEL_URL.toLowerCase().trim() : '';
-    const branchUrl = process.env.VERCEL_BRANCH_URL ? process.env.VERCEL_BRANCH_URL.toLowerCase().trim() : '';
-    
-    return (
-      host === 'staging.jigzo.biz' ||
-      host === vercelUrl ||
-      host === branchUrl
-    );
-  }
-
-  // 5. Local development: explicitly non-production on local interfaces
-  if (isNonProduction()) {
-    return (
-      host === 'localhost' ||
-      host === '127.0.0.1' ||
-      host === '[::1]'
-    );
-  }
-
-  return false;
+  // Only the stable custom staging hostname can invoke the creation endpoint.
+  return host === 'staging.jigzo.biz';
 }
 
 module.exports = { 
