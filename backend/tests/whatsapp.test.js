@@ -100,6 +100,14 @@ const MockWhatsAppMessage = function(data) {
     get: () => this._data.languageCode,
     set: (v) => { this._data.languageCode = v; }
   });
+  Object.defineProperty(this, 'templateName', {
+    get: () => this._data.templateName,
+    set: (v) => { this._data.templateName = v; }
+  });
+  Object.defineProperty(this, 'attemptRole', {
+    get: () => this._data.attemptRole,
+    set: (v) => { this._data.attemptRole = v; }
+  });
   Object.defineProperty(this, 'claimedAt', {
     get: () => this._data.claimedAt,
     set: (v) => { this._data.claimedAt = v; }
@@ -1013,6 +1021,31 @@ async function runAllTests() {
     assert.strictEqual(sends, 1, `Error ${code} must not trigger Utility`);
     assert.equal(mockDb.messages[whatsappService.utilityDeliveryKey(puzzleId, 0)], undefined);
   }
+  resetMocks();
+  process.env.WHATSAPP_ENABLED = 'true';
+  mockDb.puzzles['legacy-utility'] = { publicId: 'legacy-utility', senderName: 'Zahra', revealIdentity: true,
+    recipients: [{ name: 'Sam', phone: '33931331', countryCode: '973' }] };
+  const legacyKey = whatsappService.puzzleDeliveryKey('legacy-utility', 0);
+  mockDb.messages[legacyKey] = new MockWhatsAppMessage({ puzzleId: 'legacy-utility', recipientIndex: 0,
+    idempotencyKey: legacyKey, messageType: 'puzzle_delivery', templateName: 'jigzo_puzzle_delivery_v2',
+    providerMessageId: 'wamid.legacy-utility.1', destinationMasked: '*******1331', status: 'accepted', providerStatus: 'accepted' });
+  let legacySends = 0;
+  global.fetch = async (_url, options) => {
+    lastFetchParams = { options };
+    legacySends++;
+    return { ok: true, text: async () => JSON.stringify({ messages: [{ id: `wamid.legacy-utility.${legacySends + 1}` }] }) };
+  };
+  await persistNormalizedStatus({ providerMessageId: 'wamid.legacy-utility.1', providerStatus: 'failed', occurredAt: new Date(),
+    failure: { code: '131049', title: 'Restriction', message: 'Restriction', details: '', metadata: {} } });
+  assert.strictEqual(legacySends, 0, 'Legacy Utility failure must not trigger automatic fallback');
+  assert.strictEqual(whatsappService.manualRetryMode(mockDb.messages[legacyKey], null, mockDb.puzzles['legacy-utility'].recipients[0]), null);
+  mockDb.messages[legacyKey].lastErrorCode = '131026';
+  mockDb.messages[legacyKey].lastErrorMessage = 'Undeliverable';
+  assert.strictEqual(whatsappService.manualRetryMode(mockDb.messages[legacyKey], null, mockDb.puzzles['legacy-utility'].recipients[0]), 'legacy_utility_retry');
+  const legacyRetry = await whatsappService.retryPuzzleDelivery({ puzzleId: 'legacy-utility', recipientIndex: 0 });
+  assert.strictEqual(legacyRetry.success, true);
+  assert.strictEqual(JSON.parse(lastFetchParams.options.body).template.name, 'jigzo_puzzle_delivery_v2');
+  assert.strictEqual(mockDb.messages[legacyKey].retryHistory[0].attemptRole, 'utility');
 
   // ==========================================
   // Group 4: Webhook Security & Version checks

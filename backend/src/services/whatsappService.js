@@ -23,6 +23,11 @@ class WhatsAppService {
     return `puzzle-delivery:${puzzleId}:${recipientIndex}:utility:v1`;
   }
 
+  isLegacyUtilityRecord(messageRecord) {
+    return Boolean(messageRecord && messageRecord.messageType === 'puzzle_delivery' &&
+      ['jigzo_puzzle_delivery_v2', 'jigzo_arabic_puzzle_delivery_v2'].includes(messageRecord.templateName));
+  }
+
   hasDeliveryEvidence(messageRecord) {
     return Boolean(messageRecord && (
       messageRecord.deliveredAt || messageRecord.readAt ||
@@ -87,6 +92,9 @@ class WhatsAppService {
     }
     if (!this.isCurrentTerminalPuzzleDeliveryFailure(marketing, recipient) ||
         marketing.status !== 'failed' || marketing.providerStatus !== 'failed') return null;
+    if (this.isLegacyUtilityRecord(marketing)) {
+      return this.isMetaRestrictionError(marketing) ? null : 'legacy_utility_retry';
+    }
     if (['131049', '130472'].includes(String(marketing.lastErrorCode))) return 'utility_fallback';
     return this.isInitialPuzzleDeliveryRetryable(marketing, recipient) ? 'marketing_retry' : null;
   }
@@ -346,7 +354,8 @@ class WhatsAppService {
     }
 
     const isLangArabic = isArabic(puzzle.experienceLanguage);
-    const isUtility = deliveryRole === 'utility';
+    const isFallback = deliveryRole === 'utility';
+    const isUtility = isFallback || deliveryRole === 'legacy_utility';
     const deliveryTemplateName = isUtility
       ? (isLangArabic ? 'jigzo_arabic_puzzle_delivery_v2' : 'jigzo_puzzle_delivery_v2')
       : 'jigzo_puzzle_delivery';
@@ -356,12 +365,12 @@ class WhatsAppService {
     const destinationPhone = this.normalizePhone(phoneRaw, rec.countryCode);
     const destinationMasked = maskPhone(destinationPhone);
 
-    const idempotencyKey = isUtility
+    const idempotencyKey = isFallback
       ? this.utilityDeliveryKey(puzzleId, recipientIndex)
       : this.puzzleDeliveryKey(puzzleId, recipientIndex);
     let messageRecord;
 
-    if (isUtility) {
+    if (isFallback) {
       const marketing = await WhatsAppMessage.findOne({ idempotencyKey: this.puzzleDeliveryKey(puzzleId, recipientIndex) });
       if (!marketing || this.hasDeliveryEvidence(marketing) ||
           !this.isCurrentTerminalPuzzleDeliveryFailure(marketing, rec) ||
@@ -381,9 +390,9 @@ class WhatsAppService {
         recipientIndex,
         recipientSubdocumentId: rec._id,
         idempotencyKey,
-        messageType: isUtility ? 'puzzle_delivery_fallback' : 'puzzle_delivery',
-        attemptRole: deliveryRole,
-        parentIdempotencyKey: isUtility ? this.puzzleDeliveryKey(puzzleId, recipientIndex) : undefined,
+        messageType: isFallback ? 'puzzle_delivery_fallback' : 'puzzle_delivery',
+        attemptRole: isUtility ? 'utility' : 'marketing',
+        parentIdempotencyKey: isFallback ? this.puzzleDeliveryKey(puzzleId, recipientIndex) : undefined,
         destinationMasked,
         templateName: deliveryTemplateName,
         languageCode: deliveryLangCode,
@@ -407,7 +416,7 @@ class WhatsAppService {
         }
         const archivedAttempt = {
           attemptNumber: previous.attemptCount,
-          attemptRole: previous.attemptRole || deliveryRole,
+          attemptRole: this.isLegacyUtilityRecord(previous) ? 'utility' : (previous.attemptRole || deliveryRole),
           templateName: previous.templateName,
           providerMessageId: previous.providerMessageId,
           destinationMasked: previous.destinationMasked,
@@ -433,7 +442,7 @@ class WhatsAppService {
             idempotencyKey,
             puzzleId,
             recipientIndex,
-            messageType: isUtility ? 'puzzle_delivery_fallback' : 'puzzle_delivery',
+            messageType: isFallback ? 'puzzle_delivery_fallback' : 'puzzle_delivery',
             status: 'failed',
             providerStatus: 'failed',
             providerMessageId: previous.providerMessageId,
@@ -496,7 +505,7 @@ class WhatsAppService {
     messageRecord.claimedAt = new Date();
     await messageRecord.save();
 
-    if (isUtility) {
+    if (isFallback) {
       const marketing = await WhatsAppMessage.findOne({ idempotencyKey: this.puzzleDeliveryKey(puzzleId, recipientIndex) });
       const currentPuzzle = await Puzzle.findOne({ publicId: puzzleId });
       const currentRecipient = currentPuzzle && currentPuzzle.recipients[recipientIndex];
@@ -972,6 +981,11 @@ class WhatsAppService {
     ]);
     if (!marketing || this.hasDeliveryEvidence(marketing) || this.hasDeliveryEvidence(utility)) {
       return { success: false, reason: 'not_retryable', status: 'not_retryable' };
+    }
+    if (!utility && this.isLegacyUtilityRecord(marketing)) {
+      return this.manualRetryMode(marketing, null, recipient) === 'legacy_utility_retry'
+        ? this.claimAndSendPuzzleDelivery({ puzzleId, recipientIndex, retryFailed: true, orderId, deliveryRole: 'legacy_utility' })
+        : { success: false, reason: 'not_retryable', status: marketing.status };
     }
     if (utility) {
       if (!this.isCurrentTerminalPuzzleDeliveryFailure(utility, recipient) ||

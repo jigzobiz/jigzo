@@ -187,6 +187,7 @@ async function persistNormalizedStatus(normalized) {
     // The distinct Utility idempotency key atomically limits automatic fallback
     // to one, even if webhooks are replayed or reconciliation races the webhook.
     if (messageRecord.messageType === 'puzzle_delivery' &&
+        messageRecord.templateName === 'jigzo_puzzle_delivery' &&
         messageRecord.status === 'failed' &&
         ['131049', '130472'].includes(String(failure.code))) {
       await whatsappService.claimAndSendPuzzleDelivery({

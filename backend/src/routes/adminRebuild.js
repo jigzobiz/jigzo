@@ -439,7 +439,7 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
         const retryMode = whatsappService.manualRetryMode(marketing, utility, r);
         const attempts = [marketing, utility].filter(Boolean).flatMap((m) => [
           ...(m.retryHistory || []).map(a => ({
-            role: m.attemptRole || (m.messageType === 'puzzle_delivery_fallback' ? 'utility' : 'marketing'),
+            role: whatsappService.isLegacyUtilityRecord(m) ? 'utility' : (m.attemptRole || (m.messageType === 'puzzle_delivery_fallback' ? 'utility' : 'marketing')),
             templateName: a.templateName || m.templateName,
             languageCode: a.languageCode,
             providerMessageId: a.providerMessageId,
@@ -453,7 +453,7 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
             failedAt: a.failedAt
           })),
           {
-            role: m.attemptRole || (m.messageType === 'puzzle_delivery_fallback' ? 'utility' : 'marketing'),
+            role: whatsappService.isLegacyUtilityRecord(m) ? 'utility' : (m.attemptRole || (m.messageType === 'puzzle_delivery_fallback' ? 'utility' : 'marketing')),
             templateName: m.templateName,
             languageCode: m.languageCode,
             providerMessageId: m.providerMessageId,
@@ -498,9 +498,9 @@ router.get('/delivery', authenticateAdmin, async (req, res, next) => {
           providerSendStatus: rowProviderSendStatus,
           providerMessageId: (message && message.providerMessageId) || r.providerMessageId || '',
           canRetryInitialDelivery: Boolean(retryMode),
-          canCorrectInitialDelivery: Boolean(retryMode === 'marketing_retry' || retryMode === 'utility_retry'),
+          canCorrectInitialDelivery: Boolean(retryMode === 'marketing_retry' || retryMode === 'utility_retry' || retryMode === 'legacy_utility_retry'),
           retryable: Boolean(retryMode),
-          correctable: Boolean(retryMode === 'marketing_retry' || retryMode === 'utility_retry'),
+          correctable: Boolean(retryMode === 'marketing_retry' || retryMode === 'utility_retry' || retryMode === 'legacy_utility_retry'),
           retryMode,
           attempts,
           historicalAttemptCount: attempts.length > 0 ? attempts.length - 1 : 0,

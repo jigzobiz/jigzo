@@ -47,7 +47,7 @@ function DeliveryStatus() {
 
   const retryDelivery = async (row) => {
     const action = row.retryMode === 'utility_fallback' ? 'Send the one Utility fallback'
-      : row.retryMode === 'utility_retry' ? 'Retry the failed Utility attempt'
+      : row.retryMode === 'utility_retry' || row.retryMode === 'legacy_utility_retry' ? 'Retry the failed Utility attempt'
         : 'Retry the failed Marketing attempt';
     if (!window.confirm(`${action} to ${row.recipientName}? This sends one new template attempt.`)) return;
     const key = `${row.puzzleId}-${row.recipientIndex}`;
