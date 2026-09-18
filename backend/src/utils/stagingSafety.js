@@ -8,6 +8,7 @@ const REQUIRED_SECRETS = [
   'BUSINESS_PROVISIONING_SECRET',
   'BUSINESS_INVITATION_ACCESS_SECRET'
 ];
+const { isValidEmail } = require('./emailSafety');
 
 function inspectMongoUri(value) {
   try {
@@ -23,7 +24,49 @@ function inspectMongoUri(value) {
   }
 }
 
+function assertPreviewSafety(env = process.env, logger = console) {
+  if (env.VERCEL_ENV !== 'preview') return { executed: false };
+
+  const mongo = inspectMongoUri(env.MONGODB_URI);
+  let protocolMatches = false;
+  let exactHostMatches = false;
+  let databaseOverrideAbsent = false;
+  try {
+    const uri = new URL(String(env.MONGODB_URI || ''));
+    protocolMatches = uri.protocol === 'mongodb+srv:';
+    exactHostMatches = Boolean(env.PREVIEW_MONGODB_HOST) && uri.hostname.toLowerCase() === String(env.PREVIEW_MONGODB_HOST).toLowerCase();
+    databaseOverrideAbsent = ![...uri.searchParams.keys()].some(key => key.toLowerCase() === 'dbname');
+  } catch { /* Fail closed. */ }
+  const assertions = {
+    MONGO_HOST: mongo.hostMatches && protocolMatches && exactHostMatches,
+    MONGO_DATABASE: mongo.databaseMatches && databaseOverrideAbsent,
+    CHECKOUT_DISABLED: env.CHECKOUT_ENABLED !== 'true',
+    WHATSAPP_DISABLED: env.WHATSAPP_ENABLED !== 'true',
+    TAP_CREDENTIALS_ABSENT: !env.TAP_SECRET_KEY && !env.TAP_MERCHANT_ID && env.TAP_MODE !== 'live',
+    KAPSO_CREDENTIALS_ABSENT: !env.KAPSO_API_KEY && !env.KAPSO_PHONE_NUMBER_ID && !env.KAPSO_WEBHOOK_SECRET,
+    CRON_SECRET_ABSENT: !env.CRON_SECRET,
+    FRONTEND_ORIGIN_LOCAL: !env.FRONTEND_URL,
+    API_ORIGIN_LOCAL: !env.VITE_API_URL,
+    EMAIL_REDIRECT_SAFE: !env.RESEND_API_KEY || isValidEmail(env.STAGING_EMAIL_REDIRECT)
+  };
+  const failed = Object.entries(assertions).filter(([, passed]) => !passed).map(([name]) => name);
+  if (failed.length) {
+    logger.error(`PREVIEW_SAFETY_CHECK FAIL: ${failed.join(',')}`);
+    const error = new Error('Preview safety verification failed.');
+    error.code = 'PREVIEW_SAFETY_CHECK_FAILED';
+    error.failedAssertions = failed;
+    throw error;
+  }
+  logger.log('PREVIEW_SAFETY_CHECK PASS');
+  return { executed: true, passed: true };
+}
+
 function assertStagingSafety(env = process.env, logger = console) {
+  // Keep the dedicated custom staging target's established contract intact.
+  // Every ordinary Vercel branch Preview must pass the separate strict guard.
+  if (env.VERCEL_ENV === 'preview' && env.VERCEL_TARGET_ENV !== 'staging') {
+    return assertPreviewSafety(env, logger);
+  }
   if (env.VERCEL_TARGET_ENV !== 'staging') return { executed: false };
 
   const mongo = inspectMongoUri(env.MONGODB_URI);
@@ -49,4 +92,4 @@ function assertStagingSafety(env = process.env, logger = console) {
   return { executed: true, passed: true };
 }
 
-module.exports = { REQUIRED_SECRETS, inspectMongoUri, assertStagingSafety };
+module.exports = { REQUIRED_SECRETS, inspectMongoUri, assertPreviewSafety, assertStagingSafety };
