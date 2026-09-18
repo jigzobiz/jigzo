@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, '../..');
 function stagingEnv(overrides = {}) {
   const env = {
     VERCEL_TARGET_ENV: 'staging',
-    MONGODB_URI: 'mongodb+srv://user:password@jigzo-staging.example.mongodb.net/jigzo_staging?retryWrites=true',
+    MONGODB_URI: 'mongodb+srv://jigzo-staging.example.mongodb.net/jigzo_staging?retryWrites=true',
     CHECKOUT_ENABLED: 'false',
     WHATSAPP_ENABLED: 'false',
     FRONTEND_URL: 'https://staging.jigzo.biz'
@@ -28,14 +28,14 @@ test('correct staging configuration passes', () => {
 
 test('wrong staging database fails closed', () => {
   assert.throws(
-    () => assertStagingSafety(stagingEnv({ MONGODB_URI: 'mongodb+srv://user:password@jigzo-staging.example.mongodb.net/jigzo_prod' }), quietLogger()),
+    () => assertStagingSafety(stagingEnv({ MONGODB_URI: 'mongodb+srv://jigzo-staging.example.mongodb.net/jigzo_prod' }), quietLogger()),
     error => error.code === 'STAGING_SAFETY_CHECK_FAILED' && error.failedAssertions.includes('MONGO_DATABASE')
   );
 });
 
 test('wrong Mongo host fails closed', () => {
   assert.throws(
-    () => assertStagingSafety(stagingEnv({ MONGODB_URI: 'mongodb+srv://user:password@production.example.mongodb.net/jigzo_staging' }), quietLogger()),
+    () => assertStagingSafety(stagingEnv({ MONGODB_URI: 'mongodb+srv://production.example.mongodb.net/jigzo_staging' }), quietLogger()),
     error => error.code === 'STAGING_SAFETY_CHECK_FAILED' && error.failedAssertions.includes('MONGO_HOST')
   );
 });
@@ -64,7 +64,7 @@ test('Production does not execute the staging guard', () => {
 function previewEnv(overrides = {}) {
   return {
     VERCEL_ENV: 'preview', VERCEL_TARGET_ENV: 'preview',
-    MONGODB_URI: 'mongodb+srv://preview:synthetic@jigzo-staging.example.mongodb.net/jigzo_staging',
+    MONGODB_URI: 'mongodb+srv://jigzo-staging.example.mongodb.net/jigzo_staging',
     PREVIEW_MONGODB_HOST: 'jigzo-staging.example.mongodb.net',
     CHECKOUT_ENABLED: 'false', WHATSAPP_ENABLED: 'false', TAP_MODE: 'test',
     ...overrides
@@ -81,14 +81,14 @@ test('safe isolated normal Preview passes without custom staging target', () => 
 });
 
 test('Preview rejects production Mongo host, database, and unapproved host before startup', () => {
-  previewFailure({ MONGODB_URI: 'mongodb+srv://user:pass@jigzo-production.example.mongodb.net/jigzo', PREVIEW_MONGODB_HOST: 'jigzo-production.example.mongodb.net' }, 'MONGO_HOST');
-  previewFailure({ MONGODB_URI: 'mongodb+srv://user:pass@jigzo-staging.example.mongodb.net/jigzo' }, 'MONGO_DATABASE');
-  previewFailure({ MONGODB_URI: 'mongodb+srv://user:pass@jigzo-staging.example.mongodb.net/jigzo_staging?dbName=jigzo_prod' }, 'MONGO_DATABASE');
+  previewFailure({ MONGODB_URI: 'mongodb+srv://jigzo-production.example.mongodb.net/jigzo', PREVIEW_MONGODB_HOST: 'jigzo-production.example.mongodb.net' }, 'MONGO_HOST');
+  previewFailure({ MONGODB_URI: 'mongodb+srv://jigzo-staging.example.mongodb.net/jigzo' }, 'MONGO_DATABASE');
+  previewFailure({ MONGODB_URI: 'mongodb+srv://jigzo-staging.example.mongodb.net/jigzo_staging?dbName=jigzo_prod' }, 'MONGO_DATABASE');
   previewFailure({ PREVIEW_MONGODB_HOST: undefined }, 'MONGO_HOST');
   previewFailure({ PREVIEW_MONGODB_HOST: 'jigzo-staging.other.mongodb.net' }, 'MONGO_HOST');
   const started = spawnSync(process.execPath, ['-e', "require('./src/server')"], {
     cwd: path.join(root, 'backend'), encoding: 'utf8', timeout: 10000,
-    env: { ...process.env, ...previewEnv({ MONGODB_URI: 'mongodb+srv://user:pass@jigzo-production.example.mongodb.net/jigzo' }) }
+    env: { ...process.env, ...previewEnv({ MONGODB_URI: 'mongodb+srv://jigzo-production.example.mongodb.net/jigzo' }) }
   });
   assert.notEqual(started.status, 0);
   assert.match(started.stderr, /PREVIEW_SAFETY_CHECK FAIL: MONGO_HOST,MONGO_DATABASE/);
