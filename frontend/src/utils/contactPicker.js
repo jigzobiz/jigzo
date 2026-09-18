@@ -36,3 +36,7 @@ export function selectedContactRows(contacts) {
     numbers: (Array.isArray(contact.tel) ? contact.tel : []).map(value => String(value || '').trim()).filter(Boolean)
   }));
 }
+
+export function startPickerSelection(setPending) {
+  setPending([]);
+}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { pickerAvailable, selectedContactRows } from '../utils/contactPicker';
+import { pickerAvailable, selectedContactRows, startPickerSelection } from '../utils/contactPicker';
 
 export default function ContactPickerButton({ onSelect, isArabic = false }) {
   const [supported, setSupported] = useState(false);
@@ -20,6 +20,7 @@ export default function ContactPickerButton({ onSelect, isArabic = false }) {
 
   const open = async () => {
     setError('');
+    startPickerSelection(setPending);
     setBusy(true);
     try {
       // This call is made directly from the click gesture; access is never persistent.

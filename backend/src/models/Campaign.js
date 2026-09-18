@@ -20,6 +20,7 @@ const schema = new mongoose.Schema({
   status: { type: String, enum: ['draft', 'ready', 'scheduled', 'sending', 'active', 'completed', 'cancelled'], default: 'draft', index: true },
   scheduledSendAt: { type: Date, default: null, index: true },
   revision: { type: Number, default: 1, min: 1 },
+  recipientSlotsUsed: { type: Number, min: 0, max: 2000 },
   puzzle: {
     imageAssetId: { type: String, default: null },
     puzzleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Puzzle', default: null },

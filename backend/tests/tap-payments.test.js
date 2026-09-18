@@ -675,6 +675,57 @@ test('actual POST /api/puzzles saves image to GridFS and creates a draft puzzle 
   storageService.saveImage = originalSaveImage;
 });
 
+async function postOrderForRecovery(puzzleId, recipients, paid, suppliedCount) {
+  const puzzle = new Puzzle({ publicId: puzzleId, cropImageUrl: 'http://image', recipients });
+  await puzzle.save();
+  let order;
+  if (paid) {
+    order = new Order({ orderId: `ord_${puzzleId}`, puzzleId, packageId: 'single', recipientCount: recipients.length,
+      basePrice: 5, total: 5, currency: 'USD', paymentStatus: 'paid' });
+    await order.save();
+  }
+  let tapCalls = 0;
+  paymentService._request = async () => { tapCalls++; return {}; };
+  const res = makeMockRes();
+  try {
+    await ordersPostHandler(makeMockReq({ puzzleId, recipientCount: suppliedCount, currency: 'USD' }), res, err => { if (err) throw err; });
+  } finally { restoreTapRequest(); }
+  return { res, order, tapCalls };
+}
+
+test('existing paid order with a normal count is recovered before new-order validation', async () => {
+  const { res, order, tapCalls } = await postOrderForRecovery('puz_paid_normal_recovery', [{ name: 'Sam' }], true, 1);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.order.orderId, order.orderId);
+  assert.strictEqual(res.body.order.paymentStatus, 'paid');
+  assert.strictEqual(tapCalls, 0);
+});
+
+test('historical paid puzzle with more than 50 recipients remains recoverable', async () => {
+  const { res, order, tapCalls } = await postOrderForRecovery('puz_paid_legacy_51', Array.from({ length: 51 }, (_, i) => ({ name: `Guest ${i}` })), true, 51);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.order.orderId, order.orderId);
+  assert.strictEqual(res.body.order.recipientCount, 51);
+  assert.strictEqual(tapCalls, 0);
+});
+
+test('mismatched client count cannot change or block existing paid order', async () => {
+  const { res, order, tapCalls } = await postOrderForRecovery('puz_paid_mismatch_recovery', [{ name: 'Sam' }], true, 49);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.order.recipientCount, 1);
+  assert.strictEqual(order.recipientCount, 1);
+  assert.strictEqual(mockDb.orders[order.orderId], order);
+  assert.strictEqual(tapCalls, 0);
+});
+
+test('unpaid puzzle with more than 50 recipients is rejected before order creation', async () => {
+  const { res, tapCalls } = await postOrderForRecovery('puz_unpaid_51', Array.from({ length: 51 }, (_, i) => ({ name: `Guest ${i}` })), false, 51);
+  assert.strictEqual(res.statusCode, 400);
+  assert.strictEqual(res.body.code, 'INVALID_RECIPIENT_COUNT');
+  assert.strictEqual(Object.values(mockDb.orders).some(order => order.puzzleId === 'puz_unpaid_51'), false);
+  assert.strictEqual(tapCalls, 0);
+});
+
 test('consumer puzzle creation accepts 49 and 50 recipients and rejects 51', async () => {
   const puzzlesRouter = require('../src/routes/puzzles');
   const handler = puzzlesRouter.stack.find(s => s.route?.path === '/' && s.route.methods.post)?.route.stack[0]?.handle;

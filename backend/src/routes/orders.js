@@ -53,6 +53,22 @@ router.post('/', async (req, res, next) => {
     // (idempotent recovery), so the runway gate below applies only to NEW
     // payment activity — creating, replacing, or re-serving a checkout.
     const paidOrder = await Order.findOne({ puzzleId: puzzle.publicId, paymentStatus: 'paid' });
+    if (paidOrder) {
+      return res.status(200).json({
+        success: true,
+        order: {
+          orderId: paidOrder.orderId,
+          puzzleId: paidOrder.puzzleId,
+          packageId: paidOrder.packageId,
+          recipientCount: paidOrder.recipientCount,
+          basePrice: paidOrder.basePrice,
+          addOns: paidOrder.addOns,
+          total: paidOrder.total,
+          currency: paidOrder.currency,
+          paymentStatus: 'paid'
+        }
+      });
+    }
 
     // Image-retention runway gate: at checkout the image must retain at
     // least CHECKOUT_MIN_RUNWAY_MS — 7 days for the recipient PLUS the
@@ -123,24 +139,6 @@ router.post('/', async (req, res, next) => {
     }
 
     const finalBhdFils = q.finalBhdFils;
-
-    // Check if any order for this puzzle is already paid (looked up above)
-    if (paidOrder) {
-      return res.status(200).json({
-        success: true,
-        order: {
-          orderId: paidOrder.orderId,
-          puzzleId: paidOrder.puzzleId,
-          packageId: paidOrder.packageId,
-          recipientCount: paidOrder.recipientCount,
-          basePrice: paidOrder.basePrice,
-          addOns: paidOrder.addOns,
-          total: paidOrder.total,
-          currency: paidOrder.currency,
-          paymentStatus: 'paid'
-        }
-      });
-    }
 
     // Find the latest order for this puzzle
     let order = await Order.findOne({ puzzleId: puzzle.publicId }).sort({ createdAt: -1 });

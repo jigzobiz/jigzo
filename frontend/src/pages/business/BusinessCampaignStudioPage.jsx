@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CampaignStudioProvider, useCampaignStudio } from '../../business/studio/CampaignStudioContext';
 import { studioCopy } from '../../business/studio/studio-copy';
+import { recipientPresentationRows } from '../../business/studio/recipientPresentation';
 import BusinessPuzzle from '../../business/landing/BusinessPuzzle';
 import BusinessImageCropModal from '../../business/studio/BusinessImageCropModal';
 import SolvedInvitationFrame from '../../business/journey/SolvedInvitationFrame';
@@ -222,18 +223,18 @@ function ExperienceArea({ copy }) {
 function RecipientsArea({ copy, isArabic }) {
   const { state, dispatch, recipientActions } = useCampaignStudio();
   const fileRef = useRef(null); const saveTimers = useRef(new Map());
-  const [drafts, setDrafts] = useState([]); const [edits, setEdits] = useState({}); const [rowErrors, setRowErrors] = useState({}); const [rowStatus, setRowStatus] = useState({}); const [error, setError] = useState('');
+  const [drafts, setDrafts] = useState([]); const [edits, setEdits] = useState({}); const [selectedOrder, setSelectedOrder] = useState([]); const [rowErrors, setRowErrors] = useState({}); const [rowStatus, setRowStatus] = useState({}); const [error, setError] = useState('');
   useEffect(() => () => { for (const timer of saveTimers.current.values()) window.clearTimeout(timer); }, []);
   useEffect(() => { setEdits(current => { const next = { ...current }; for (const id of state.recipients.orderedIds) { const item = state.recipients.entitiesById[id]; if (!next[id]) next[id] = { recipientId: id, name: item.displayName, contactMethod: item.deliveryChannel, contact: item.contact || '', plusOneOverride: item.plusOneOverride }; } return next; }); }, [state.recipients.entitiesById, state.recipients.orderedIds]);
   const blank = () => ({ localId: crypto.randomUUID(), name: '', contactMethod: 'email', contact: '', plusOneOverride: 'inherit' });
   const validation = row => { const fields = {}; if (!row.name.trim()) fields.name = isArabic ? 'الاسم مطلوب' : 'Name required'; if (!['email', 'whatsapp'].includes(row.contactMethod)) fields.contactMethod = isArabic ? 'اختر وسيلة تواصل' : 'Choose a contact method'; if (row.contactMethod === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.contact.trim())) fields.contact = isArabic ? 'صيغة البريد الإلكتروني غير صحيحة' : 'Invalid email format'; if (row.contactMethod === 'whatsapp' && !internationalPhone(row.contact).valid) fields.contact = !String(row.contact || '').trim().startsWith('+') ? (isArabic ? 'يجب أن يتضمن رقم جهة الاتصال رمز الدولة (مثل +973). يرجى تحديث الرقم.' : 'This contact must include the country code (for example +973). Please update the number.') : (isArabic ? 'رقم الهاتف غير صحيح' : 'Phone number doesn’t look right'); return fields; };
   const mapImportErrors = codes => { const fields = {}; for (const code of codes || []) { if (code === 'invalid_name') fields.name = isArabic ? 'الاسم مطلوب' : 'Name required'; if (code === 'invalid_delivery_channel') fields.contactMethod = isArabic ? 'اختر البريد أو واتساب' : 'Choose Email or WhatsApp'; if (code === 'invalid_email') fields.contact = isArabic ? 'صيغة البريد الإلكتروني غير صحيحة' : 'Invalid email format'; if (code === 'invalid_phone') fields.contact = isArabic ? 'رقم الهاتف غير صحيح' : 'Phone number doesn’t look right'; if (code === 'duplicate_recipient') fields.contact = isArabic ? 'مستلم مكرر' : 'Duplicate recipient'; } return fields; };
-  const persistRow = async (row, isDraft, id) => { try { if (isDraft) { await recipientActions.create(row); setDrafts(value => value.filter(item => item.localId !== id)); } else await recipientActions.update(id, row); setRowErrors(value => ({ ...value, [id]: {} })); setRowStatus(value => ({ ...value, [id]: 'saved' })); } catch (e) { const message = e.response?.data?.code?.includes('DUPLICATE') || e.response?.status === 409 ? (isArabic ? 'مستلم مكرر' : 'Duplicate recipient') : (e.response?.data?.error || copy.recipients.failed); setRowErrors(value => ({ ...value, [id]: { contact: message } })); setRowStatus(value => ({ ...value, [id]: 'error' })); } };
+  const persistRow = async (row, isDraft, id) => { try { if (isDraft) { const created = await recipientActions.create(row); setSelectedOrder(value => value.map(item => item.localId === id ? { ...item, recipientId: created.recipientId } : item)); setDrafts(value => value.filter(item => item.localId !== id)); } else await recipientActions.update(id, row); setRowErrors(value => ({ ...value, [id]: {} })); setRowStatus(value => ({ ...value, [id]: 'saved' })); } catch (e) { const message = e.response?.data?.code?.includes('DUPLICATE') || e.response?.status === 409 ? (isArabic ? 'مستلم مكرر' : 'Duplicate recipient') : (e.response?.data?.error || copy.recipients.failed); setRowErrors(value => ({ ...value, [id]: { contact: message } })); setRowStatus(value => ({ ...value, [id]: 'error' })); } };
   const scheduleSave = (row, isDraft, id) => { const fields = validation(row); setRowErrors(value => ({ ...value, [id]: fields })); if (saveTimers.current.has(id)) window.clearTimeout(saveTimers.current.get(id)); if (Object.keys(fields).length) { setRowStatus(value => ({ ...value, [id]: '' })); return; } setRowStatus(value => ({ ...value, [id]: 'saving' })); saveTimers.current.set(id, window.setTimeout(() => persistRow(row, isDraft, id), 650)); };
   const change = (row, id, field, value, isDraft) => { const next = { ...row, [field]: value }; if (isDraft) setDrafts(rows => rows.map(item => item.localId === id ? next : item)); else setEdits(rows => ({ ...rows, [id]: next })); dispatch({ type: 'PREVIEW_RECIPIENT', recipient: { ...next, displayName: next.name } }); scheduleSave(next, isDraft, id); };
   const download = async () => { const blob = await businessApi.downloadRecipientTemplate(state.identity.campaignId); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'jigzo-recipient-template-v1.csv'; a.click(); URL.revokeObjectURL(url); };
   const upload = async event => { const file = event.target.files?.[0]; if (!file) return; setError(''); try { const result = await businessApi.validateRecipientImport(state.identity.campaignId, file); await businessApi.commitRecipientImport(state.identity.campaignId, result.import.importId); const unresolved = (result.editableRows || []).filter(row => row.classification !== 'ready').map(row => ({ ...row, localId: crypto.randomUUID() })); setDrafts(value => [...value, ...unresolved]); setRowErrors(value => ({ ...value, ...Object.fromEntries(unresolved.map(row => [row.localId, mapImportErrors(row.validationErrors)])) })); await recipientActions.reload(); } catch (e) { setError(e.response?.data?.error || copy.recipients.failed); } event.target.value = ''; };
-  const persistedRows = state.recipients.orderedIds.map(id => edits[id]).filter(Boolean); const rows = [...persistedRows, ...drafts]; const attention = Object.values(rowErrors).filter(fields => Object.values(fields || {}).some(Boolean)).length;
+  const persistedRows = state.recipients.orderedIds.map(id => edits[id]).filter(Boolean); const rows = recipientPresentationRows(persistedRows, drafts, selectedOrder); const attention = Object.values(rowErrors).filter(fields => Object.values(fields || {}).some(Boolean)).length;
   const addSelectedContacts = async selected => {
     const existing = new Set(rows.filter(row => row.contactMethod === 'whatsapp' && row.contact)
       .map(row => recipientPhoneIdentity('', row.contact)));
@@ -248,12 +249,13 @@ function RecipientsArea({ copy, isArabic }) {
         contact: parsed.e164 || parsed.raw, plusOneOverride: 'inherit' });
     }
     const pending = accepted.filter(row => Object.keys(validation(row)).length);
-    setDrafts(current => [...current, ...pending]);
+    setSelectedOrder(current => [...current, ...accepted.map(row => ({ localId: row.localId }))]);
+    setDrafts(current => [...current, ...accepted]);
     setRowErrors(current => ({ ...current, ...Object.fromEntries(pending.map(row => [row.localId, validation(row)])) }));
     let saved = 0;
     for (const row of accepted.filter(row => !Object.keys(validation(row)).length)) {
-      try { await recipientActions.create(row); saved++; }
-      catch { pending.push(row); setDrafts(current => [...current, row]); setRowErrors(current => ({ ...current, [row.localId]: { contact: isArabic ? 'تعذر الحفظ. تحقق من الرقم المكرر.' : 'Could not save. Check for a duplicate number.' } })); }
+      try { const created = await recipientActions.create(row); setSelectedOrder(current => current.map(item => item.localId === row.localId ? { ...item, recipientId: created.recipientId } : item)); setDrafts(current => current.filter(item => item.localId !== row.localId)); saved++; }
+      catch { pending.push(row); setRowErrors(current => ({ ...current, [row.localId]: { contact: isArabic ? 'تعذر الحفظ. تحقق من الرقم المكرر.' : 'Could not save. Check for a duplicate number.' } })); }
     }
     const notices = [];
     if (overLimit) notices.push(isArabic ? 'تدعم الحملة حتى 2000 مستلم. تمت إضافة الأسماء التي تتسع لها القائمة فقط.' : 'Business campaigns support up to 2,000 recipients. Only contacts that fit were added.');
