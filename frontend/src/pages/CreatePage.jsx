@@ -16,7 +16,7 @@ import { buildEdgeMap, piecePath, mulberry32 } from '../puzzle/puzzle-shape';
 import { analytics } from '../services/analytics';
 import { isValidPhoneNumber } from 'libphonenumber-js';
 import { normalizePhoneInput } from '../utils/phone';
-import { internationalPhone, recipientPhoneIdentity } from '../utils/contactPicker';
+import { mergeContactRecipients, recipientPhoneIdentity } from '../utils/contactPicker';
 import SiteFooter from '../components/SiteFooter';
 import SiteHeader from '../components/SiteHeader';
 
@@ -334,29 +334,8 @@ export default function CreatePage() {
   }, [currentStep]);
 
   const addSelectedContacts = (selected) => {
-    const next = [...recipients];
-    const useEmptyFirst = next.length === 1 && !next[0].name.trim() && !next[0].phone.trim();
-    const existing = new Set(next.filter((_, i) => !(useEmptyFirst && i === 0))
-      .filter(row => row.deliveryMethod !== 'email' && (row.phone || row.dial))
-      .map(row => recipientPhoneIdentity(row.dial, row.phone)));
-    let added = 0;
-    let duplicates = 0;
-    let overLimit = 0;
-    for (const contact of selected) {
-      const parsed = internationalPhone(contact.phone);
-      const identity = parsed.e164 || parsed.raw;
-      if (identity && existing.has(identity)) { duplicates++; continue; }
-      if (next.length >= 50 && !(useEmptyFirst && added === 0)) { overLimit++; continue; }
-      const row = { name: contact.name || '', phone: parsed.national, dial: parsed.dial,
-        dialEdited: true, deliveryMethod: 'whatsapp', email: '', fromContact: true };
-      if (useEmptyFirst && added === 0) next[0] = row;
-      else next.push(row);
-      if (identity) existing.add(identity);
-      added++;
-    }
-    if (added) {
-      setRecipients(next);
-    }
+    const { recipients: next, added, duplicates, overLimit } = mergeContactRecipients(recipients, selected);
+    if (added) setRecipients(next);
     const parts = [];
     if (overLimit) parts.push(isAr ? 'يدعم JIGZO حتى 50 مستلمًا؛ تمت إضافة الأسماء التي تتسع لها القائمة فقط.' : 'JIGZO supports a maximum of 50 recipients. Only contacts that fit were added.');
     if (duplicates) parts.push(isAr ? `تم تخطي ${duplicates} من الأرقام المكررة.` : `${duplicates} duplicate number(s) were skipped.`);
@@ -1357,10 +1336,7 @@ export default function CreatePage() {
               {t('create.delivery.subtitle')}
             </p>
 
-            <div className="create-to-row">
-              <div className="create-section-label">{t('create.delivery.to')}</div>
-              <ContactPickerButton onSelect={addSelectedContacts} isArabic={isAr} />
-            </div>
+            <div className="create-section-label">{t('create.delivery.to')}</div>
             <p className="create-recipient-explanation">{t('create.delivery.personalizedEach')}</p>
             <p className="create-recipient-count">{t('create.delivery.packageSummary', { count: recipients.length, package: t(`packages.${currentPack.id}.label`), price: formatPrice(currentPack.price) })}</p>
             {contactPickerNotice && <div role="status" className="contact-picker-note">{contactPickerNotice}</div>}
@@ -1421,6 +1397,7 @@ export default function CreatePage() {
                       <button type="button" onClick={() => setRecipients(prev => prev.filter((_, i) => i !== idx))} className="edit-btn">{t('create.delivery.remove')}</button>
                     )}
                   </div>
+                  <div className={idx === 0 ? 'recipient-name-picker-row' : undefined}>
                   <input type="text" placeholder={t('create.delivery.recipientPlaceholder')} value={rec.name}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -1430,9 +1407,11 @@ export default function CreatePage() {
                         return next;
                       });
                     }}
-                    style={{ ...inputStyle, marginBottom: 14 }}
+                    style={{ ...inputStyle, marginBottom: idx === 0 ? 0 : 14, minWidth: 0, flex: idx === 0 ? '1 1 180px' : undefined }}
                     autoComplete="off"
                   />
+                  {idx === 0 && <ContactPickerButton onSelect={addSelectedContacts} isArabic={isAr} />}
+                  </div>
 
                   {/* Delivery method */}
                   <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.ink50, marginBottom: 6 }}>{t('create.delivery.deliverVia')}</label>

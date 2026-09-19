@@ -1985,8 +1985,10 @@ html[dir="rtl"] .landing-page .occasions-carousel-container::after {
 .create-sender-card { padding:18px; border-radius:16px; background:#fff; border:1px solid rgba(28,25,19,.08); margin-bottom:18px; }
 .create-section-label { font-size:12px; font-weight:700; letter-spacing:.05em; color:#705622; }
 .create-sender-card .create-section-label { margin-bottom:12px; }
-.create-to-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px 12px; margin:0 0 4px; }
-.create-to-row .contact-picker-button { margin:0; }
+.recipient-name-picker-row { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; margin-bottom:14px; min-width:0; }
+.recipient-name-picker-row .contact-picker-button { margin:0; max-width:100%; white-space:normal; text-align:center; }
+.recipient-name-picker-row .contact-picker-choices,
+.recipient-name-picker-row .contact-picker-note { flex-basis:100%; min-width:0; max-width:100%; box-sizing:border-box; }
 .create-recipient-explanation { color:#705622; font-size:13px; line-height:1.5; margin:8px 0 6px; }
 .create-recipient-count { font-size:13px; font-weight:600; margin:0 0 16px; }
 .create-identity-options { display:grid; gap:10px; margin-bottom:12px; }

@@ -25,10 +25,12 @@ test('recipient and sender data still feed the original creation payloads', () =
   assert.equal((source.match(/senderName,\s*senderPhone: normalizePhoneInput\(`\$\{senderDial\}\$\{senderPhone\}`\)/g) || []).length, 2);
   assert.equal((source.match(/recipients: formattedRecipients/g) || []).length, 2);
   assert.match(source, /packageForRecipientCount\(recipients\.length\)/);
-  assert.match(source, /next\.length >= 50/);
+  assert.match(source, /mergeContactRecipients\(recipients, selected\)/);
   assert.match(source, /recipients\.length < 50/);
   assert.match(source, /recipientPhoneIdentity\(r\.dial, r\.phone\)/);
   assert.match(source, /<ContactPickerButton onSelect=\{addSelectedContacts\}/);
+  assert.match(source, /recipient-name-picker-row[\s\S]*?<input type="text" placeholder=\{t\('create\.delivery\.recipientPlaceholder'\)\}[\s\S]*?<ContactPickerButton onSelect=\{addSelectedContacts\}/);
+  assert.match(source, /rec\.fromContact && !normalizePhoneInput[\s\S]*?startsWith\('\+'\)/);
 });
 
 test('recipient count drives the visible package and price', () => {
