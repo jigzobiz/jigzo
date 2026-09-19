@@ -156,7 +156,7 @@ const en = {
     },
     identity: {
       title: 'How should they know it is from you?',
-      subtitle: 'Choose what each recipient sees when their JIGZO arrives.',
+      personalizedEach: 'Each recipient sees their own name in their JIGZO.',
       reveal: 'Reveal my identity',
       anonymous: 'Keep me anonymous'
     },
@@ -182,13 +182,10 @@ const en = {
       }
     },
     delivery: {
-      title: 'Choose your recipients',
-      subtitle: 'Add their details and choose how each JIGZO arrives.',
-      to: 'TO',
+      title: 'TO — Add your recipients',
       personalizedEach: 'Each recipient receives their own JIGZO, personalized with their name.',
-      packageSummary: '{{count}} recipient(s) · {{package}} · {{price}}',
       currentPlan: 'Current Package',
-      currentPackage: 'Current Package',
+      currentPackage: 'Current package — automatically selected',
       autoPlanSelection: 'Your package is selected automatically based on the number of recipients.',
       availablePlans: 'Available Plans',
       limitWording_one: 'Up to 1 recipient',

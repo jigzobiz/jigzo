@@ -1332,13 +1332,7 @@ export default function CreatePage() {
         {currentStep === 3 && (
           <div style={{ animation: "fadeUp 0.4s ease" }}>
             <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>{t('create.delivery.title')}</h1>
-            <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 0 20px", lineHeight: 1.5 }}>
-              {t('create.delivery.subtitle')}
-            </p>
-
-            <div className="create-section-label">{t('create.delivery.to')}</div>
             <p className="create-recipient-explanation">{t('create.delivery.personalizedEach')}</p>
-            <p className="create-recipient-count">{t('create.delivery.packageSummary', { count: recipients.length, package: t(`packages.${currentPack.id}.label`), price: formatPrice(currentPack.price) })}</p>
             {contactPickerNotice && <div role="status" className="contact-picker-note">{contactPickerNotice}</div>}
 
             <div className={`package-accordion${packageAccordionOpen ? ' is-open' : ''}`}>
@@ -1545,7 +1539,6 @@ export default function CreatePage() {
         {currentStep === 4 && (
           <div style={{ animation: "fadeUp 0.4s ease" }}>
             <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px" }}>{t('create.identity.title')}</h1>
-            <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 0 20px" }}>{t('create.identity.subtitle')}</p>
             <div className="create-identity-options" role="radiogroup" aria-label={t('create.identity.title')}>
               <label className={revealIdentity ? 'is-selected' : ''}>
                 <input type="radio" name="sender-identity" checked={revealIdentity} onChange={() => setRevealIdentity(true)} />
@@ -1556,7 +1549,7 @@ export default function CreatePage() {
                 <span>{t('create.identity.anonymous')}</span>
               </label>
             </div>
-            <p style={{ fontSize: 12.5, color: T.ink50 }}>{t('create.delivery.revealIdentityHint')}</p>
+            <p style={{ fontSize: 13, color: T.ink50, margin: "0 0 18px", lineHeight: 1.5 }}>{t('create.identity.personalizedEach')}</p>
             <Disclosure title={t('create.delivery.previewTitle')} defaultOpen={true}>
               <WhatsAppPreview senderName={senderName} showIdentity={revealIdentity} receiverName={recipients[0]?.name} />
             </Disclosure>

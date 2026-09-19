@@ -164,7 +164,7 @@ const ar = {
     },
     identity: {
       title: 'كيف تريد أن يعرفوا من أرسلها؟',
-      subtitle: 'اختر ما يراه كل مستلم عند وصول JIGZO.',
+      personalizedEach: 'يرى كل مستلم اسمه في JIGZO الخاصة به.',
       reveal: 'اكشف هويتي',
       anonymous: 'أبقِ هويتي مجهولة'
     },
@@ -190,13 +190,10 @@ const ar = {
       }
     },
     delivery: {
-      title: 'اختر المستلمين',
-      subtitle: 'أضف بياناتهم واختر طريقة وصول كل JIGZO.',
-      to: 'إلى',
+      title: 'إلى — أضف المستلمين',
       personalizedEach: 'يتلقى كل مستلم JIGZO خاصة به، مخصصة باسمه.',
-      packageSummary: '{{count}} مستلم · {{package}} · {{price}}',
       currentPlan: 'الباقة الحالية',
-      currentPackage: 'الباقة الحالية',
+      currentPackage: 'الباقة الحالية — تُختار تلقائيًا',
       autoPlanSelection: 'تُختار باقتك تلقائياً بناءً على عدد المستلمين.',
       availablePlans: 'الباقات المتاحة',
       limitWording_one: 'لمستلم واحد فقط',

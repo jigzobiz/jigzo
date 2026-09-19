@@ -1989,8 +1989,7 @@ html[dir="rtl"] .landing-page .occasions-carousel-container::after {
 .recipient-name-picker-row .contact-picker-button { margin:0; max-width:100%; white-space:normal; text-align:center; }
 .recipient-name-picker-row .contact-picker-choices,
 .recipient-name-picker-row .contact-picker-note { flex-basis:100%; min-width:0; max-width:100%; box-sizing:border-box; }
-.create-recipient-explanation { color:#705622; font-size:13px; line-height:1.5; margin:8px 0 6px; }
-.create-recipient-count { font-size:13px; font-weight:600; margin:0 0 16px; }
+.create-recipient-explanation { color:#705622; font-size:13px; line-height:1.5; margin:0 0 18px; }
 .create-identity-options { display:grid; gap:10px; margin-bottom:12px; }
 .create-identity-options label { display:flex; align-items:center; gap:12px; padding:16px; border:1px solid #d7c8a5; border-radius:14px; cursor:pointer; }
 .create-identity-options label.is-selected { background:#faf8ec; border-color:#b59a5b; }

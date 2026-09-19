@@ -35,18 +35,25 @@ test('recipient and sender data still feed the original creation payloads', () =
 
 test('recipient count drives the visible package and price', () => {
   assert.match(source, /packageForRecipientCount\(recipients\.length\)/);
-  assert.match(step(3), /count: recipients\.length, package: t/);
-  assert.match(step(3), /price: formatPrice\(currentPack\.price\)/);
+  assert.match(step(3), /create\.delivery\.currentPackage/);
+  assert.match(step(3), /currentPack\.limit/);
+  assert.match(step(3), /formatPrice\(currentPack\.price\)/);
+  assert.doesNotMatch(step(3), /packageSummary/);
 });
 
-test('new sender, recipient, and identity copy exists in English and Arabic', () => {
+test('compact recipient and identity copy exists in English and Arabic', () => {
   for (const locale of [en, ar]) {
     assert.ok(locale.create.progress.step5);
     assert.ok(locale.create.sender.from);
-    assert.ok(locale.create.delivery.to);
+    assert.ok(locale.create.delivery.title.includes('—'));
     assert.ok(locale.create.delivery.personalizedEach);
-    assert.ok(locale.create.delivery.packageSummary);
+    assert.ok(locale.create.delivery.currentPackage);
+    assert.ok(locale.create.identity.personalizedEach);
     assert.ok(locale.create.identity.reveal);
     assert.ok(locale.create.identity.anonymous);
   }
+  assert.equal(en.create.delivery.title, 'TO — Add your recipients');
+  assert.equal(en.create.delivery.currentPackage, 'Current package — automatically selected');
+  assert.equal(en.create.identity.personalizedEach, 'Each recipient sees their own name in their JIGZO.');
+  assert.doesNotMatch(step(4), /create\.identity\.subtitle|create\.delivery\.revealIdentityHint/);
 });
