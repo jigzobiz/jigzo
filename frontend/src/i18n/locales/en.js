@@ -121,8 +121,9 @@ const en = {
     progress: {
       step1: 'Photo',
       step2: 'Message',
-      step3: 'Delivery',
-      step4: 'Review'
+      step3: 'Recipients',
+      step4: 'Identity',
+      step5: 'Review'
     },
     photo: {
       title: 'Upload a photo',
@@ -147,6 +148,18 @@ const en = {
       permissionNote: 'By uploading, you confirm you have the right to use this photo.',
       photoTerms: 'Photo terms'
     },
+    sender: {
+      title: 'From you, with a hidden message',
+      subtitle: 'Add your details, then choose the occasion and write the surprise.',
+      from: 'FROM',
+      countryCode: 'Sender country code'
+    },
+    identity: {
+      title: 'How should they know it is from you?',
+      subtitle: 'Choose what each recipient sees when their JIGZO arrives.',
+      reveal: 'Reveal my identity',
+      anonymous: 'Keep me anonymous'
+    },
     recipient: {
       title: 'Who is this for?',
       subtitle: 'Personalize the surprise. Choose the occasion, the tone, and write your hidden message.',
@@ -169,8 +182,11 @@ const en = {
       }
     },
     delivery: {
-      title: 'Set up delivery',
-      subtitle: 'Add the recipient details. Your package updates automatically.',
+      title: 'Choose your recipients',
+      subtitle: 'Add their details and choose how each JIGZO arrives.',
+      to: 'TO',
+      personalizedEach: 'Each recipient receives their own JIGZO, personalized with their name.',
+      packageSummary: '{{count}} recipient(s) · {{package}} · {{price}}',
       currentPlan: 'Current Package',
       currentPackage: 'Current Package',
       autoPlanSelection: 'Your package is selected automatically based on the number of recipients.',

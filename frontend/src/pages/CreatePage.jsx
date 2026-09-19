@@ -108,15 +108,16 @@ function StepProgressBar({ step }) {
     t('create.progress.step1'),
     t('create.progress.step2'),
     t('create.progress.step3'),
-    t('create.progress.step4')
+    t('create.progress.step4'),
+    t('create.progress.step5')
   ];
   const stepText = isAr
-    ? `الخطوة ${step} من 4 — ${labels[step - 1]}`
-    : `Step ${step} of 4 — ${labels[step - 1]}`;
+    ? `الخطوة ${step} من 5 — ${labels[step - 1]}`
+    : `Step ${step} of 5 — ${labels[step - 1]}`;
   return (
     <div style={{ marginBottom: 28, direction: isAr ? 'rtl' : 'ltr' }}>
       <div className="progress-bar" style={{ display: 'flex', flexDirection: isAr ? 'row-reverse' : 'row' }}>
-        {[1, 2, 3, 4].map((i) => (
+        {[1, 2, 3, 4, 5].map((i) => (
           <div key={i} className={`progress-bar__seg ${i <= step ? "progress-bar__seg--active" : ""}`} />
         ))}
       </div>
@@ -246,7 +247,6 @@ export default function CreatePage() {
 
 
 
-  const [primaryRecipientName, setPrimaryRecipientName] = useState("");
 
   // Crop Zoom & Pan States
   const [zoom, setZoom] = useState(1);
@@ -319,9 +319,9 @@ export default function CreatePage() {
     analytics.track('create_started');
   }, []);
 
-  // Track review opened and checkout blocked when entering Step 4
+  // Track review opened and checkout blocked when entering Step 5
   useEffect(() => {
-    if (currentStep === 4) {
+    if (currentStep === 5) {
       analytics.track('review_opened', {
         difficulty: pieceCount,
         hasRevealAlert: selectedUpgrades.includes('insights'),
@@ -332,20 +332,6 @@ export default function CreatePage() {
       });
     }
   }, [currentStep]);
-
-  // Sync recipient #1 name with primary recipient name
-  const handlePrimaryRecipientNameChange = (val) => {
-    setPrimaryRecipientName(val);
-    setRecipients(prev => {
-      const next = [...prev];
-      if (next[0]) {
-        next[0] = { ...next[0], name: val };
-      } else {
-        next[0] = { name: val, phone: "", dial: defaultDialCode, dialEdited: false, deliveryMethod: "whatsapp", email: "" };
-      }
-      return next;
-    });
-  };
 
   const addSelectedContacts = (selected) => {
     const next = [...recipients];
@@ -370,7 +356,6 @@ export default function CreatePage() {
     }
     if (added) {
       setRecipients(next);
-      if (useEmptyFirst) setPrimaryRecipientName(next[0].name);
     }
     const parts = [];
     if (overLimit) parts.push(isAr ? 'يدعم JIGZO حتى 50 مستلمًا؛ تمت إضافة الأسماء التي تتسع لها القائمة فقط.' : 'JIGZO supports a maximum of 50 recipients. Only contacts that fit were added.');
@@ -495,7 +480,7 @@ export default function CreatePage() {
     return true;
   }, [recipients]);
 
-  const step3Ready = senderName && senderValid && recipientsValid;
+  const step3Ready = recipientsValid;
 
   const pickCombo = (occ, tn) => {
     const nextSug = suggestedMessage(occ, tn);
@@ -927,7 +912,7 @@ export default function CreatePage() {
         undefined,
         'jigzo_launch',
         window.location.href,
-        { name: primaryRecipientName, difficulty: pieceCount },
+        { name: recipients[0]?.name || '', difficulty: pieceCount },
         analytics.getAnonymousId(),
         analytics.getSessionId()
       );
@@ -957,7 +942,7 @@ export default function CreatePage() {
   };
 
   const handleStep2Continue = () => {
-    if (primaryRecipientName.trim() && message.trim()) {
+    if (senderName.trim() && senderValid && message.trim()) {
       analytics.track('occasion_selected', { occasion, tone });
       setCurrentStep(3);
     }
@@ -968,6 +953,8 @@ export default function CreatePage() {
       setCurrentStep(4);
     }
   };
+
+  const handleStep4Continue = () => setCurrentStep(5);
 
   const handleBack = () => {
     if (currentStep > 1) {
@@ -1306,18 +1293,22 @@ export default function CreatePage() {
         {/* ============ STEP 2 — PERSONALIZE ============ */}
         {currentStep === 2 && (
           <div style={{ animation: "fadeUp 0.4s ease" }}>
-            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>{t('create.recipient.title')}</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>{t('create.sender.title')}</h1>
             <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 0 20px", lineHeight: 1.5 }}>
-              {t('create.recipient.subtitle')}
+              {t('create.sender.subtitle')}
             </p>
 
-            <div style={{ marginBottom: 18 }}>
-              <div className="recipient-heading-row"><label style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink50 }}>{t('create.recipient.recipientLabel')}</label><strong>{t('create.recipient.recipientNote')}</strong></div>
-              <input type="text" placeholder={t('create.recipient.recipientPlaceholder')} value={primaryRecipientName}
-                onChange={(e) => handlePrimaryRecipientNameChange(e.target.value)} style={inputStyle}
-                autoComplete="off" />
-              <ContactPickerButton onSelect={addSelectedContacts} isArabic={isAr} />
-              {contactPickerNotice && <div role="status" className="contact-picker-note">{contactPickerNotice}</div>}
+            <div className="create-sender-card">
+              <div className="create-section-label">{t('create.sender.from')}</div>
+              <input type="text" placeholder={t('create.delivery.senderNamePlaceholder')} aria-label={t('create.delivery.senderNameLabel')} value={senderName} onChange={(e) => setSenderName(e.target.value)}
+                style={{ ...inputStyle, marginBottom: 14 }} autoComplete="name" />
+              <div style={{ display: "flex", gap: 10 }}>
+                <input type="text" value={senderDial} onChange={(e) => { setSenderDial(sanitizeDialCode(e.target.value)); senderDialEditedRef.current = true; }}
+                  dir="ltr" inputMode="tel" aria-label={t('create.sender.countryCode')} style={{ ...inputStyle, width: "80px", flex: "none", padding: "13px 8px", textAlign: "center" }} placeholder="+973" />
+                <input type="tel" placeholder={t('create.delivery.senderPhonePlaceholder')} aria-label={t('create.delivery.senderPhoneLabel')} value={senderPhone} onChange={(e) => setSenderPhone(e.target.value)}
+                  dir="ltr" inputMode="tel" autoComplete="tel" style={{ ...inputStyle, flex: 1, textAlign: "left" }} />
+              </div>
+              {senderPhone && <div style={{ marginTop: 8, fontSize: 12.5, color: senderValid ? T.ink50 : T.goldDeep }}>{t(senderValid ? 'create.delivery.phoneFormatValid' : 'create.delivery.phoneInvalid')}</div>}
             </div>
 
             <div style={{ marginBottom: 18 }}>
@@ -1353,18 +1344,26 @@ export default function CreatePage() {
 
             <div className="footer-nav">
               <GhostButton onClick={handleBack}>{t('common.back')}</GhostButton>
-              <PrimaryButton onClick={handleStep2Continue} disabled={!primaryRecipientName.trim() || !message.trim()} style={{ flex: 1 }}>{t('common.continue')}</PrimaryButton>
+              <PrimaryButton onClick={handleStep2Continue} disabled={!senderName.trim() || !senderValid || !message.trim()} style={{ flex: 1 }}>{t('common.continue')}</PrimaryButton>
             </div>
           </div>
         )}
 
-        {/* ============ STEP 3 — SEND ============ */}
+        {/* ============ STEP 3 — RECIPIENTS ============ */}
         {currentStep === 3 && (
           <div style={{ animation: "fadeUp 0.4s ease" }}>
             <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>{t('create.delivery.title')}</h1>
             <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 0 20px", lineHeight: 1.5 }}>
               {t('create.delivery.subtitle')}
             </p>
+
+            <div className="create-to-row">
+              <div className="create-section-label">{t('create.delivery.to')}</div>
+              <ContactPickerButton onSelect={addSelectedContacts} isArabic={isAr} />
+            </div>
+            <p className="create-recipient-explanation">{t('create.delivery.personalizedEach')}</p>
+            <p className="create-recipient-count">{t('create.delivery.packageSummary', { count: recipients.length, package: t(`packages.${currentPack.id}.label`), price: formatPrice(currentPack.price) })}</p>
+            {contactPickerNotice && <div role="status" className="contact-picker-note">{contactPickerNotice}</div>}
 
             <div className={`package-accordion${packageAccordionOpen ? ' is-open' : ''}`}>
               <button
@@ -1405,8 +1404,6 @@ export default function CreatePage() {
               )}
             </div>
 
-            <ContactPickerButton onSelect={addSelectedContacts} isArabic={isAr} />
-            {contactPickerNotice && <div role="status" className="contact-picker-note">{contactPickerNotice}</div>}
             {/* Recipient Details List */}
             {recipients.map((rec, idx) => {
               const method = rec.deliveryMethod === "email" ? "email" : "whatsapp";
@@ -1427,7 +1424,6 @@ export default function CreatePage() {
                   <input type="text" placeholder={t('create.delivery.recipientPlaceholder')} value={rec.name}
                     onChange={(e) => {
                       const val = e.target.value;
-                      if (idx === 0) setPrimaryRecipientName(val);
                       setRecipients(prev => {
                         const next = [...prev];
                         next[idx] = { ...next[idx], name: val };
@@ -1559,60 +1555,6 @@ export default function CreatePage() {
               </button>
             )}
 
-            {/* Sender Details */}
-            <div style={{ padding: 18, borderRadius: 16, background: T.card, border: "1px solid " + T.ink08, margin: "16px 0" }}>
-              <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 12 }}>{t('create.delivery.senderDetailsTitle')}</div>
-              <input type="text" placeholder={t('create.delivery.senderNamePlaceholder')} value={senderName} onChange={(e) => setSenderName(e.target.value)}
-                style={{ ...inputStyle, marginBottom: 14 }}
-                autoComplete="name" />
-              <div style={{ display: "flex", gap: 10 }}>
-                <input
-                  type="text"
-                  value={senderDial}
-                  onChange={(e) => {
-                    const val = sanitizeDialCode(e.target.value);
-                    setSenderDial(val);
-                    senderDialEditedRef.current = true;
-                  }}
-                  dir="ltr"
-                  inputMode="tel"
-                  style={{ ...inputStyle, width: "80px", flex: "none", padding: "13px 8px", textAlign: "center" }}
-                  placeholder="+973"
-                />
-                <input type="tel" placeholder={t('create.delivery.senderPhonePlaceholder')} value={senderPhone} onChange={(e) => setSenderPhone(e.target.value)}
-                  dir="ltr"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  style={{ ...inputStyle, flex: 1, textAlign: "left" }} />
-              </div>
-
-              {senderPhone && !senderValid && (
-                <div style={{ marginTop: 8, fontSize: 12.5, color: T.goldDeep, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 4 }}>
-                  <span>⚠️</span>
-                  <span>{t('create.delivery.phoneInvalid')}</span>
-                </div>
-              )}
-              {senderPhone && senderValid && (
-                <div style={{ marginTop: 8, fontSize: 12.5, color: T.ink50, fontWeight: 500, textAlign: "left" }}>
-                  {t('create.delivery.phoneFormatValid')}
-                </div>
-              )}
-
-              <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 14 }}>
-                <input type="checkbox" id="show-identity" checked={revealIdentity} onChange={(e) => setRevealIdentity(e.target.checked)} style={{ marginTop: 4, flex: "none" }} />
-                <div style={{ fontSize: 13, lineHeight: 1.4 }}>
-                  <label htmlFor="show-identity" style={{ fontWeight: 600, cursor: "pointer" }}>{t('create.delivery.revealIdentityLabel')}</label>
-                  <p style={{ fontSize: 12.5, color: T.ink50, margin: "6px 0 0", lineHeight: 1.4 }}>
-                    {t('create.delivery.revealIdentityHint')}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <Disclosure title={t('create.delivery.previewTitle')} defaultOpen={true}>
-              <WhatsAppPreview senderName={senderName} showIdentity={revealIdentity} receiverName={recipients[0]?.name} />
-            </Disclosure>
-
             <div className="footer-nav">
               <GhostButton onClick={handleBack}>{t('common.back')}</GhostButton>
               <PrimaryButton onClick={handleStep3Continue} disabled={!step3Ready} style={{ flex: 1 }}>{t('common.continue')}</PrimaryButton>
@@ -1620,8 +1562,34 @@ export default function CreatePage() {
           </div>
         )}
 
-        {/* ============ STEP 4 — REVIEW & PAY ============ */}
+        {/* ============ STEP 4 — IDENTITY ============ */}
         {currentStep === 4 && (
+          <div style={{ animation: "fadeUp 0.4s ease" }}>
+            <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px" }}>{t('create.identity.title')}</h1>
+            <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 0 20px" }}>{t('create.identity.subtitle')}</p>
+            <div className="create-identity-options" role="radiogroup" aria-label={t('create.identity.title')}>
+              <label className={revealIdentity ? 'is-selected' : ''}>
+                <input type="radio" name="sender-identity" checked={revealIdentity} onChange={() => setRevealIdentity(true)} />
+                <span>{t('create.identity.reveal')}</span>
+              </label>
+              <label className={!revealIdentity ? 'is-selected' : ''}>
+                <input type="radio" name="sender-identity" checked={!revealIdentity} onChange={() => setRevealIdentity(false)} />
+                <span>{t('create.identity.anonymous')}</span>
+              </label>
+            </div>
+            <p style={{ fontSize: 12.5, color: T.ink50 }}>{t('create.delivery.revealIdentityHint')}</p>
+            <Disclosure title={t('create.delivery.previewTitle')} defaultOpen={true}>
+              <WhatsAppPreview senderName={senderName} showIdentity={revealIdentity} receiverName={recipients[0]?.name} />
+            </Disclosure>
+            <div className="footer-nav">
+              <GhostButton onClick={handleBack}>{t('common.back')}</GhostButton>
+              <PrimaryButton onClick={handleStep4Continue} style={{ flex: 1 }}>{t('common.continue')}</PrimaryButton>
+            </div>
+          </div>
+        )}
+
+        {/* ============ STEP 5 — REVIEW & PAY ============ */}
+        {currentStep === 5 && (
           <div style={{ animation: "fadeUp 0.4s ease" }}>
             <h1 style={{ fontSize: 24, fontWeight: 300, margin: "0 0 8px", letterSpacing: "-0.02em" }}>{t('create.review.title')}</h1>
             <p style={{ fontSize: 14.5, color: T.ink66, margin: "0 0 20px", lineHeight: 1.5 }}>
@@ -1642,7 +1610,7 @@ export default function CreatePage() {
                     <strong>{t('create.review.messageLabel')}</strong> · "{message}" <button type="button" onClick={() => setCurrentStep(2)} className="edit-btn">{t('create.review.edit')}</button>
                   </div>
                   <div><strong>{t('create.review.difficultyLabel')}</strong> · {t(`difficulties.${currentDifficulty.id}.label`)} ({t('create.photo.pieceCount', { count: pieceCount }) || `${pieceCount} pieces`}) <button type="button" onClick={() => setCurrentStep(1)} className="edit-btn">{t('create.review.edit')}</button></div>
-                  <div><strong>{t('create.review.senderLabel')}</strong> · {revealIdentity ? t('create.review.senderYes', { name: senderName }) : t('create.review.senderNo')} <button type="button" onClick={() => setCurrentStep(3)} className="edit-btn">{t('create.review.edit')}</button></div>
+                  <div><strong>{t('create.review.senderLabel')}</strong> · {revealIdentity ? t('create.review.senderYes', { name: senderName }) : t('create.review.senderNo')} <button type="button" onClick={() => setCurrentStep(4)} className="edit-btn">{t('create.review.edit')}</button></div>
                 </div>
               </div>
             </div>

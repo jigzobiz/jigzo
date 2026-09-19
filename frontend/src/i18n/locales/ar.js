@@ -125,8 +125,9 @@ const ar = {
     progress: {
       step1: 'الصورة',
       step2: 'الرسالة',
-      step3: 'التسليم',
-      step4: 'المراجعة'
+      step3: 'المستلمون',
+      step4: 'الهوية',
+      step5: 'المراجعة'
     },
     photo: {
       title: 'ارفع صورتك',
@@ -155,6 +156,18 @@ const ar = {
       permissionNote: 'برفع الصورة، تؤكد أن لك الحق في استخدامها.',
       photoTerms: 'شروط الصور'
     },
+    sender: {
+      title: 'منك، مع رسالة مخفية',
+      subtitle: 'أضف بياناتك، ثم اختر المناسبة واكتب رسالتك.',
+      from: 'من',
+      countryCode: 'رمز دولة المرسل'
+    },
+    identity: {
+      title: 'كيف تريد أن يعرفوا من أرسلها؟',
+      subtitle: 'اختر ما يراه كل مستلم عند وصول JIGZO.',
+      reveal: 'اكشف هويتي',
+      anonymous: 'أبقِ هويتي مجهولة'
+    },
     recipient: {
       title: 'لمن هذه المفاجأة؟',
       subtitle: 'خصّص المفاجأة. اختر المناسبة والنبرة واكتب رسالتك المخفية.',
@@ -177,8 +190,11 @@ const ar = {
       }
     },
     delivery: {
-      title: 'إعدادات التسليم',
-      subtitle: 'أضف بيانات المستلم. يتم تحديث الباقة تلقائيًا.',
+      title: 'اختر المستلمين',
+      subtitle: 'أضف بياناتهم واختر طريقة وصول كل JIGZO.',
+      to: 'إلى',
+      personalizedEach: 'يتلقى كل مستلم JIGZO خاصة به، مخصصة باسمه.',
+      packageSummary: '{{count}} مستلم · {{package}} · {{price}}',
       currentPlan: 'الباقة الحالية',
       currentPackage: 'الباقة الحالية',
       autoPlanSelection: 'تُختار باقتك تلقائياً بناءً على عدد المستلمين.',
